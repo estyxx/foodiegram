@@ -383,15 +383,39 @@ function createRecipeCard(recipe) {
 
     return `
         <div class="recipe-card bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+          <!-- Recipe Image -->
+            ${
+                recipe.thumbnail_url
+                    ? `
+            <div class="relative h-48 overflow-hidden">
+                <img src="${recipe.thumbnail_url}"
+                     alt="${recipe.title}"
+                     class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                     onerror="this.parentElement.innerHTML='<div class=\\'recipe-image-placeholder h-48 text-white text-2xl\\'>🍽️</div>'">
+                <div class="absolute top-2 right-2">
+                    <span class="${confidenceClass} text-xs font-medium px-2 py-1 rounded-full bg-white/90 backdrop-blur-sm">${Math.round(
+                          recipe.confidence_score * 100
+                      )}%</span>
+                </div>
+            </div>
+            `
+                    : `
+            <div class="recipe-image-placeholder h-48 text-white text-2xl">🍽️</div>
+            `
+            }
             <div class="p-6">
                 <!-- Header -->
-                <div class="flex justify-between items-start mb-4">
+                <div class="mb-4">
                     <h3 class="text-lg font-semibold text-gray-800 line-clamp-2">${
                         recipe.title
                     }</h3>
-                    <span class="${confidenceClass} text-sm font-medium">${Math.round(
-        recipe.confidence_score * 100
-    )}%</span>
+                    ${
+                        !recipe.thumbnail_url
+                            ? `<span class="${confidenceClass} text-sm font-medium">${Math.round(
+                                  recipe.confidence_score * 100
+                              )}%</span>`
+                            : ""
+                    }
                 </div>
 
                 <!-- Quick Info -->

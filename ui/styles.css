@@ -30,7 +30,49 @@
 .recipe-card:hover {
     transform: translateY(-2px);
 }
+/* Recipe card image styling */
+.recipe-card img {
+    transition: transform 0.3s ease;
+}
 
+.recipe-card:hover img {
+    transform: scale(1.05);
+}
+
+/* Recipe image placeholder enhanced */
+.recipe-image-placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    position: relative;
+}
+
+.recipe-image-placeholder::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
+    background-size: 20px 20px;
+}
+
+/* Image loading state */
+.recipe-card img[src=""] {
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recipe-card img[src=""]:after {
+    content: "🍽️";
+    font-size: 2rem;
+    color: #9ca3af;
+}
 /* Tag styles */
 .tag {
     display: inline-block;

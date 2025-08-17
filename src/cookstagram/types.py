@@ -82,6 +82,7 @@ class Recipe(BaseModel):
         return f"https://instagram.com/p/{self.code}"
 
     caption: str
+    thumbnail_url: str | None = None
 
     # Extracted recipe information
     title: str
