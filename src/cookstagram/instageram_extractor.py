@@ -56,9 +56,9 @@ class InstagramExtractor:
                 amount=limit,
                 last_media_pk=last_media_pk,
             )
-        except Exception as e:
-            logger.info("Error fetching batch: %s", e)
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error fetching batch")
+            return []
 
         return []
 

@@ -73,8 +73,14 @@ class Recipe(BaseModel):
     """Analyzed recipe data extracted from Instagram post."""
 
     # Original post data
-    post_id: str
-    post_url: str
+    post_id: int
+    code: str
+
+    @property
+    def post_url(self) -> str:
+        """Construct the URL for the Instagram post."""
+        return f"https://instagram.com/p/{self.code}"
+
     caption: str
 
     # Extracted recipe information
@@ -99,6 +105,24 @@ class Recipe(BaseModel):
     is_recipe: bool = False
     confidence_score: float = 0.0
     analysis_notes: str | None = None
+
+    # Enhanced ingredient tracking
+    proteins: list[str] = Field(default_factory=list)
+    vegetables: list[str] = Field(default_factory=list)
+    key_ingredients: list[str] = Field(default_factory=list)
+
+    # Cooking details
+    cooking_method: list[str] = Field(default_factory=list)
+    equipment: list[str] = Field(default_factory=list)
+
+    # Enhanced tagging
+    texture_tags: list[str] = Field(default_factory=list)
+    flavor_tags: list[str] = Field(default_factory=list)
+    season_tags: list[str] = Field(default_factory=list)
+    occasion_tags: list[str] = Field(default_factory=list)
+
+    # Better time tracking
+    total_time: str | None = None
 
 
 class Collection(BaseModel):

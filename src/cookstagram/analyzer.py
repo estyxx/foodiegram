@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
-import traceback
+import logging
+import time
+from pathlib import Path
 
 import openai
 from pydantic import BaseModel
 
 from cookstagram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class RecipeAnalyzer(BaseModel):
@@ -37,8 +42,8 @@ class RecipeAnalyzer(BaseModel):
 
         if not is_recipe or confidence < 0.3:
             return Recipe(
-                post_id=post.id,
-                post_url=f"https://instagram.com/p/{post.code}",
+                post_id=post.pk,
+                code=post.code,
                 caption=post.caption_text,
                 title=post.title or "Not a recipe",
                 is_recipe=False,
@@ -49,9 +54,10 @@ class RecipeAnalyzer(BaseModel):
         # Extract recipe details
         recipe_data = self._extract_recipe_details(post.caption_text)
         confidence = recipe_data.pop("confidence_score", confidence)
+
         return Recipe(
-            post_id=post.id,
-            post_url=f"https://instagram.com/p/{post.code}",
+            post_id=post.pk,
+            code=post.code,
             caption=post.caption_text,
             is_recipe=True,
             confidence_score=confidence,
@@ -60,25 +66,8 @@ class RecipeAnalyzer(BaseModel):
 
     def _is_recipe_post(self, caption: str) -> tuple[bool, float]:
         """Determine if the caption contains a recipe and confidence score."""
-        prompt = f"""
-        Analyze this Instagram caption and determine if it contains a recipe or cooking instructions.
-
-        Caption: "{caption}"
-
-        Respond with JSON in this exact format:
-        {{
-            "is_recipe": true/false,
-            "confidence": 0.0-1.0,
-            "reasoning": "brief explanation"
-        }}
-
-        Look for:
-        - Ingredient lists
-        - Cooking steps/instructions
-        - Food preparation methods
-        - Recipe-related keywords (cook, bake, mix, etc.)
-        - Measurements (cups, tbsp, minutes, etc.)
-        """
+        prompt_template = Path("prompts/is_recipe.md").read_text()
+        prompt = prompt_template.format(caption=caption)
 
         try:
             response = self.client.chat.completions.create(
@@ -97,43 +86,14 @@ class RecipeAnalyzer(BaseModel):
             result = json.loads(content)
             return result["is_recipe"], result["confidence"]
 
-        except Exception as e:
-            print(f"Error in recipe detection: {e}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error in recipe detection")
             return False, 0.0
 
     def _extract_recipe_details(self, caption: str) -> dict:
         """Extract detailed recipe information from the caption."""
-        prompt = f"""
-        Extract recipe information from this Instagram caption. Be as thorough as possible.
-
-        Caption: "{caption}"
-
-        Respond with JSON in this exact format:
-        {{
-            "title": "recipe name/title",
-            "ingredients": ["ingredient 1", "ingredient 2", ...],
-            "instructions": ["step 1", "step 2", ...],
-            "main_protein": "chicken/beef/fish/tofu/eggs/none/etc",
-            "dish_type": "pasta/soup/salad/meat/fish/vegetarian/vegan/dessert/other",
-            "meal_type": "breakfast/lunch/dinner/snack/dessert/appetizer",
-            "cuisine_type": "italian/asian/mexican/american/mediterranean/other",
-            "difficulty": "easy/medium/hard",
-            "cooking_time": "estimated time or null",
-            "prep_time": "estimated time or null",
-            "servings": "number of servings or null",
-            "dietary_tags": ["vegetarian", "vegan", "gluten-free", "dairy-free", "keto", "healthy", ...],
-            "confidence_score": 0.0-1.0
-        }}
-
-        Guidelines:
-        - Extract ingredients even if not in a perfect list format
-        - Look for cooking steps/methods in the text
-        - Infer dish type from ingredients and methods
-        - Be conservative with difficulty assessment
-        - Include dietary tags based on ingredients
-        - If information is unclear, use null or "other"
-        """
+        prompt_template = Path("prompts/extract_details.md").read_text()
+        prompt = prompt_template.format(caption=caption)
 
         try:
             response = self.client.chat.completions.create(
@@ -179,9 +139,8 @@ class RecipeAnalyzer(BaseModel):
 
             return result
 
-        except Exception as e:
-            print(f"Error extracting recipe details: {e}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error extracting recipe details")
             return {
                 "title": "Failed to extract",
                 "ingredients": [],
@@ -208,26 +167,24 @@ class RecipeAnalyzer(BaseModel):
         recipes = []
 
         for i, post in enumerate(posts, 1):
-            print(f"Analyzing post {i}/{len(posts)}: {post.id}")
+            logger.info("Analyzing post %d/%d: %s", i, len(posts), post.id)
 
             try:
                 recipe = self.analyze_post(post)
                 recipes.append(recipe)
 
                 # Add a small delay to respect rate limits
-                import time
 
                 time.sleep(0.5)
 
             except Exception as e:
-                print(f"Failed to analyze post {post.id}: {e}")
-                traceback.print_exc()
+                logger.exception("Failed to analyze post %d", post.id)
                 # Create a failed recipe entry
                 recipes.append(
                     Recipe(
-                        post_id=post.id,
-                        post_url=post.url,
-                        caption=post.caption,
+                        post_id=post.pk,
+                        code=post.code,
+                        caption=post.caption_text,
                         title="Analysis failed",
                         is_recipe=False,
                         confidence_score=0.0,
