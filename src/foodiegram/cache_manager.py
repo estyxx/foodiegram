@@ -4,9 +4,8 @@ import json
 import logging
 from pathlib import Path
 
+from foodiegram.types import Collection
 from instagrapi.types import Media
-
-from cookstagram.types import Collection
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

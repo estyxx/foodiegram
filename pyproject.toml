@@ -1,5 +1,5 @@
 [project]
-name = "cookstagram"
+name = "foodiegram"
 version = "0.1.0"
 description = "Extract, parse, and tag recipes from your instagram saved collections"
 readme = "README.md"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cookstagram = "cookstagram:main"
+foodiegram = "foodiegram:main"
 
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]

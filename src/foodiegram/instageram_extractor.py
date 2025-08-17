@@ -2,14 +2,12 @@
 from __future__ import annotations
 
 import logging
-import traceback
 
+from foodiegram import env
+from foodiegram.cache_manager import CacheManager
+from foodiegram.types import Collection
 from instagrapi import Client
 from instagrapi.types import Media
-
-from cookstagram import env
-from cookstagram.cache_manager import CacheManager
-from cookstagram.types import Collection
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

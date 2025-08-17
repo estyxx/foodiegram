@@ -5,11 +5,11 @@ import json
 import logging
 from pathlib import Path
 
-from cookstagram import env
-from cookstagram.analyzer import RecipeAnalyzer
-from cookstagram.cache_manager import CacheManager
-from cookstagram.instageram_extractor import load_or_fetch_collection
-from cookstagram.types import Recipe
+from foodiegram import env
+from foodiegram.analyzer import RecipeAnalyzer
+from foodiegram.cache_manager import CacheManager
+from foodiegram.instageram_extractor import load_or_fetch_collection
+from foodiegram.types import Recipe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

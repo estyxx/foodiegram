@@ -4,12 +4,11 @@ import logging
 import time
 from pathlib import Path
 
+from foodiegram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
-
-from cookstagram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -156,7 +155,7 @@ class RecipeAnalyzer:
         """Determine if the caption contains a recipe and confidence score."""
         try:
             # Load prompt template
-            prompt_template = Path("src/cookstagram/prompts/is_recipe.md").read_text()
+            prompt_template = Path("src/foodiegram/prompts/is_recipe.md").read_text()
             prompt = prompt_template.format(caption=caption)
 
             # Use the agent to get structured response
@@ -176,7 +175,7 @@ class RecipeAnalyzer:
         try:
             # Load prompt template
             prompt_template = Path(
-                "src/cookstagram/prompts/extract_details.md",
+                "src/foodiegram/prompts/extract_details.md",
             ).read_text()
             prompt = prompt_template.format(caption=caption)
 

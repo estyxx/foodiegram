@@ -1,4 +1,4 @@
-# Cookstagram - Instagram Recipe Extractor
+# foodiegram - Instagram Recipe Extractor
 
 
 
@@ -6,7 +6,7 @@ A clean, pythonic tool to extract and analyze recipes from your saved Instagram 
 
 ## 🍳 What it does
 
-Cookstagram extracts your saved Instagram posts from specific collections and uses OpenAI's GPT to analyze the captions, identifying recipes and extracting structured information like:
+foodiegram extracts your saved Instagram posts from specific collections and uses OpenAI's GPT to analyze the captions, identifying recipes and extracting structured information like:
 
 - **Ingredients** and **cooking steps**
 - **Dish type** (pasta, soup, salad, etc.)
@@ -21,8 +21,8 @@ Cookstagram extracts your saved Instagram posts from specific collections and us
 
 ```bash
 # Clone or create the project
-git clone <your-repo> cookstagram
-cd cookstagram
+git clone <your-repo> foodiegram
+cd foodiegram
 
 # Install dependencies
 uv sync --all-extras --dev
