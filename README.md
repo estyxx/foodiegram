@@ -26,6 +26,12 @@ cd cookstagram
 
 # Install dependencies
 uv sync --all-extras --dev
+
+# Start a local server
+python -m http.server 8000
+
+# Open in browser
+open http://localhost:8000/ui
 ```
 
 ### 2. Environment Setup
