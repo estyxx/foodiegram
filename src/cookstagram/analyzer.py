@@ -6,7 +6,7 @@ import traceback
 import openai
 from pydantic import BaseModel
 
-from cookstagram.types import CuisineType, Difficulty, DishType, MealType, Post, Recipe
+from cookstagram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
 
 
 class RecipeAnalyzer(BaseModel):
@@ -30,16 +30,16 @@ class RecipeAnalyzer(BaseModel):
             self._client = openai.OpenAI(api_key=self.openai_api_key)
         return self._client
 
-    def analyze_post(self, post: Post) -> Recipe:
+    def analyze_post(self, post: Media) -> Recipe:
         """Analyze a single Instagram post to extract recipe information."""
         # First, determine if this is actually a recipe
-        is_recipe, confidence = self._is_recipe_post(post.caption)
+        is_recipe, confidence = self._is_recipe_post(post.caption_text)
 
         if not is_recipe or confidence < 0.3:
             return Recipe(
                 post_id=post.id,
-                post_url=post.url,
-                caption=post.caption,
+                post_url=f"https://instagram.com/p/{post.code}",
+                caption=post.caption_text,
                 title=post.title or "Not a recipe",
                 is_recipe=False,
                 confidence_score=confidence,
@@ -47,12 +47,12 @@ class RecipeAnalyzer(BaseModel):
             )
 
         # Extract recipe details
-        recipe_data = self._extract_recipe_details(post.caption)
+        recipe_data = self._extract_recipe_details(post.caption_text)
         confidence = recipe_data.pop("confidence_score", confidence)
         return Recipe(
             post_id=post.id,
-            post_url=post.url,
-            caption=post.caption,
+            post_url=f"https://instagram.com/p/{post.code}",
+            caption=post.caption_text,
             is_recipe=True,
             confidence_score=confidence,
             **recipe_data,
@@ -203,7 +203,7 @@ class RecipeAnalyzer(BaseModel):
             return "\n".join(lines).strip()
         return content
 
-    def analyze_posts_batch(self, posts: list[Post]) -> list[Recipe]:
+    def analyze_posts_batch(self, posts: list[Media]) -> list[Recipe]:
         """Analyze multiple posts and return recipe data."""
         recipes = []
 

@@ -1,23 +1,9 @@
 from __future__ import annotations
 
-import datetime
 from enum import Enum
-from pathlib import Path
 
+from instagrapi.types import Media
 from pydantic import BaseModel, Field
-
-
-class Post(BaseModel):
-    """Data model for an Instagram post."""
-
-    id: str
-    taken_at: datetime.datetime
-
-    url: str
-    caption: str
-    title: str | None = None
-    image_path: Path | None
-    thumbnail_url: str | None
 
 
 class MealType(str, Enum):
@@ -113,3 +99,17 @@ class Recipe(BaseModel):
     is_recipe: bool = False
     confidence_score: float = 0.0
     analysis_notes: str | None = None
+
+
+class Collection(BaseModel):
+    """Data model for an Instagram collection."""
+
+    id: int
+    post_pks: list[str] = []
+    last_media_pk: int = 0
+
+    def append_posts(self, posts: list[Media]) -> None:
+        """Append new posts to the collection."""
+        self.post_pks.extend(str(post.pk) for post in posts)
+        if posts:
+            self.last_media_pk = int(posts[-1].pk)
