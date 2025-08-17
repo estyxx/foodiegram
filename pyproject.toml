@@ -1,0 +1,43 @@
+[project]
+name = "cookstagram"
+version = "0.1.0"
+description = "Extract, parse, and tag recipes from your instagram saved collections"
+readme = "README.md"
+authors = [
+    { name = "Ester Beltrami", email = "beltrami.ester@gmail.com" }
+]
+keywords = ["instagram", "recipes", "ocr", "nlp", "data-extraction"]
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "instagrapi>=2.2.1",
+    "openai>=1.99.9",
+    "pydantic>=2.11.7",
+]
+
+[project.scripts]
+cookstagram = "cookstagram:main"
+
+[build-system]
+requires = ["uv_build>=0.8.3,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 89
+fix = true
+
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D100",]
+[tool.uv.sources]
+instagrapi = { path = "../instagrapi", editable = true }
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "ruff>=0.12.9",
+]
