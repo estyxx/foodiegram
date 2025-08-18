@@ -1,4 +1,4 @@
-# foodiegram - Instagram Recipe Extractor
+# Foodiegram - Instagram Recipe Extractor
 
 
 
@@ -6,7 +6,7 @@ A clean, pythonic tool to extract and analyze recipes from your saved Instagram 
 
 ## 🍳 What it does
 
-foodiegram extracts your saved Instagram posts from specific collections and uses OpenAI's GPT to analyze the captions, identifying recipes and extracting structured information like:
+Foodiegram extracts your saved Instagram posts from specific collections and uses OpenAI's GPT to analyze the captions, identifying recipes and extracting structured information like:
 
 - **Ingredients** and **cooking steps**
 - **Dish type** (pasta, soup, salad, etc.)

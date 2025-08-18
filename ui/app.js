@@ -44,7 +44,7 @@ async function init() {
         updateStats();
         console.log("🍳 Recipe browser initialized successfully!");
     } catch (error) {
-        console.error("❌ Error initializing app:", error);
+        console.error("⚠️ Error initializing app:", error);
         showError();
     }
 }
@@ -78,7 +78,7 @@ function loadSampleData() {
     recipes = [
         {
             post_id: 3636866290532790354,
-            title: "📁 Sample Recipe - Upload your JSON!",
+            title: "� Sample Recipe - Upload your JSON!",
             proteins: ["tofu"],
             vegetables: ["mushrooms", "carrots", "napa cabbage"],
             key_ingredients: ["rice_paper", "soy_sauce", "sesame_oil"],
@@ -123,7 +123,7 @@ function handleFileUpload(event) {
             );
         } catch (error) {
             showError("Error parsing JSON file. Please check the format.");
-            console.error("❌ JSON parse error:", error);
+            console.error("⚠️ JSON parse error:", error);
         }
     };
     reader.readAsText(file);
@@ -466,10 +466,14 @@ function createRecipeCard(recipe) {
                 </div>
 
                 <!-- Footer -->
-                <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="mt-4 pt-4 border-t border-gray-100 flex gap-2">
                     <button onclick="openRecipe('${recipe.post_id}')"
-                            class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                            class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                         View Recipe
+                    </button>
+                    <button onclick="openInstagramPost('${recipe.post_id}')"
+                            class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all">
+                        📸
                     </button>
                 </div>
             </div>
@@ -535,18 +539,22 @@ function setupEventListeners() {
     elements.jsonFileInput().addEventListener("change", handleFileUpload);
 }
 
+// ====================================
+// Navigation Functions - UPDATED
+// ====================================
+
 function openRecipe(postId) {
+    // Navigate to recipe detail page
+    window.location.href = `recipe.html?id=${postId}`;
+}
+
+function openInstagramPost(postId) {
+    // Find the recipe and open Instagram post
     const recipe = recipes.find((r) => r.post_id == postId);
     if (recipe && recipe.code) {
-        // Open Instagram post in new tab
         window.open(`https://instagram.com/p/${recipe.code}`, "_blank");
     } else {
-        // Fallback to alert with recipe info
-        alert(
-            `Recipe: ${recipe.title}\n\nConfidence: ${Math.round(
-                recipe.confidence_score * 100
-            )}%\n\nThis would normally open the Instagram post!`
-        );
+        alert("Instagram post is not available for this recipe");
     }
 }
 

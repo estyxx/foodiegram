@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍳 Recipe Details - Foodiegram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <button onclick="goBack()" class="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Back to All Recipes
+            </button>
+            <div class="text-sm text-gray-500">
+                <span id="recipe-confidence" class="confidence-medium">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Recipe Content -->
+        <div id="recipe-content" class="hidden">
+            <!-- Hero Section -->
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                    <!-- Image -->
+                    <div id="recipe-image-container" class="h-64 lg:h-80">
+                        <!-- Image will be inserted here -->
+                    </div>
+
+                    <!-- Quick Info -->
+                    <div class="p-6 lg:p-8">
+                        <h1 id="recipe-title" class="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">Recipe Title</h1>
+
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="space-y-3">
+                                <div id="recipe-cuisine" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">🌍</span>
+                                    <span class="font-medium">Cuisine:</span>
+                                    <span id="cuisine-value">-</span>
+                                </div>
+                                <div id="recipe-difficulty" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">⭐</span>
+                                    <span class="font-medium">Difficulty:</span>
+                                    <span id="difficulty-value">-</span>
+                                </div>
+                                <div id="recipe-servings" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">👥</span>
+                                    <span class="font-medium">Servings:</span>
+                                    <span id="servings-value">-</span>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div id="recipe-prep-time" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">⏰</span>
+                                    <span class="font-medium">Prep:</span>
+                                    <span id="prep-time-value">-</span>
+                                </div>
+                                <div id="recipe-cook-time" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">🔥</span>
+                                    <span class="font-medium">Cook:</span>
+                                    <span id="cook-time-value">-</span>
+                                </div>
+                                <div id="recipe-total-time" class="flex items-center gap-2 text-gray-700">
+                                    <span class="text-xl">🕒</span>
+                                    <span class="font-medium">Total:</span>
+                                    <span id="total-time-value">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="space-y-3">
+                            <button id="view-original-btn" onclick="viewOriginal()"
+                                    class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105">
+                                📸 View Original Post
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Recipe Tags</h2>
+
+                <div class="space-y-4">
+                    <div id="proteins-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🥩 Proteins</h3>
+                        <div id="proteins-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="vegetables-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🥬 Vegetables</h3>
+                        <div id="vegetables-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="key-ingredients-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🧄 Key Ingredients</h3>
+                        <div id="key-ingredients-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="cooking-method-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🔥 Cooking Methods</h3>
+                        <div id="cooking-method-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="equipment-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🔧 Equipment</h3>
+                        <div id="equipment-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="dietary-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🥗 Dietary</h3>
+                        <div id="dietary-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="occasion-section" class="hidden">
+                        <h3 class="font-medium text-gray-700 mb-2">🎉 Occasions</h3>
+                        <div id="occasion-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ingredients Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">🥄 Ingredients</h2>
+                <div id="ingredients-list" class="space-y-2">
+                    <p class="text-gray-600 italic">Loading ingredients...</p>
+                </div>
+            </div>
+
+            <!-- Instructions Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">👩‍🍳 Instructions</h2>
+                <div id="instructions-list" class="space-y-3">
+                    <p class="text-gray-600 italic">Loading instructions...</p>
+                </div>
+            </div>
+
+            <!-- Original Caption -->
+            <div class="bg-gray-100 rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-3">📝 Original Caption</h2>
+                <div id="original-caption" class="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    Loading caption...
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="recipe-loading" class="text-center py-12">
+            <div class="text-6xl mb-4">🍳</div>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">Loading recipe...</h3>
+            <p class="text-gray-600">Getting the delicious details ready</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="recipe-error" class="text-center py-12 hidden">
+            <div class="text-6xl mb-4">😵</div>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">Recipe not found</h3>
+            <p class="text-gray-600 mb-4">This recipe might not exist or failed to load</p>
+            <button onclick="goBack()" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Back to All Recipes
+            </button>
+        </div>
+    </div>
+
+    <script src="recipe.js"></script>
+</body>
+</html>
