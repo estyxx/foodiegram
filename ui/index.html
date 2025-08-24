@@ -5,7 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🍳 Foodiegram Recipe Browser</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Custom animations and styles */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .recipe-card {
+            animation: fadeIn 0.3s ease-out;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .recipe-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .recipe-image-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            position: relative;
+        }
+
+        .recipe-image-placeholder::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
+            background-size: 20px 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 9999px;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .tag:hover { transform: scale(1.05); }
+
+        .tag-protein { background-color: #fef2f2; color: #991b1b; }
+        .tag-vegetable { background-color: #f0fdf4; color: #14532d; }
+        .tag-method { background-color: #eff6ff; color: #1e3a8a; }
+        .tag-equipment { background-color: #faf5ff; color: #581c87; }
+        .tag-occasion { background-color: #fffbeb; color: #92400e; }
+
+        .filter-btn {
+            transition: all 0.2s ease;
+            border: 1px solid #d1d5db;
+            background: white;
+        }
+
+        .filter-btn:hover {
+            background-color: #f9fafb;
+            transform: translateY(-1px);
+        }
+
+        .filter-active {
+            background-color: #2563eb !important;
+            color: white !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-color: #2563eb;
+        }
+
+        .card-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-footer {
+            margin-top: auto;
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .success-message {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .stat-number {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8">
@@ -19,20 +121,20 @@
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600" id="total-recipes">0</div>
+                    <div class="text-2xl font-bold text-blue-600 stat-number" id="total-recipes">0</div>
                     <div class="text-sm text-gray-600">Total Recipes</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-green-600" id="showing-recipes">0</div>
+                    <div class="text-2xl font-bold text-green-600 stat-number" id="showing-recipes">0</div>
                     <div class="text-sm text-gray-600">Showing</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-purple-600" id="unique-ingredients">0</div>
+                    <div class="text-2xl font-bold text-purple-600 stat-number" id="unique-ingredients">0</div>
                     <div class="text-sm text-gray-600">Ingredients</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-orange-600" id="avg-confidence">0%</div>
-                    <div class="text-sm text-gray-600">Avg Confidence</div>
+                    <div class="text-2xl font-bold text-orange-600" id="avg-cook-time">-</div>
+                    <div class="text-sm text-gray-600">Avg Cook Time</div>
                 </div>
             </div>
         </div>
@@ -41,26 +143,33 @@
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
             <!-- Search Bar -->
             <div class="mb-4">
-                <input type="text" id="search-input"
-                       placeholder="Search recipes by title, ingredients, or description..."
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <div class="relative">
+                    <input type="text" id="search-input"
+                           placeholder="Search recipes by title, ingredients, or description..."
+                           class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
             </div>
 
             <!-- Quick Filters -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">🥗 Cuisine & Diet</h3>
-                    <div id="cuisine-filters" class="space-y-1"></div>
+                    <div id="cuisine-filters" class="flex flex-wrap gap-1"></div>
                 </div>
 
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">👩‍🍳 Cooking</h3>
-                    <div id="cooking-filters" class="space-y-1"></div>
+                    <div id="cooking-filters" class="flex flex-wrap gap-1"></div>
                 </div>
 
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">🕒 Time & Occasion</h3>
-                    <div id="occasion-filters" class="space-y-1"></div>
+                    <div id="occasion-filters" class="flex flex-wrap gap-1"></div>
                 </div>
             </div>
 
@@ -94,6 +203,338 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // Enhanced Recipe Browser Application
+        class RecipeBrowser {
+            constructor() {
+                this.recipes = [];
+                this.filteredRecipes = [];
+                this.activeFilters = new Set();
+                this.init();
+            }
+
+            // Initialization
+            async init() {
+                try {
+                    await this.loadRecipes();
+                    this.setupEventListeners();
+                    this.renderFilters();
+                    this.renderRecipes();
+                    this.updateStats();
+                    console.log('🍳 Recipe browser initialized successfully!');
+                } catch (error) {
+                    console.error('⚠️ Error initializing app:', error);
+                    this.showError();
+                }
+            }
+
+            // Data Loading
+            async loadRecipes() {
+                try {
+                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    this.recipes = await response.json();
+                    this.filteredRecipes = [...this.recipes];
+                    console.log(`✅ Loaded ${this.recipes.length} recipes successfully!`);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipes:', error);
+                    this.recipes = [];
+                    this.filteredRecipes = [];
+                }
+            }
+
+            // Event Listeners
+            setupEventListeners() {
+                document.getElementById('search-input').addEventListener('input', () => this.applyFilters());
+                document.getElementById('clear-filters').addEventListener('click', () => this.clearFilters());
+            }
+
+            // Filter Management
+            renderFilters() {
+                const filterData = this.extractFilterData();
+
+                this.renderFilterGroup('cuisine-filters', [
+                    ...filterData.cuisines.map(cuisine => ({ value: cuisine, type: 'cuisine', emoji: '🌍' })),
+                    ...filterData.dietary.map(diet => ({ value: diet, type: 'dietary', emoji: '🥬' }))
+                ]);
+
+                this.renderFilterGroup('cooking-filters', [
+                    ...filterData.methods.map(method => ({ value: method, type: 'method', emoji: '🔥' })),
+                    ...filterData.equipment.map(eq => ({ value: eq, type: 'equipment', emoji: '🔧' })),
+                    ...filterData.difficulties.map(diff => ({ value: diff, type: 'difficulty', emoji: '⭐' }))
+                ]);
+
+                this.renderFilterGroup('occasion-filters', [
+                    ...filterData.occasions.map(occasion => ({ value: occasion, type: 'occasion', emoji: '🕒' }))
+                ]);
+            }
+
+            renderFilterGroup(containerId, filters) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+
+                filters.forEach(filter => {
+                    const button = this.createFilterButton(filter.value, filter.type, filter.emoji);
+                    container.appendChild(button);
+                });
+            }
+
+            extractFilterData() {
+                const data = { cuisines: new Set(), dietary: new Set(), methods: new Set(), equipment: new Set(), occasions: new Set(), difficulties: new Set() };
+
+                this.recipes.forEach(recipe => {
+                    if (recipe.cuisine_type) data.cuisines.add(recipe.cuisine_type);
+                    if (recipe.dietary_tags) recipe.dietary_tags.forEach(tag => data.dietary.add(tag));
+                    if (recipe.cooking_methods) recipe.cooking_methods.forEach(method => data.methods.add(method));
+                    if (recipe.equipment) recipe.equipment.forEach(eq => data.equipment.add(eq));
+                    if (recipe.occasion) recipe.occasion.forEach(occ => data.occasions.add(occ));
+                    if (recipe.difficulty) data.difficulties.add(recipe.difficulty);
+                });
+
+                return Object.fromEntries(Object.entries(data).map(([key, set]) => [key, [...set].sort()]));
+            }
+
+            createFilterButton(value, type, emoji) {
+                const button = document.createElement('button');
+                button.className = 'filter-btn px-3 py-1 text-sm rounded-full transition-all';
+                button.innerHTML = `${emoji} ${value.replace(/_/g, ' ')}`;
+                button.onclick = () => this.toggleFilter(value, type, button);
+                return button;
+            }
+
+            toggleFilter(value, type, button) {
+                const filterKey = `${type}:${value}`;
+
+                if (this.activeFilters.has(filterKey)) {
+                    this.activeFilters.delete(filterKey);
+                    button.classList.remove('filter-active');
+                } else {
+                    this.activeFilters.add(filterKey);
+                    button.classList.add('filter-active');
+                }
+
+                this.applyFilters();
+                this.updateActiveFiltersDisplay();
+            }
+
+            clearFilters() {
+                this.activeFilters.clear();
+                document.querySelectorAll('.filter-active').forEach(btn => btn.classList.remove('filter-active'));
+                document.getElementById('search-input').value = '';
+                this.applyFilters();
+                this.updateActiveFiltersDisplay();
+            }
+
+            // Filtering Logic
+            applyFilters() {
+                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+                this.filteredRecipes = this.recipes.filter(recipe => {
+                    if (searchTerm && !this.matchesSearchTerm(recipe, searchTerm)) return false;
+                    return this.matchesActiveFilters(recipe);
+                });
+
+                this.renderRecipes();
+                this.updateStats();
+            }
+
+            matchesSearchTerm(recipe, searchTerm) {
+                const searchable = [
+                    recipe.title,
+                    ...(recipe.ingredients || []),
+                    ...(recipe.proteins || []),
+                    ...(recipe.vegetables || [])
+                ].join(' ').toLowerCase();
+
+                return searchable.includes(searchTerm);
+            }
+
+            matchesActiveFilters(recipe) {
+                for (const filterKey of this.activeFilters) {
+                    const [type, value] = filterKey.split(':');
+
+                    switch (type) {
+                        case 'cuisine': if (recipe.cuisine_type !== value) return false; break;
+                        case 'dietary': if (!recipe.dietary_tags?.includes(value)) return false; break;
+                        case 'method': if (!recipe.cooking_methods?.includes(value)) return false; break;
+                        case 'equipment': if (!recipe.equipment?.includes(value)) return false; break;
+                        case 'occasion': if (!recipe.occasion?.includes(value)) return false; break;
+                        case 'difficulty': if (recipe.difficulty !== value) return false; break;
+                    }
+                }
+                return true;
+            }
+
+            updateActiveFiltersDisplay() {
+                const container = document.getElementById('active-filters');
+                const tagsContainer = document.getElementById('active-filter-tags');
+
+                if (this.activeFilters.size === 0) {
+                    container.classList.add('hidden');
+                    return;
+                }
+
+                container.classList.remove('hidden');
+                tagsContainer.innerHTML = Array.from(this.activeFilters)
+                    .map(filterKey => {
+                        const [type, value] = filterKey.split(':');
+                        return `<span class="tag tag-difficulty cursor-pointer" onclick="app.removeFilter('${filterKey}')">${value.replace(/_/g, ' ')} ✕</span>`;
+                    })
+                    .join('');
+            }
+
+            removeFilter(filterKey) {
+                this.activeFilters.delete(filterKey);
+                this.applyFilters();
+                this.updateActiveFiltersDisplay();
+
+                const [type, value] = filterKey.split(':');
+                const button = Array.from(document.querySelectorAll('.filter-btn'))
+                    .find(btn => btn.textContent.includes(value.replace(/_/g, ' ')));
+                if (button) button.classList.remove('filter-active');
+            }
+
+            // Recipe Rendering
+            renderRecipes() {
+                const grid = document.getElementById('recipe-grid');
+                const noResults = document.getElementById('no-results');
+                const loading = document.getElementById('loading');
+
+                loading.classList.add('hidden');
+
+                if (this.filteredRecipes.length === 0) {
+                    grid.classList.add('hidden');
+                    noResults.classList.remove('hidden');
+                    return;
+                }
+
+                grid.classList.remove('hidden');
+                noResults.classList.add('hidden');
+
+                grid.innerHTML = this.filteredRecipes
+                    .map(recipe => this.createRecipeCard(recipe))
+                    .join('');
+            }
+
+            createRecipeCard(recipe) {
+                return `
+                    <div class="recipe-card bg-white rounded-lg shadow-sm hover:shadow-lg overflow-hidden">
+                        ${this.renderRecipeImage(recipe)}
+
+                        <div class="card-content p-6">
+                            <div class="mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800 line-clamp-2 mb-2">${recipe.title}</h3>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
+                                ${recipe.cuisine_type ? `<div>🌍 ${recipe.cuisine_type}</div>` : ''}
+                                ${recipe.difficulty ? `<div>⭐ ${recipe.difficulty}</div>` : ''}
+                                ${recipe.total_time && recipe.total_time !== 'unknown' ? `<div>🕒 ${recipe.total_time}</div>` : ''}
+                                ${recipe.cooking_methods?.length ? `<div>🔥 ${recipe.cooking_methods[0].replace(/_/g, ' ')}</div>` : ''}
+                            </div>
+
+                            <div class="space-y-2 mb-4">
+                                ${this.renderTagSection(recipe.proteins, 'tag-protein', 'proteins')}
+                                ${this.renderTagSection(recipe.vegetables?.slice(0, 4), 'tag-vegetable', 'vegetables', recipe.vegetables?.length)}
+                                ${this.renderTagSection(recipe.occasion?.slice(0, 3), 'tag-occasion', 'occasions')}
+                            </div>
+
+                            <div class="card-footer">
+                                <div class="flex gap-2">
+                                    <button onclick="app.openRecipe('${recipe.post_id}')"
+                                            class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                                        View Recipe
+                                    </button>
+                                    <button onclick="app.openInstagramPost('${recipe.post_id}')"
+                                            class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all">
+                                        📸
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderRecipeImage(recipe) {
+                if (recipe.thumbnail_url) {
+                    return `
+                        <div class="relative h-48 overflow-hidden">
+                            <img src="${recipe.thumbnail_url}"
+                                 alt="${recipe.title}"
+                                 class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                 onerror="this.parentElement.innerHTML='<div class=\\'recipe-image-placeholder h-48 text-white text-2xl\\'>🍽️</div>'">
+                        </div>
+                    `;
+                } else {
+                    return '<div class="recipe-image-placeholder h-48 text-white text-2xl">🍽️</div>';
+                }
+            }
+
+            renderTagSection(items, tagClass, label, totalCount) {
+                if (!items || items.length === 0) return '';
+
+                let html = items.map(item => `<span class="tag ${tagClass}">${item}</span>`).join('');
+
+                if (totalCount && totalCount > items.length) {
+                    html += `<span class="tag ${tagClass}">+${totalCount - items.length}</span>`;
+                }
+
+                return html;
+            }
+
+            // Statistics
+            updateStats() {
+                document.getElementById('total-recipes').textContent = this.recipes.length;
+                document.getElementById('showing-recipes').textContent = this.filteredRecipes.length;
+
+                const allIngredients = new Set();
+                this.recipes.forEach(recipe => {
+                    if (recipe.vegetables) recipe.vegetables.forEach(v => allIngredients.add(v));
+                    if (recipe.ingredients) recipe.ingredients.forEach(i => allIngredients.add(i));
+                });
+                document.getElementById('unique-ingredients').textContent = allIngredients.size;
+
+                // Calculate average cook time
+                const validTimes = this.recipes
+                    .map(r => r.cook_time)
+                    .filter(time => time && time !== 'unknown' && time.includes('minute'))
+                    .map(time => parseInt(time));
+
+                const avgTime = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : 0;
+                document.getElementById('avg-cook-time').textContent = avgTime ? `${avgTime}min` : '-';
+            }
+
+            // Navigation
+            openRecipe(postId) {
+                window.location.href = `recipe.html?id=${postId}`;
+            }
+
+            openInstagramPost(postId) {
+                const recipe = this.recipes.find(r => r.post_id == postId);
+                if (recipe && recipe.code) {
+                    window.open(`https://instagram.com/p/${recipe.code}`, '_blank');
+                } else {
+                    alert('Instagram post is not available for this recipe');
+                }
+            }
+
+            showError(message = "Oops! Couldn't load recipes") {
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `
+                    <div class="text-6xl mb-4">😵</div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">${message}</h3>
+                    <p class="text-gray-600">Make sure your extracted_recipes_realtime.json file is accessible</p>
+                `;
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new RecipeBrowser();
+        });
+    </script>
 </body>
 </html>

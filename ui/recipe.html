@@ -5,70 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🍳 Recipe Details - Foodiegram</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Custom styles */
+        .recipe-image-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            position: relative;
+        }
+
+        .recipe-image-placeholder::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
+            background-size: 20px 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 9999px;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .tag:hover { transform: scale(1.05); }
+
+        .tag-protein { background-color: #fef2f2; color: #991b1b; }
+        .tag-vegetable { background-color: #f0fdf4; color: #14532d; }
+        .tag-method { background-color: #eff6ff; color: #1e3a8a; }
+        .tag-equipment { background-color: #faf5ff; color: #581c87; }
+        .tag-occasion { background-color: #fffbeb; color: #92400e; }
+        .tag-dietary { background-color: #ecfdf5; color: #065f46; }
+
+        .ingredient-item {
+            transition: all 0.2s ease;
+        }
+
+        .ingredient-item:hover {
+            background-color: #f9fafb;
+            transform: translateX(4px);
+        }
+
+        .instruction-step {
+            transition: all 0.2s ease;
+        }
+
+        .instruction-step:hover {
+            background-color: #f8fafc;
+            transform: translateX(2px);
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .accordion-content.active {
+            max-height: 1000px;
+        }
+
+        .accordion-arrow {
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-arrow.rotate {
+            transform: rotate(180deg);
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
-            <button onclick="goBack()" class="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onclick="goBack()" class="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors group">
+                <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
                 Back to All Recipes
             </button>
-            <div class="text-sm text-gray-500">
-                <span id="recipe-confidence" class="confidence-medium">Loading...</span>
-            </div>
+
+            <button onclick="toggleCaptionModal()" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                📖 View Original Caption
+            </button>
         </div>
 
         <!-- Recipe Content -->
         <div id="recipe-content" class="hidden">
             <!-- Hero Section -->
-            <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+            <div class="hero-section rounded-2xl shadow-lg overflow-hidden mb-8">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     <!-- Image -->
-                    <div id="recipe-image-container" class="h-64 lg:h-80">
+                    <div id="recipe-image-container" class="h-80 lg:h-96">
                         <!-- Image will be inserted here -->
                     </div>
 
                     <!-- Quick Info -->
-                    <div class="p-6 lg:p-8">
-                        <h1 id="recipe-title" class="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">Recipe Title</h1>
+                    <div class="p-8 bg-white">
+                        <h1 id="recipe-title" class="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">Recipe Title</h1>
 
-                        <div class="grid grid-cols-2 gap-4 mb-6">
-                            <div class="space-y-3">
-                                <div id="recipe-cuisine" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">🌍</span>
-                                    <span class="font-medium">Cuisine:</span>
-                                    <span id="cuisine-value">-</span>
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">🌍</span>
+                                    <div>
+                                        <div class="font-medium">Cuisine</div>
+                                        <div id="cuisine-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
-                                <div id="recipe-difficulty" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">⭐</span>
-                                    <span class="font-medium">Difficulty:</span>
-                                    <span id="difficulty-value">-</span>
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">⭐</span>
+                                    <div>
+                                        <div class="font-medium">Difficulty</div>
+                                        <div id="difficulty-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
-                                <div id="recipe-servings" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">👥</span>
-                                    <span class="font-medium">Servings:</span>
-                                    <span id="servings-value">-</span>
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">👥</span>
+                                    <div>
+                                        <div class="font-medium">Servings</div>
+                                        <div id="servings-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="space-y-3">
-                                <div id="recipe-prep-time" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">⏰</span>
-                                    <span class="font-medium">Prep:</span>
-                                    <span id="prep-time-value">-</span>
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">⏰</span>
+                                    <div>
+                                        <div class="font-medium">Prep Time</div>
+                                        <div id="prep-time-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
-                                <div id="recipe-cook-time" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">🔥</span>
-                                    <span class="font-medium">Cook:</span>
-                                    <span id="cook-time-value">-</span>
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">🔥</span>
+                                    <div>
+                                        <div class="font-medium">Cook Time</div>
+                                        <div id="cook-time-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
-                                <div id="recipe-total-time" class="flex items-center gap-2 text-gray-700">
-                                    <span class="text-xl">🕒</span>
-                                    <span class="font-medium">Total:</span>
-                                    <span id="total-time-value">-</span>
+                                <div class="flex items-center gap-3 text-gray-700">
+                                    <span class="text-2xl">🕒</span>
+                                    <div>
+                                        <div class="font-medium">Total Time</div>
+                                        <div id="total-time-value" class="text-gray-600">-</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -76,7 +170,7 @@
                         <!-- Quick Actions -->
                         <div class="space-y-3">
                             <button id="view-original-btn" onclick="viewOriginal()"
-                                    class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105">
+                                    class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 shadow-lg">
                                 📸 View Original Post
                             </button>
                         </div>
@@ -84,69 +178,71 @@
                 </div>
             </div>
 
-            <!-- Tags Section -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Recipe Tags</h2>
-
-                <div class="space-y-4">
-                    <div id="proteins-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🥩 Proteins</h3>
-                        <div id="proteins-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="vegetables-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🥬 Vegetables</h3>
-                        <div id="vegetables-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="ingredients-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🧄 Ingredients</h3>
-                        <div id="ingredients-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="cooking-method-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🔥 Cooking Methods</h3>
-                        <div id="cooking-method-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="equipment-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🔧 Equipment</h3>
-                        <div id="equipment-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="dietary-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🥗 Dietary</h3>
-                        <div id="dietary-tags" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <div id="occasion-section" class="hidden">
-                        <h3 class="font-medium text-gray-700 mb-2">🎉 Occasions</h3>
-                        <div id="occasion-tags" class="flex flex-wrap gap-2"></div>
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Ingredients -->
+                <div class="lg:col-span-1">
+                    <!-- Ingredients Section -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 sticky top-4">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            🥄 Ingredients
+                            <span id="ingredients-count" class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full"></span>
+                        </h2>
+                        <div id="ingredients-list" class="space-y-2">
+                            <p class="text-gray-600 italic">Loading ingredients...</p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Ingredients Section -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">🥄 Ingredients</h2>
-                <div id="ingredients-list" class="space-y-2">
-                    <p class="text-gray-600 italic">Loading ingredients...</p>
-                </div>
-            </div>
+                <!-- Right Column: Instructions and Tags -->
+                <div class="lg:col-span-2">
+                    <!-- Instructions Section -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            👩‍🍳 Instructions
+                            <span id="instructions-count" class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full"></span>
+                        </h2>
+                        <div id="instructions-list" class="space-y-4">
+                            <p class="text-gray-600 italic">Loading instructions...</p>
+                        </div>
+                    </div>
 
-            <!-- Instructions Section -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">👩‍🍳 Instructions</h2>
-                <div id="instructions-list" class="space-y-3">
-                    <p class="text-gray-600 italic">Loading instructions...</p>
-                </div>
-            </div>
+                    <!-- Tags Section -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">🏷️ Recipe Tags</h2>
 
-            <!-- Original Caption -->
-            <div class="bg-gray-100 rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-3">📝 Original Caption</h2>
-                <div id="original-caption" class="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    Loading caption...
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div id="proteins-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🥩 Proteins</h3>
+                                <div id="proteins-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <div id="vegetables-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🥬 Vegetables</h3>
+                                <div id="vegetables-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <div id="cooking-method-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🔥 Cooking Methods</h3>
+                                <div id="cooking-method-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <div id="equipment-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🔧 Equipment</h3>
+                                <div id="equipment-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <div id="dietary-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🥗 Dietary</h3>
+                                <div id="dietary-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <div id="occasion-section" class="hidden">
+                                <h3 class="font-medium text-gray-700 mb-2">🎉 Occasions</h3>
+                                <div id="occasion-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -169,6 +265,268 @@
         </div>
     </div>
 
-    <script src="recipe.js"></script>
+    <!-- Caption Modal -->
+    <div id="caption-modal" class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">📖 Original Instagram Caption</h3>
+                <button onclick="toggleCaptionModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+                    ×
+                </button>
+            </div>
+            <div class="p-4 max-h-80 overflow-y-auto">
+                <div id="modal-caption" class="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    Loading caption...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced Recipe Detail Application
+        class RecipeDetailPage {
+            constructor() {
+                this.currentRecipe = null;
+                this.allRecipes = [];
+                this.init();
+            }
+
+            async init() {
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const recipeId = urlParams.get('id');
+
+                    if (!recipeId) {
+                        this.showError('No recipe ID provided');
+                        return;
+                    }
+
+                    await this.loadRecipes();
+                    await this.loadRecipe(recipeId);
+
+                    console.log('🍳 Recipe detail page initialized successfully!');
+                } catch (error) {
+                    console.error('⚠️ Error initializing recipe page:', error);
+                    this.showError();
+                }
+            }
+
+            async loadRecipes() {
+                try {
+                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    this.allRecipes = await response.json();
+                    console.log(`✅ Loaded ${this.allRecipes.length} recipes for lookup`);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipes:', error);
+                    throw error;
+                }
+            }
+
+            async loadRecipe(recipeId) {
+                try {
+                    this.currentRecipe = this.allRecipes.find(r => String(r.post_id) === String(recipeId));
+
+                    if (!this.currentRecipe) {
+                        throw new Error(`Recipe with ID ${recipeId} not found`);
+                    }
+
+                    this.renderRecipe(this.currentRecipe);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipe:', error);
+                    this.showError();
+                }
+            }
+
+            renderRecipe(recipe) {
+                // Show content, hide loading
+                document.getElementById('recipe-loading').classList.add('hidden');
+                document.getElementById('recipe-error').classList.add('hidden');
+                document.getElementById('recipe-content').classList.remove('hidden');
+
+                // Set title and basic info
+                document.getElementById('recipe-title').textContent = recipe.title;
+
+                // Render components
+                this.renderRecipeImage(recipe);
+                this.renderQuickInfo(recipe);
+                this.renderIngredients(recipe);
+                this.renderInstructions(recipe);
+                this.renderTagSections(recipe);
+
+                // Set modal caption
+                document.getElementById('modal-caption').textContent = recipe.caption;
+            }
+
+            renderRecipeImage(recipe) {
+                const container = document.getElementById('recipe-image-container');
+
+                if (recipe.thumbnail_url) {
+                    container.innerHTML = `
+                        <img src="${recipe.thumbnail_url}"
+                             alt="${recipe.title}"
+                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                             onerror="this.parentElement.innerHTML='<div class=\\'recipe-image-placeholder h-full text-white\\'>🍽️</div>'">
+                    `;
+                } else {
+                    container.innerHTML = '<div class="recipe-image-placeholder h-full text-white">🍽️</div>';
+                }
+            }
+
+            renderQuickInfo(recipe) {
+                const elements = {
+                    'cuisine-value': recipe.cuisine_type ? this.formatValue(recipe.cuisine_type) : '-',
+                    'difficulty-value': recipe.difficulty ? this.formatValue(recipe.difficulty) : '-',
+                    'servings-value': recipe.servings || '-',
+                    'prep-time-value': recipe.prep_time || '-',
+                    'cook-time-value': recipe.cook_time || '-',
+                    'total-time-value': recipe.total_time || '-'
+                };
+
+                Object.entries(elements).forEach(([id, value]) => {
+                    document.getElementById(id).textContent = value;
+                });
+            }
+
+            renderIngredients(recipe) {
+                const container = document.getElementById('ingredients-list');
+                const countEl = document.getElementById('ingredients-count');
+
+                if (!recipe.ingredients || recipe.ingredients.length === 0) {
+                    container.innerHTML = '<p class="text-gray-600 italic">No ingredients listed</p>';
+                    countEl.textContent = '0';
+                    return;
+                }
+
+                countEl.textContent = recipe.ingredients.length;
+
+                container.innerHTML = recipe.ingredients
+                    .map((ingredient, index) => `
+                        <div class="ingredient-item flex items-start gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer" onclick="this.classList.toggle('opacity-50')">
+                            <span class="text-green-600 mt-1 text-sm">✓</span>
+                            <span class="text-gray-800 flex-1">${ingredient}</span>
+                        </div>
+                    `)
+                    .join('');
+            }
+
+            renderInstructions(recipe) {
+                const container = document.getElementById('instructions-list');
+                const countEl = document.getElementById('instructions-count');
+
+                if (!recipe.instructions || recipe.instructions.length === 0) {
+                    container.innerHTML = '<p class="text-gray-600 italic">No instructions provided</p>';
+                    countEl.textContent = '0';
+                    return;
+                }
+
+                countEl.textContent = recipe.instructions.length;
+
+                container.innerHTML = recipe.instructions
+                    .map((instruction, index) => `
+                        <div class="instruction-step flex items-start gap-4 p-4 bg-blue-50 rounded-lg">
+                            <span class="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold flex-shrink-0 mt-1">
+                                ${index + 1}
+                            </span>
+                            <span class="text-gray-800 leading-relaxed">${instruction}</span>
+                        </div>
+                    `)
+                    .join('');
+            }
+
+            renderTagSections(recipe) {
+                const sections = [
+                    { id: 'proteins', data: recipe.proteins, class: 'tag-protein' },
+                    { id: 'vegetables', data: recipe.vegetables, class: 'tag-vegetable' },
+                    { id: 'cooking-method', data: recipe.cooking_methods, class: 'tag-method' },
+                    { id: 'equipment', data: recipe.equipment, class: 'tag-equipment' },
+                    { id: 'dietary', data: recipe.dietary_tags, class: 'tag-dietary' },
+                    { id: 'occasion', data: recipe.occasion, class: 'tag-occasion' }
+                ];
+
+                sections.forEach(section => {
+                    this.renderTagSection(section.id, section.data, section.class);
+                });
+            }
+
+            renderTagSection(sectionName, tags, tagClass) {
+                const section = document.getElementById(`${sectionName}-section`);
+                const container = document.getElementById(`${sectionName}-tags`);
+
+                if (!tags || tags.length === 0) {
+                    section.classList.add('hidden');
+                    return;
+                }
+
+                section.classList.remove('hidden');
+                container.innerHTML = tags
+                    .map(tag => `<span class="tag ${tagClass}">${this.formatValue(tag)}</span>`)
+                    .join('');
+            }
+
+            formatValue(value) {
+                if (!value) return '-';
+                return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            showError(message = 'Recipe not found') {
+                document.getElementById('recipe-loading').classList.add('hidden');
+                document.getElementById('recipe-content').classList.add('hidden');
+                document.getElementById('recipe-error').classList.remove('hidden');
+
+                const errorEl = document.getElementById('recipe-error');
+                errorEl.querySelector('h3').textContent = message;
+            }
+        }
+
+        // Navigation functions
+        function goBack() {
+            window.history.back();
+        }
+
+        function viewOriginal() {
+            if (app.currentRecipe && app.currentRecipe.code) {
+                window.open(`https://instagram.com/p/${app.currentRecipe.code}`, '_blank');
+            } else {
+                alert('Original Instagram post is not available');
+            }
+        }
+
+        function toggleCaptionModal() {
+            const modal = document.getElementById('caption-modal');
+            modal.classList.toggle('hidden');
+
+            // Prevent body scroll when modal is open
+            if (!modal.classList.contains('hidden')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close modal when clicking backdrop
+        document.getElementById('caption-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'caption-modal') {
+                toggleCaptionModal();
+            }
+        });
+
+        // Initialize app
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new RecipeDetailPage();
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('caption-modal');
+                if (!modal.classList.contains('hidden')) {
+                    toggleCaptionModal();
+                }
+            }
+        });
+    </script>
 </body>
 </html>
