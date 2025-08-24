@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 
+from instagrapi import Client
+from instagrapi.types import Media
+
 from foodiegram import env
 from foodiegram.cache_manager import CacheManager
 from foodiegram.types import Collection
-from instagrapi import Client
-from instagrapi.types import Media
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -60,6 +60,7 @@ async function loadRecipes() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         recipes = await response.json();
+        recipes = recipes.recipes;
         filteredRecipes = [...recipes];
         console.log(`✅ Loaded ${recipes.length} recipes successfully!`);
         hideFileUpload();

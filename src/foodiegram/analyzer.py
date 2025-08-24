@@ -4,11 +4,12 @@ import logging
 import time
 from pathlib import Path
 
-from foodiegram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
+
+from foodiegram.types import CuisineType, Difficulty, DishType, MealType, Media, Recipe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

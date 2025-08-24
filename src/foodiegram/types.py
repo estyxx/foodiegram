@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 
 from instagrapi.types import Media
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class MealType(str, Enum):
@@ -70,60 +70,36 @@ class CuisineType(str, Enum):
 
 
 class Recipe(BaseModel):
-    """Analyzed recipe data extracted from Instagram post."""
+    """Simple recipe model that works with OpenAI strict mode."""
 
-    # Original post data
-    post_id: int
-    code: str
-
-    @property
-    def post_url(self) -> str:
-        """Construct the URL for the Instagram post."""
-        return f"https://instagram.com/p/{self.code}"
-
-    caption: str
-    thumbnail_url: str | None = None
-
-    # Extracted recipe information
+    # ALL FIELDS REQUIRED - NO OPTIONALS!
     title: str
-    ingredients: list[str] = Field(default_factory=list)
-    instructions: list[str] = Field(default_factory=list)
+    ingredients: list[str]
+    instructions: list[str]
+    cuisine_type: str  # "italian", "asian", "other"
+    difficulty: str  # "easy", "medium", "hard"
+    main_protein: str  # "chicken", "beef", "vegetarian", "none"
+    cooking_method: str  # "baking", "frying", "boiling", "other"
+    is_recipe: bool
+    confidence_score: float  # 0.0 to 1.0
 
-    # Classifications
-    main_protein: str | None = None
-    dish_type: DishType | None = None
-    meal_type: MealType | None = None
-    cuisine_type: CuisineType | None = None
-    difficulty: Difficulty | None = None
+    @classmethod
+    def model_json_schema_strict(cls) -> dict[str, object]:
+        """Generate JSON schema with additionalProperties: false for OpenAI strict mode."""
+        schema = cls.model_json_schema()
 
-    # Additional metadata
-    cooking_time: str | None = None
-    prep_time: str | None = None
-    servings: str | None = None
-    dietary_tags: list[str] = Field(default_factory=list)
+        def make_strict(obj: object) -> object:
+            if isinstance(obj, dict):
+                if obj.get("type") == "object":
+                    obj["additionalProperties"] = False
+                for value in obj.values():
+                    make_strict(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    make_strict(item)
+            return obj
 
-    # Analysis metadata
-    is_recipe: bool = False
-    confidence_score: float = 0.0
-    analysis_notes: str | None = None
-
-    # Enhanced ingredient tracking
-    proteins: list[str] = Field(default_factory=list)
-    vegetables: list[str] = Field(default_factory=list)
-    key_ingredients: list[str] = Field(default_factory=list)
-
-    # Cooking details
-    cooking_method: list[str] = Field(default_factory=list)
-    equipment: list[str] = Field(default_factory=list)
-
-    # Enhanced tagging
-    texture_tags: list[str] = Field(default_factory=list)
-    flavor_tags: list[str] = Field(default_factory=list)
-    season_tags: list[str] = Field(default_factory=list)
-    occasion_tags: list[str] = Field(default_factory=list)
-
-    # Better time tracking
-    total_time: str | None = None
+        return make_strict(schema)
 
 
 class Collection(BaseModel):

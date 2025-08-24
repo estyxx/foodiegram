@@ -39,3 +39,5 @@ editors
 .idea/
 
 *.json
+cache/*
+data/*
