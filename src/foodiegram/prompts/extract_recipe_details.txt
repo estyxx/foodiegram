@@ -27,18 +27,18 @@ Caption: "{caption}"
 - **instructions**: Step-by-step cooking process (if available)
 
 ### Classifications:
-- **cuisine_type**: "italian", "asian", "mexican", "mediterranean", "american", "french", "fusion", "other"
+- **cuisine_type**: "italian", "asian", "corean", "mexican", "mediterranean", "american", "french", "other"
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
 - **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
 
 ### Ingredient Breakdown (English only):
 - **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "beans", "nuts"]
-- **vegetables**: ["tomato", "onion", "garlic", "zucchini", "spinach", "broccoli", "carrot", "bell_pepper"]
+- **vegetables**: ["tomato", "onion", "garlic", "courgettes", "spinach", "broccoli", "carrot", "bell_pepper"]
 - **grains_starches**: ["pasta", "rice", "bread", "potato", "quinoa", "couscous", "noodles"]
 - **herbs_spices**: ["basil", "oregano", "thyme", "paprika", "cumin", "black_pepper", "red_pepper"]
 
 ### Cooking Details:
-- **cooking_methods**: ["baking", "frying", "grilling", "boiling", "sautéing", "roasting", "steaming", "braising"]
+- **cooking_methods**: ["baking", "frying", "grilling", "boiling", "roasting", "steaming"]
 - **equipment**: ["oven", "stovetop", "pan", "pot", "grill", "blender", "processor", "air_fryer", "slow_cooker"]
 
 ### Time and Serving:

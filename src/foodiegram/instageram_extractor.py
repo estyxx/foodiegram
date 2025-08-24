@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from instagrapi import Client
-from instagrapi.types import Media
 
-from foodiegram import env
 from foodiegram.cache_manager import CacheManager
 from foodiegram.types import Collection
+
+if TYPE_CHECKING:
+    from instagrapi.types import Media
+
+    from foodiegram import env
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +24,7 @@ class InstagramExtractor:
     _client: Client = None
     username: str
     password: str
+    cache_manager: CacheManager
 
     def __init__(
         self,
@@ -29,6 +34,7 @@ class InstagramExtractor:
         """Initialize the extractor with credentials and cache manager."""
         self.username = username
         self.password = password
+        self.cache_manager = CacheManager()
 
     @property
     def client(self) -> Client:
@@ -39,6 +45,43 @@ class InstagramExtractor:
         self._client = Client()
         self._client.login(self.username, self.password)
         return self._client
+
+    def fetch_collections(self) -> list[Collection]:
+        """Fetch all collections from Instagram."""
+        logger.info("Fetching collections from Instagram")
+        collections: list[Collection] = []
+        try:
+            collections_data = self.client.collections()
+            for collection_data in collections_data:
+                logger.info(
+                    "Found collection: %s (ID: %s) with %s items",
+                    collection_data.name,
+                    str(collection_data.id),
+                    str(collection_data.media_count),
+                )
+
+                collection = Collection(
+                    id=collection_data.id,
+                    name=collection_data.name,
+                    type=collection_data.type,
+                    media_count=int(collection_data.media_count)
+                    if collection_data.media_count
+                    else None,
+                )
+
+                self.cache_manager.save_collection(
+                    collection_id=collection.id,
+                    posts=[],
+                    name=collection.name,
+                    type_=collection.type,
+                    media_count=collection.media_count,
+                )
+                collections.append(collection)
+        except Exception:
+            logger.exception("Error fetching collections")
+            return []
+        else:
+            return collections
 
     def fetch_collection_posts(
         self,

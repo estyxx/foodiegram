@@ -55,7 +55,7 @@ async function init() {
 
 async function loadRecipes() {
     try {
-        const response = await fetch("../analyzed_recipes.json");
+        const response = await fetch("../data/extracted_recipes.json");
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -109,7 +109,7 @@ function handleFileUpload(event) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = (e) => {
         try {
             recipes = JSON.parse(e.target.result);
             filteredRecipes = [...recipes];

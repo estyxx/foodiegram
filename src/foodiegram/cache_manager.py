@@ -38,8 +38,8 @@ class CacheManager:
         if post_file.exists():
             try:
                 return Media.model_validate_json(post_file.read_text())
-            except Exception as e:
-                logger.exception("Error loading cached post %s: %s", post_pk, e)
+            except Exception:
+                logger.exception("Error loading cached post %s:", post_pk)
                 return None
         return None
 
@@ -48,7 +48,7 @@ class CacheManager:
         post_file = self.posts_dir / f"{post.pk}.json"
         post_file.write_text(post.model_dump_json())
 
-    def get_collection(self, collection_id: int) -> Collection | None:
+    def get_collection(self, collection_id: int | str) -> Collection | None:
         """Get all posts in a collection."""
         collection_file = self.collections_dir / f"{collection_id}.json"
 
@@ -56,27 +56,38 @@ class CacheManager:
             try:
                 data = json.loads(collection_file.read_text())
                 return Collection(**data)
-            except Exception as e:
-                logger.exception("Error loading collection %d: %s", collection_id, e)
+            except Exception:
+                logger.exception("Error loading collection %d:", collection_id)
                 return None
         return None
 
     def save_collection(
         self,
-        collection_id: int,
-        posts: list[Media],
+        collection_id: int | str,
+        posts: list[Media] | None = None,
+        name: str = "",
+        type_: str = "",
+        media_count: int | None = None,
     ) -> Collection:
         """Save a collection of posts with metadata."""
+        posts = posts or []
         if collection := self.get_collection(collection_id):
-            collection.append_posts(posts)
+            if posts:
+                collection.append_posts(posts)
+            collection.name = name or collection.name
+            collection.type = type_ or collection.type
+            collection.media_count = media_count or collection.media_count
         else:
             collection = Collection(
                 id=collection_id,
                 post_pks=[str(post.pk) for post in posts],
+                name=name,
+                type=type_,
+                media_count=media_count,
             )
 
         collection_file = self.collections_dir / f"{collection_id}.json"
-        collection_file.write_text(collection.model_dump_json())
+        collection_file.write_text(collection.model_dump_json(indent=2))
 
         self.save_posts(posts)
         return collection

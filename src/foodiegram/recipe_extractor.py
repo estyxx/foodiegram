@@ -5,93 +5,24 @@ from pathlib import Path
 
 from openai import OpenAI
 from openai.types import Batch
-from pydantic import BaseModel, ConfigDict
 
-from foodiegram.types import Media
+from foodiegram.types import ExtractedRecipe, Media, Recipe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class Recipe(BaseModel):
-    """Comprehensive recipe model optimized for filtering and discovery."""
+class RecipeExtractor:
+    """Recipe extraction system optimized for comprehensive data extraction.
 
-    model_config = ConfigDict(extra="forbid")
-
-    # Core recipe data
-    title: str
-    ingredients: list[str]
-    instructions: list[str]
-
-    # Primary classifications
-    cuisine_type: str  # "italian", "asian", "mediterranean", "fusion", "other"
-    difficulty: str  # "easy", "medium", "hard"
-    meal_type: str  # "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
-
-    # Detailed ingredient breakdown (English only)
-    proteins: list[str]  # ["chicken", "beef", "fish", "tofu", "eggs", "cheese"]
-    vegetables: list[str]  # ["tomato", "onion", "garlic", "zucchini", "spinach"]
-    grains_starches: list[str]  # ["pasta", "rice", "bread", "potatoes", "quinoa"]
-    herbs_spices: list[str]  # ["basil", "oregano", "garlic", "paprika", "cumin"]
-
-    # Cooking details
-    cooking_methods: list[
-        str
-    ]  # ["baking", "frying", "grilling", "boiling", "sautéing", "roasting"]
-    equipment: list[
-        str
-    ]  # ["oven", "pan", "blender", "grill", "slow_cooker", "air_fryer"]
-
-    # Time and serving
-    prep_time: str  # "15 minutes", "30 minutes", "1 hour", "unknown"
-    cook_time: str  # "20 minutes", "45 minutes", "2 hours", "unknown"
-    total_time: str  # "35 minutes", "1.5 hours", "unknown"
-    servings: str  # "2-4", "6-8", "1", "unknown"
-
-    # Experience tags
-    temperature: str  # "hot", "cold", "room_temperature", "both"
-    texture: list[str]  # ["crispy", "creamy", "crunchy", "smooth", "chewy", "tender"]
-    flavor_profile: list[str]  # ["savory", "sweet", "spicy", "tangy", "umami", "bitter"]
-
-    # Dietary and lifestyle
-    dietary_tags: list[
-        str
-    ]  # ["vegetarian", "vegan", "gluten_free", "dairy_free", "keto", "paleo"]
-    health_tags: list[
-        str
-    ]  # ["low_calorie", "high_protein", "low_carb", "heart_healthy", "diabetic_friendly"]
-
-    # Context and occasion
-    season: list[str]  # ["spring", "summer", "fall", "winter", "year_round"]
-    occasion: list[
-        str
-    ]  # ["weeknight", "weekend", "party", "holiday", "date_night", "meal_prep"]
-    skill_level: str  # "beginner", "intermediate", "advanced"
-
-    # Special characteristics
-    style_tags: list[
-        str
-    ]  # ["comfort_food", "gourmet", "rustic", "modern", "traditional", "fusion"]
-    prep_style: list[str]  # ["make_ahead", "quick", "one_pot", "no_cook", "batch_cook"]
-
-
-class MasterRecipeExtractor:
-    """Master recipe extraction system optimized for comprehensive data extraction
     with Italian→English translation and rich tagging.
     """
 
     def __init__(self, api_key: str, model: str = "gpt-4.1") -> None:
-        """Initialize extractor.
-
-        Args:
-        ----
-            api_key: OpenAI API key
-            model: Model to use - "gpt-4.1" (recommended) or "gpt-4o-mini" (cheaper)
-
-        """
+        """Initialize extractor."""
         self._client = OpenAI(api_key=api_key)
         self.model = model
-        logger.info("Initialized MasterRecipeExtractor with %s", model)
+        logger.info("Initialized RecipeExtractor with %s", model)
 
     def create_batch(self, posts: list[Media]) -> str:
         """Create batch job for recipe extraction."""
@@ -99,8 +30,10 @@ class MasterRecipeExtractor:
         tasks_path.parent.mkdir(exist_ok=True)
 
         # Load comprehensive prompt
-        instruction = Path("src/foodiegram/prompts/details.md").read_text()
-        schema = Recipe.model_json_schema()
+        instruction = Path(
+            "src/foodiegram/prompts/extract_recipe_details.txt",
+        ).read_text()
+        schema = ExtractedRecipe.model_json_schema()
 
         with tasks_path.open("w") as f:
             for post in posts:
@@ -218,7 +151,13 @@ class MasterRecipeExtractor:
                 )
 
                 # Create Recipe object
-                recipe = Recipe(**recipe_data)
+                recipe = Recipe(
+                    post_id=post.id,
+                    code=post.code,
+                    caption=post.caption_text,
+                    thumbnail_url=post.thumbnail_url,
+                    **recipe_data,
+                )
                 recipes.append(recipe)
 
             except Exception:
@@ -257,12 +196,12 @@ class MasterRecipeExtractor:
 
         # Count unique values
         unique_counts = {
-            "cuisines": len(set(r.cuisine_type for r in recipes)),
+            "cuisines": len({r.cuisine_type for r in recipes}),
             "cooking_methods": len(
-                set(method for r in recipes for method in r.cooking_methods),
+                {method for r in recipes for method in r.cooking_methods},
             ),
-            "proteins": len(set(protein for r in recipes for protein in r.proteins)),
-            "vegetables": len(set(veg for r in recipes for veg in r.vegetables)),
+            "proteins": len({protein for r in recipes for protein in r.proteins}),
+            "vegetables": len({veg for r in recipes for veg in r.vegetables}),
         }
 
         return {
@@ -313,20 +252,8 @@ def extract_recipes_comprehensively(
     posts: list[Media],
     model: str = "gpt-4.1",
 ) -> list[Recipe]:
-    """Complete recipe extraction workflow.
-
-    Args:
-    ----
-        api_key: OpenAI API key
-        posts: Instagram posts to analyze
-        model: Model to use ("gpt-4.1", "gpt-4o-mini", "gpt-5")
-
-    Returns:
-    -------
-        List of comprehensive Recipe objects
-
-    """
-    extractor = MasterRecipeExtractor(api_key=api_key, model=model)
+    """Complete recipe extraction workflow."""
+    extractor = RecipeExtractor(api_key=api_key, model=model)
 
     logger.info("🚀 Starting comprehensive extraction for %d posts", len(posts))
 

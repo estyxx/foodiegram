@@ -31,7 +31,10 @@ fix = true
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D100",]
+ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module/
+"D203", # https://docs.astral.sh/ruff/rules/incorrect-blank-line-before-class/
+"D213", # https://docs.astral.sh/ruff/rules/multi-line-summary-second-line/
+]
 [tool.uv.sources]
 instagrapi = { path = "../instagrapi", editable = true }
 

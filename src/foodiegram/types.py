@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import TYPE_CHECKING
 
-from instagrapi.types import Media
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from instagrapi.types import Media
 
 
 class MealType(str, Enum):
@@ -69,45 +72,124 @@ class CuisineType(str, Enum):
     OTHER = "other"
 
 
-class Recipe(BaseModel):
-    """Simple recipe model that works with OpenAI strict mode."""
+class ExtractedRecipe(BaseModel):
+    """Extracted recipe data model."""
 
-    # ALL FIELDS REQUIRED - NO OPTIONALS!
+    # necessary to add additionalProperties field
+    model_config = ConfigDict(extra="forbid")
+
     title: str
     ingredients: list[str]
     instructions: list[str]
-    cuisine_type: str  # "italian", "asian", "other"
-    difficulty: str  # "easy", "medium", "hard"
-    main_protein: str  # "chicken", "beef", "vegetarian", "none"
-    cooking_method: str  # "baking", "frying", "boiling", "other"
-    is_recipe: bool
-    confidence_score: float  # 0.0 to 1.0
 
-    @classmethod
-    def model_json_schema_strict(cls) -> dict[str, object]:
-        """Generate JSON schema with additionalProperties: false for OpenAI strict mode."""
-        schema = cls.model_json_schema()
+    # Primary classifications
+    cuisine_type: str
+    difficulty: str
+    meal_type: str
 
-        def make_strict(obj: object) -> object:
-            if isinstance(obj, dict):
-                if obj.get("type") == "object":
-                    obj["additionalProperties"] = False
-                for value in obj.values():
-                    make_strict(value)
-            elif isinstance(obj, list):
-                for item in obj:
-                    make_strict(item)
-            return obj
+    # Ingredient breakdown
+    proteins: list[str]
+    vegetables: list[str]
+    grains_starches: list[str]
+    herbs_spices: list[str]
 
-        return make_strict(schema)
+    # Cooking details
+    cooking_methods: list[str]
+    equipment: list[str]
+
+    # Time and serving
+    prep_time: str
+    cook_time: str
+    total_time: str
+    servings: str
+
+    # Experience tags
+    temperature: str
+    texture: list[str]
+    flavor_profile: list[str]
+
+    # Dietary and lifestyle
+    dietary_tags: list[str]
+    health_tags: list[str]
+
+    # Context and occasion
+    season: list[str]
+    occasion: list[str]
+    skill_level: str
+
+    # Special characteristics
+    style_tags: list[str]
+    prep_style: list[str]
+
+
+class Recipe(BaseModel):
+    """Recipe data model including source post info."""
+
+    # Original post data
+    post_id: int
+    code: str
+
+    @property
+    def post_url(self) -> str:
+        """Construct the URL for the Instagram post."""
+        return f"https://instagram.com/p/{self.code}"
+
+    caption: str
+    thumbnail_url: str | None = None
+
+    title: str
+    ingredients: list[str]
+    instructions: list[str]
+
+    # Primary classifications
+    cuisine_type: str
+    difficulty: str
+    meal_type: str
+
+    # Ingredient breakdown
+    proteins: list[str]
+    vegetables: list[str]
+    grains_starches: list[str]
+    herbs_spices: list[str]
+
+    # Cooking details
+    cooking_methods: list[str]
+    equipment: list[str]
+
+    # Time and serving
+    prep_time: str
+    cook_time: str
+    total_time: str
+    servings: str
+
+    # Experience tags
+    temperature: str
+    texture: list[str]
+    flavor_profile: list[str]
+
+    # Dietary and lifestyle
+    dietary_tags: list[str]
+    health_tags: list[str]
+
+    # Context and occasion
+    season: list[str]
+    occasion: list[str]
+    skill_level: str
+
+    # Special characteristics
+    style_tags: list[str]
+    prep_style: list[str]
 
 
 class Collection(BaseModel):
     """Data model for an Instagram collection."""
 
-    id: int
+    id: int | str
     post_pks: list[str] = []
     last_media_pk: int = 0
+    name: str = ""
+    type: str = ""
+    media_count: int | None = None
 
     def append_posts(self, posts: list[Media]) -> None:
         """Append new posts to the collection."""
