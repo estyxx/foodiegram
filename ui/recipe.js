@@ -34,8 +34,7 @@ const elements = {
     // Tag sections
     proteinsSection: () => document.getElementById("proteins-section"),
     vegetablesSection: () => document.getElementById("vegetables-section"),
-    keyIngredientsSection: () =>
-        document.getElementById("key-ingredients-section"),
+    ingredientsSection: () => document.getElementById("ingredients-section"),
     cookingMethodSection: () =>
         document.getElementById("cooking-method-section"),
     equipmentSection: () => document.getElementById("equipment-section"),
@@ -45,7 +44,7 @@ const elements = {
     // Tag containers
     proteinsTags: () => document.getElementById("proteins-tags"),
     vegetablesTags: () => document.getElementById("vegetables-tags"),
-    keyIngredientsTags: () => document.getElementById("key-ingredients-tags"),
+    ingredientsTags: () => document.getElementById("ingredients-tags"),
     cookingMethodTags: () => document.getElementById("cooking-method-tags"),
     equipmentTags: () => document.getElementById("equipment-tags"),
     dietaryTags: () => document.getElementById("dietary-tags"),
@@ -86,7 +85,7 @@ async function init() {
 
 async function loadRecipes() {
     try {
-        const response = await fetch("../analyzed_recipes.json");
+        const response = await fetch("../data/extracted_recipes_realtime.json");
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -188,7 +187,7 @@ function renderQuickInfo(recipe) {
 function renderTagSections(recipe) {
     renderTagSection("proteins", recipe.proteins, "tag-protein");
     renderTagSection("vegetables", recipe.vegetables, "tag-vegetable");
-    renderTagSection("keyIngredients", recipe.key_ingredients, "tag-method");
+    renderTagSection("ingredients", recipe.key_ingredients, "tag-method");
     renderTagSection("cookingMethod", recipe.cooking_method, "tag-method");
     renderTagSection("equipment", recipe.equipment, "tag-equipment");
     renderTagSection("dietary", recipe.dietary_tags, "tag-vegetable");

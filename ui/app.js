@@ -13,7 +13,6 @@ const elements = {
     recipeGrid: () => document.getElementById("recipe-grid"),
     loading: () => document.getElementById("loading"),
     noResults: () => document.getElementById("no-results"),
-    fileUploadSection: () => document.getElementById("file-upload-section"),
     jsonFileInput: () => document.getElementById("json-file-input"),
     clearFiltersBtn: () => document.getElementById("clear-filters"),
     activeFilters: () => document.getElementById("active-filters"),
@@ -28,7 +27,6 @@ const elements = {
     totalRecipes: () => document.getElementById("total-recipes"),
     showingRecipes: () => document.getElementById("showing-recipes"),
     uniqueIngredients: () => document.getElementById("unique-ingredients"),
-    avgConfidence: () => document.getElementById("avg-confidence"),
 };
 
 // ====================================
@@ -55,89 +53,22 @@ async function init() {
 
 async function loadRecipes() {
     try {
-        const response = await fetch("../data/extracted_recipes.json");
+        const response = await fetch("../data/extracted_recipes_realtime.json");
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         recipes = await response.json();
-        recipes = recipes.recipes;
+        // recipes = recipes.recipes;
         filteredRecipes = [...recipes];
         console.log(`✅ Loaded ${recipes.length} recipes successfully!`);
-        hideFileUpload();
     } catch (error) {
         console.error("⚠️ Error loading recipes:", error);
         console.log("You can either:");
         console.log("1. Use the file picker above to load your JSON");
         console.log("2. Or serve this via HTTP (python -m http.server 8000)");
-
-        showFileUpload();
-        loadSampleData();
     }
-}
-
-function loadSampleData() {
-    recipes = [
-        {
-            post_id: 3636866290532790354,
-            title: "� Sample Recipe - Upload your JSON!",
-            proteins: ["tofu"],
-            vegetables: ["mushrooms", "carrots", "napa cabbage"],
-            key_ingredients: ["rice_paper", "soy_sauce", "sesame_oil"],
-            cooking_method: ["pan_frying"],
-            equipment: ["pan"],
-            dietary_tags: ["vegan", "gluten_free", "dairy_free"],
-            texture_tags: ["crispy", "chewy"],
-            flavor_tags: ["savory"],
-            season_tags: ["other"],
-            occasion_tags: ["quick", "make_ahead", "party", "snack"],
-            cuisine_type: "asian",
-            difficulty: "medium",
-            confidence_score: 0.9,
-            cooking_time: "null",
-            total_time: "null",
-        },
-    ];
-    filteredRecipes = [...recipes];
-}
-
-// ====================================
-// File Upload Handling
-// ====================================
-
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            recipes = JSON.parse(e.target.result);
-            filteredRecipes = [...recipes];
-            console.log(`✅ Loaded ${recipes.length} recipes from file!`);
-
-            renderFilters();
-            renderRecipes();
-            updateStats();
-            hideFileUpload();
-            showSuccessMessage(
-                `Successfully loaded ${recipes.length} recipes!`
-            );
-        } catch (error) {
-            showError("Error parsing JSON file. Please check the format.");
-            console.error("⚠️ JSON parse error:", error);
-        }
-    };
-    reader.readAsText(file);
-}
-
-function showFileUpload() {
-    const section = elements.fileUploadSection();
-    if (section) section.style.display = "block";
-}
-
-function hideFileUpload() {
-    const section = elements.fileUploadSection();
-    if (section) section.style.display = "none";
 }
 
 // ====================================
@@ -380,8 +311,6 @@ function renderRecipes() {
 }
 
 function createRecipeCard(recipe) {
-    const confidenceClass = getConfidenceClass(recipe.confidence_score);
-
     return `
         <div class="recipe-card bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
           <!-- Recipe Image -->
@@ -393,11 +322,6 @@ function createRecipeCard(recipe) {
                      alt="${recipe.title}"
                      class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                      onerror="this.parentElement.innerHTML='<div class=\\'recipe-image-placeholder h-48 text-white text-2xl\\'>🍽️</div>'">
-                <div class="absolute top-2 right-2">
-                    <span class="${confidenceClass} text-xs font-medium px-2 py-1 rounded-full bg-white/90 backdrop-blur-sm">${Math.round(
-                          recipe.confidence_score * 100
-                      )}%</span>
-                </div>
             </div>
             `
                     : `
@@ -410,13 +334,7 @@ function createRecipeCard(recipe) {
                     <h3 class="text-lg font-semibold text-gray-800 line-clamp-2">${
                         recipe.title
                     }</h3>
-                    ${
-                        !recipe.thumbnail_url
-                            ? `<span class="${confidenceClass} text-sm font-medium">${Math.round(
-                                  recipe.confidence_score * 100
-                              )}%</span>`
-                            : ""
-                    }
+
                 </div>
 
                 <!-- Quick Info -->
@@ -485,7 +403,7 @@ function createRecipeCard(recipe) {
 function renderTagSection(items, tagClass, label, totalCount) {
     if (!items || items.length === 0) return "";
 
-    let html = "<div>";
+    let html = "";
     html += items
         .map((item) => `<span class="tag ${tagClass}">${item}</span>`)
         .join("");
@@ -496,14 +414,7 @@ function renderTagSection(items, tagClass, label, totalCount) {
         }</span>`;
     }
 
-    html += "</div>";
     return html;
-}
-
-function getConfidenceClass(score) {
-    if (score > 0.8) return "confidence-high";
-    if (score > 0.6) return "confidence-medium";
-    return "confidence-low";
 }
 
 // ====================================
@@ -518,16 +429,10 @@ function updateStats() {
     recipes.forEach((recipe) => {
         if (recipe.vegetables)
             recipe.vegetables.forEach((v) => allIngredients.add(v));
-        if (recipe.key_ingredients)
-            recipe.key_ingredients.forEach((k) => allIngredients.add(k));
+        if (recipe.ingredients)
+            recipe.ingredients.forEach((k) => allIngredients.add(k));
     });
     elements.uniqueIngredients().textContent = allIngredients.size;
-
-    const avgConfidence =
-        recipes.reduce((sum, r) => sum + (r.confidence_score || 0), 0) /
-        recipes.length;
-    elements.avgConfidence().textContent =
-        Math.round(avgConfidence * 100) + "%";
 }
 
 // ====================================
@@ -537,7 +442,6 @@ function updateStats() {
 function setupEventListeners() {
     elements.searchInput().addEventListener("input", applyFilters);
     elements.clearFiltersBtn().addEventListener("click", clearFilters);
-    elements.jsonFileInput().addEventListener("change", handleFileUpload);
 }
 
 // ====================================
