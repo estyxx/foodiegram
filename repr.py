@@ -1,8 +1,7 @@
-from better.master_recipe_extractor import MasterRecipeExtractor
-
 from foodiegram import env
 from foodiegram.cache_manager import CacheManager
 from foodiegram.instageram_extractor import load_or_fetch_collection
+from foodiegram.recipe_extractor import RecipeExtractor
 
 environment = env.Env.get_env()
 
@@ -14,6 +13,6 @@ collection = load_or_fetch_collection(
 )
 posts = [cache.get_post(post_id) for post_id in collection.post_pks[:4]]
 
-extractor = MasterRecipeExtractor(api_key=environment.OPENAI_API_KEY, model="gpt-4.1")
+extractor = RecipeExtractor(api_key=environment.OPENAI_API_KEY, model="gpt-4.1")
 recipes = extractor.parse_results(posts)
 extractor.save_analysis(recipes)

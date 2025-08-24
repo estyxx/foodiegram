@@ -27,9 +27,10 @@ Caption: "{caption}"
 - **instructions**: Step-by-step cooking process (if available)
 
 ### Classifications:
+- **dish_type**: "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread", "sauce", "snack"
+- **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
 - **cuisine_type**: "italian", "asian", "corean", "mexican", "mediterranean", "american", "french", "other"
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
-- **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
 
 ### Ingredient Breakdown (English only):
 - **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "beans", "nuts"]

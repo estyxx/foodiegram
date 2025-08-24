@@ -3,10 +3,11 @@ import logging
 import time
 from pathlib import Path
 
+from instagrapi.types import Media
 from openai import OpenAI
 from openai.types import Batch
 
-from foodiegram.types import ExtractedRecipe, Media, Recipe
+from foodiegram.types import ExtractedRecipe, Recipe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

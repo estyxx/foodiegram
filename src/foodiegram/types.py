@@ -1,75 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from instagrapi.types import Media
-
-
-class MealType(str, Enum):
-    """Types of meals."""
-
-    BREAKFAST = "breakfast"
-    LUNCH = "lunch"
-    DINNER = "dinner"
-    SNACK = "snack"
-    DESSERT = "dessert"
-    APPETIZER = "appetizer"
-
-
-class DishType(str, Enum):
-    """Types of dishes."""
-
-    PASTA = "pasta"
-    RISOTTO = "risotto"
-    FISH = "fish"
-    MEAT = "meat"
-    CHICKEN = "chicken"
-    BEEF = "beef"
-    PORK = "pork"
-    SEAFOOD = "seafood"
-    VEGETARIAN = "vegetarian"
-    VEGAN = "vegan"
-    SOUP = "soup"
-    SALAD = "salad"
-    BREAD = "bread"
-    PIZZA = "pizza"
-    SANDWICH = "sandwich"
-    STIR_FRY = "stir_fry"
-    CURRY = "curry"
-    DESSERT = "dessert"
-    SMOOTHIE = "smoothie"
-    OTHER = "other"
-
-
-class Difficulty(str, Enum):
-    """Recipe difficulty levels."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
-
-
-class CuisineType(str, Enum):
-    """Types of cuisine."""
-
-    ITALIAN = "italian"
-    ASIAN = "asian"
-    CHINESE = "chinese"
-    JAPANESE = "japanese"
-    THAI = "thai"
-    INDIAN = "indian"
-    MEXICAN = "mexican"
-    MEDITERRANEAN = "mediterranean"
-    FRENCH = "french"
-    AMERICAN = "american"
-    MIDDLE_EASTERN = "middle_eastern"
-    LATIN = "latin"
-    AFRICAN = "african"
-    OTHER = "other"
 
 
 class ExtractedRecipe(BaseModel):
@@ -83,9 +19,10 @@ class ExtractedRecipe(BaseModel):
     instructions: list[str]
 
     # Primary classifications
+    dish_type: str
+    meal_type: str
     cuisine_type: str
     difficulty: str
-    meal_type: str
 
     # Ingredient breakdown
     proteins: list[str]
@@ -142,9 +79,10 @@ class Recipe(BaseModel):
     instructions: list[str]
 
     # Primary classifications
+    dish_type: str
+    meal_type: str
     cuisine_type: str
     difficulty: str
-    meal_type: str
 
     # Ingredient breakdown
     proteins: list[str]
