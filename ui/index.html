@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍳 Foodiegram Recipe Browser</title>
+    <title>🍳 Foodiegram - Advanced Recipe Browser</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
     <style>
-        /* Custom animations and styles */
+        /* Enhanced styles with new features */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -19,68 +20,31 @@
 
         .recipe-card {
             animation: fadeIn 0.3s ease-out;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
             height: 100%;
+            position: relative;
+            overflow: hidden;
         }
 
         .recipe-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
         }
 
-        .recipe-image-placeholder {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            position: relative;
-        }
-
-        .recipe-image-placeholder::after {
+        .recipe-card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
-            background-size: 20px 20px;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
-        .tag {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-            border-radius: 9999px;
-            margin-right: 0.25rem;
-            margin-bottom: 0.25rem;
-            transition: all 0.2s ease;
-        }
-
-        .tag:hover { transform: scale(1.05); }
-
-        .tag-protein { background-color: #fef2f2; color: #991b1b; }
-        .tag-vegetable { background-color: #f0fdf4; color: #14532d; }
-        .tag-method { background-color: #eff6ff; color: #1e3a8a; }
-        .tag-equipment { background-color: #faf5ff; color: #581c87; }
-        .tag-occasion { background-color: #fffbeb; color: #92400e; }
-
-        .filter-btn {
-            transition: all 0.2s ease;
-            border: 1px solid #d1d5db;
-            background: white;
-        }
-
-        .filter-btn:hover {
-            background-color: #f9fafb;
-            transform: translateY(-1px);
-        }
-
-        .filter-active {
-            background-color: #2563eb !important;
-            color: white !important;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            border-color: #2563eb;
+        .recipe-card:hover::before {
+            opacity: 1;
         }
 
         .card-content {
@@ -93,6 +57,122 @@
             margin-top: auto;
         }
 
+        .recipe-image-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            position: relative;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 20px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+
+        .tag:hover { transform: scale(1.05); }
+
+        .tag-protein { background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); color: #991b1b; }
+        .tag-vegetable { background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%); color: #14532d; }
+        .tag-method { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); color: #1e3a8a; }
+        .tag-occasion { background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%); color: #92400e; }
+        .tag-dietary { background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); color: #065f46; }
+
+        .filter-btn {
+            transition: all 0.2s ease;
+            border: 1px solid #d1d5db;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .filter-btn:hover {
+            background-color: #f9fafb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-active {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            color: white !important;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            border-color: #2563eb;
+        }
+
+        .search-suggestion {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .search-suggestion:hover {
+            background-color: #f3f4f6;
+            transform: translateX(4px);
+        }
+
+        .comparison-panel {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .comparison-panel.active {
+            transform: translateX(0);
+        }
+
+        .favorite-heart {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .favorite-heart:hover {
+            transform: scale(1.2);
+        }
+
+        .favorite-heart.active {
+            color: #ef4444;
+            transform: scale(1.1);
+        }
+
+        .recipe-rating {
+            display: flex;
+            gap: 2px;
+        }
+
+        .star {
+            color: #fbbf24;
+            transition: transform 0.2s ease;
+        }
+
+        .star:hover {
+            transform: scale(1.2);
+        }
+
+        .nutritional-estimate {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.3s ease;
+        }
+
+        .export-btn:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+        }
+
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -100,73 +180,197 @@
             overflow: hidden;
         }
 
-        .success-message {
-            animation: slideIn 0.3s ease-out;
+        /* Advanced Search Autocomplete */
+        .search-suggestions {
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         }
 
-        .stat-number {
-            font-variant-numeric: tabular-nums;
+        /* Recipe Comparison */
+        .comparison-table {
+            font-size: 0.875rem;
+        }
+
+        .comparison-table td, .comparison-table th {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .comparison-highlight {
+            background-color: #fef3c7;
+            font-weight: 600;
+        }
+
+        /* Shopping List */
+        .shopping-item {
+            transition: all 0.2s ease;
+        }
+
+        .shopping-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .shopping-item.checked {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .comparison-panel {
+                transform: translateY(100%);
+            }
+
+            .comparison-panel.active {
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
+        <!-- Enhanced Header with Quick Actions -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">🍳 Foodiegram</h1>
-            <p class="text-gray-600">Your Instagram recipe collection, organized and searchable</p>
+            <p class="text-gray-600 mb-4">Your Instagram recipe collection, organized and searchable</p>
+
+            <!-- Quick Action Buttons -->
+            <div class="flex justify-center gap-3 flex-wrap">
+                <button onclick="toggleFavorites()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+                    ❤️ My Favorites (<span id="favorites-count">0</span>)
+                </button>
+                <button onclick="showMealPlanner()" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
+                    📅 Meal Planner
+                </button>
+                <button onclick="showShoppingList()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                    🛒 Shopping List
+                </button>
+                <button onclick="exportData()" class="export-btn text-white px-4 py-2 rounded-lg">
+                    📤 Export Recipes
+                </button>
+            </div>
         </div>
 
-        <!-- Stats Bar -->
+        <!-- Enhanced Stats with More Insights -->
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600 stat-number" id="total-recipes">0</div>
-                    <div class="text-sm text-gray-600">Total Recipes</div>
+                    <div class="text-2xl font-bold text-blue-600" id="total-recipes">0</div>
+                    <div class="text-sm text-gray-600">Total</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-green-600 stat-number" id="showing-recipes">0</div>
+                    <div class="text-2xl font-bold text-green-600" id="showing-recipes">0</div>
                     <div class="text-sm text-gray-600">Showing</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-purple-600 stat-number" id="unique-ingredients">0</div>
+                    <div class="text-2xl font-bold text-purple-600" id="unique-ingredients">0</div>
                     <div class="text-sm text-gray-600">Ingredients</div>
                 </div>
                 <div>
                     <div class="text-2xl font-bold text-orange-600" id="avg-cook-time">-</div>
-                    <div class="text-sm text-gray-600">Avg Cook Time</div>
+                    <div class="text-sm text-gray-600">Avg Time</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-pink-600" id="easy-recipes">0</div>
+                    <div class="text-sm text-gray-600">Easy</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-indigo-600" id="vegetarian-count">0</div>
+                    <div class="text-sm text-gray-600">Vegetarian</div>
                 </div>
             </div>
         </div>
 
-        <!-- Search and Filters -->
+        <!-- Enhanced Search with Autocomplete -->
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <!-- Search Bar -->
-            <div class="mb-4">
+            <!-- Advanced Search Bar -->
+            <div class="mb-4 relative">
                 <div class="relative">
                     <input type="text" id="search-input"
                            placeholder="Search recipes by title, ingredients, or description..."
-                           class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                           class="w-full px-4 py-3 pr-20 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           autocomplete="off">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
+                        <button id="voice-search" onclick="toggleVoiceSearch()"
+                                class="p-1 text-gray-400 hover:text-blue-500 transition-colors">
+                            🎤
+                        </button>
+                        <button onclick="clearSearch()"
+                                class="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                            ✕
+                        </button>
                         <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
                 </div>
+
+                <!-- Search Suggestions Dropdown -->
+                <div id="search-suggestions" class="hidden absolute top-full left-0 right-0 bg-white search-suggestions z-10">
+                    <!-- Suggestions will be populated here -->
+                </div>
             </div>
 
-            <!-- Quick Filters -->
+            <!-- Advanced Filter Options -->
+            <div class="mb-4">
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button onclick="toggleAdvancedFilters()" class="text-sm text-blue-600 hover:text-blue-800 underline">
+                        ⚙️ Advanced Filters
+                    </button>
+                    <button onclick="saveFilterPreset()" class="text-sm text-green-600 hover:text-green-800 underline">
+                        💾 Save Filter Preset
+                    </button>
+                    <button onclick="randomRecipe()" class="text-sm text-purple-600 hover:text-purple-800 underline">
+                        🎲 Random Recipe
+                    </button>
+                </div>
+
+                <!-- Advanced Filters Panel -->
+                <div id="advanced-filters" class="hidden p-4 bg-gray-50 rounded-lg mb-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cook Time Range</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="min-time" placeholder="Min" class="w-20 px-2 py-1 border rounded">
+                                <input type="number" id="max-time" placeholder="Max" class="w-20 px-2 py-1 border rounded">
+                                <span class="text-sm text-gray-500 mt-1">minutes</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Servings</label>
+                            <select id="servings-filter" class="w-full px-3 py-1 border rounded">
+                                <option value="">Any</option>
+                                <option value="1-2">1-2 people</option>
+                                <option value="3-4">3-4 people</option>
+                                <option value="5+">5+ people</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+                            <select id="sort-by" class="w-full px-3 py-1 border rounded" onchange="applySorting()">
+                                <option value="date">Latest First</option>
+                                <option value="title">Title A-Z</option>
+                                <option value="time-asc">Quick First</option>
+                                <option value="time-desc">Longest First</option>
+                                <option value="ingredients">Fewest Ingredients</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regular Filters -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">🥗 Cuisine & Diet</h3>
                     <div id="cuisine-filters" class="flex flex-wrap gap-1"></div>
                 </div>
-
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">👩‍🍳 Cooking</h3>
                     <div id="cooking-filters" class="flex flex-wrap gap-1"></div>
                 </div>
-
                 <div>
                     <h3 class="font-semibold text-gray-700 mb-2">🕒 Time & Occasion</h3>
                     <div id="occasion-filters" class="flex flex-wrap gap-1"></div>
@@ -183,7 +387,7 @@
             </div>
         </div>
 
-        <!-- Recipe Grid -->
+        <!-- Recipe Grid with Enhanced Cards -->
         <div id="recipe-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Recipe cards will be inserted here -->
         </div>
@@ -192,7 +396,10 @@
         <div id="no-results" class="text-center py-12 hidden">
             <div class="text-6xl mb-4">🔍</div>
             <h3 class="text-xl font-semibold text-gray-700 mb-2">No recipes found</h3>
-            <p class="text-gray-600">Try adjusting your search or filters</p>
+            <p class="text-gray-600 mb-4">Try adjusting your search or filters</p>
+            <button onclick="clearFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                Clear All Filters
+            </button>
         </div>
 
         <!-- Loading State -->
@@ -203,17 +410,61 @@
         </div>
     </div>
 
+    <!-- Recipe Comparison Panel -->
+    <div id="comparison-panel" class="fixed top-0 right-0 w-96 h-full bg-white shadow-2xl comparison-panel z-50 overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">Recipe Comparison</h2>
+                <button onclick="closeComparison()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+            </div>
+
+            <div id="comparison-content">
+                <p class="text-gray-600 text-center py-8">
+                    Select recipes to compare by clicking the compare button on recipe cards
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shopping List Modal -->
+    <div id="shopping-modal" class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">🛒 Shopping List</h3>
+                <button onclick="toggleShoppingList()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+            <div class="p-4 max-h-80 overflow-y-auto">
+                <div id="shopping-list-content">
+                    <p class="text-gray-600 italic">Add ingredients from recipes to build your shopping list</p>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50">
+                <button onclick="clearShoppingList()" class="text-sm text-red-600 hover:text-red-800">
+                    Clear List
+                </button>
+                <button onclick="exportShoppingList()" class="float-right bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">
+                    Export List
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced JavaScript with Advanced Features -->
     <script>
-        // Enhanced Recipe Browser Application
-        class RecipeBrowser {
+        class AdvancedRecipeBrowser {
             constructor() {
                 this.recipes = [];
                 this.filteredRecipes = [];
                 this.activeFilters = new Set();
+                this.favorites = new Set(JSON.parse(localStorage.getItem('recipe-favorites') || '[]'));
+                this.comparisonRecipes = [];
+                this.shoppingList = new Set(JSON.parse(localStorage.getItem('shopping-list') || '[]'));
+                this.searchSuggestions = [];
+                this.voiceRecognition = null;
+
                 this.init();
             }
 
-            // Initialization
             async init() {
                 try {
                     await this.loadRecipes();
@@ -221,36 +472,123 @@
                     this.renderFilters();
                     this.renderRecipes();
                     this.updateStats();
-                    console.log('🍳 Recipe browser initialized successfully!');
+                    this.setupVoiceSearch();
+                    console.log('🍳 Advanced recipe browser initialized!');
                 } catch (error) {
                     console.error('⚠️ Error initializing app:', error);
                     this.showError();
                 }
             }
 
-            // Data Loading
             async loadRecipes() {
                 try {
-                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    const response = await fetch('../data/extracted_recipes.json');
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-                    this.recipes = await response.json();
+                    let recipes = await response.json();
+                    this.recipes = recipes.recipes
                     this.filteredRecipes = [...this.recipes];
-                    console.log(`✅ Loaded ${this.recipes.length} recipes successfully!`);
+                    this.buildSearchSuggestions();
+                    console.log(`✅ Loaded ${this.recipes.length} recipes`);
                 } catch (error) {
                     console.error('⚠️ Error loading recipes:', error);
-                    this.recipes = [];
-                    this.filteredRecipes = [];
+                    throw error;
                 }
             }
 
-            // Event Listeners
-            setupEventListeners() {
-                document.getElementById('search-input').addEventListener('input', () => this.applyFilters());
-                document.getElementById('clear-filters').addEventListener('click', () => this.clearFilters());
+            buildSearchSuggestions() {
+                const suggestions = new Set();
+                this.recipes.forEach(recipe => {
+                    // Add recipe titles
+                    suggestions.add(recipe.title);
+
+                    // Add ingredients
+                    recipe.ingredients?.forEach(ingredient => {
+                        suggestions.add(ingredient.toLowerCase());
+                    });
+
+                    // Add proteins and vegetables
+                    recipe.proteins?.forEach(protein => suggestions.add(protein));
+                    recipe.vegetables?.forEach(veg => suggestions.add(veg));
+                });
+
+                this.searchSuggestions = Array.from(suggestions).sort();
             }
 
-            // Filter Management
+            setupEventListeners() {
+                const searchInput = document.getElementById('search-input');
+                searchInput.addEventListener('input', (e) => {
+                    this.handleSearch(e.target.value);
+                    this.showSearchSuggestions(e.target.value);
+                });
+
+                searchInput.addEventListener('blur', () => {
+                    setTimeout(() => this.hideSearchSuggestions(), 200);
+                });
+
+                document.getElementById('clear-filters').addEventListener('click', () => this.clearFilters());
+                document.getElementById('min-time').addEventListener('input', () => this.applyFilters());
+                document.getElementById('max-time').addEventListener('input', () => this.applyFilters());
+                document.getElementById('servings-filter').addEventListener('change', () => this.applyFilters());
+            }
+
+            setupVoiceSearch() {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    this.voiceRecognition = new SpeechRecognition();
+                    this.voiceRecognition.continuous = false;
+                    this.voiceRecognition.interimResults = false;
+                    this.voiceRecognition.lang = 'en-US';
+
+                    this.voiceRecognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        document.getElementById('search-input').value = transcript;
+                        this.handleSearch(transcript);
+                    };
+                }
+            }
+
+            showSearchSuggestions(query) {
+                if (!query) {
+                    this.hideSearchSuggestions();
+                    return;
+                }
+
+                const suggestions = this.searchSuggestions
+                    .filter(suggestion => suggestion.toLowerCase().includes(query.toLowerCase()))
+                    .slice(0, 8);
+
+                const container = document.getElementById('search-suggestions');
+
+                if (suggestions.length === 0) {
+                    this.hideSearchSuggestions();
+                    return;
+                }
+
+                container.innerHTML = suggestions
+                    .map(suggestion => `
+                        <div class="search-suggestion px-4 py-2 hover:bg-gray-100" onclick="app.selectSuggestion('${suggestion}')">
+                            <span class="text-gray-700">${suggestion}</span>
+                        </div>
+                    `).join('');
+
+                container.classList.remove('hidden');
+            }
+
+            selectSuggestion(suggestion) {
+                document.getElementById('search-input').value = suggestion;
+                this.handleSearch(suggestion);
+                this.hideSearchSuggestions();
+            }
+
+            hideSearchSuggestions() {
+                document.getElementById('search-suggestions').classList.add('hidden');
+            }
+
+            handleSearch(query) {
+                this.applyFilters();
+            }
+
             renderFilters() {
                 const filterData = this.extractFilterData();
 
@@ -261,7 +599,6 @@
 
                 this.renderFilterGroup('cooking-filters', [
                     ...filterData.methods.map(method => ({ value: method, type: 'method', emoji: '🔥' })),
-                    ...filterData.equipment.map(eq => ({ value: eq, type: 'equipment', emoji: '🔧' })),
                     ...filterData.difficulties.map(diff => ({ value: diff, type: 'difficulty', emoji: '⭐' }))
                 ]);
 
@@ -281,14 +618,13 @@
             }
 
             extractFilterData() {
-                const data = { cuisines: new Set(), dietary: new Set(), methods: new Set(), equipment: new Set(), occasions: new Set(), difficulties: new Set() };
+                const data = { cuisines: new Set(), dietary: new Set(), methods: new Set(), occasions: new Set(), difficulties: new Set() };
 
                 this.recipes.forEach(recipe => {
                     if (recipe.cuisine_type) data.cuisines.add(recipe.cuisine_type);
-                    if (recipe.dietary_tags) recipe.dietary_tags.forEach(tag => data.dietary.add(tag));
-                    if (recipe.cooking_methods) recipe.cooking_methods.forEach(method => data.methods.add(method));
-                    if (recipe.equipment) recipe.equipment.forEach(eq => data.equipment.add(eq));
-                    if (recipe.occasion) recipe.occasion.forEach(occ => data.occasions.add(occ));
+                    recipe.dietary_tags?.forEach(tag => data.dietary.add(tag));
+                    recipe.cooking_methods?.forEach(method => data.methods.add(method));
+                    recipe.occasion?.forEach(occ => data.occasions.add(occ));
                     if (recipe.difficulty) data.difficulties.add(recipe.difficulty);
                 });
 
@@ -318,25 +654,67 @@
                 this.updateActiveFiltersDisplay();
             }
 
-            clearFilters() {
-                this.activeFilters.clear();
-                document.querySelectorAll('.filter-active').forEach(btn => btn.classList.remove('filter-active'));
-                document.getElementById('search-input').value = '';
-                this.applyFilters();
-                this.updateActiveFiltersDisplay();
-            }
-
-            // Filtering Logic
             applyFilters() {
                 const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                const minTime = parseInt(document.getElementById('min-time')?.value) || 0;
+                const maxTime = parseInt(document.getElementById('max-time')?.value) || Infinity;
+                const servingsFilter = document.getElementById('servings-filter')?.value;
 
                 this.filteredRecipes = this.recipes.filter(recipe => {
+                    // Search filter
                     if (searchTerm && !this.matchesSearchTerm(recipe, searchTerm)) return false;
+
+                    // Time filter
+                    const recipeTime = this.extractTimeInMinutes(recipe.cook_time);
+                    if (recipeTime < minTime || recipeTime > maxTime) return false;
+
+                    // Servings filter
+                    if (servingsFilter && !this.matchesServings(recipe.servings, servingsFilter)) return false;
+
+                    // Active filters
                     return this.matchesActiveFilters(recipe);
                 });
 
+                this.applySorting();
                 this.renderRecipes();
                 this.updateStats();
+            }
+
+            extractTimeInMinutes(timeStr) {
+                if (!timeStr || timeStr === 'unknown') return 0;
+                const match = timeStr.match(/(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            }
+
+            matchesServings(servings, filter) {
+                if (!servings) return false;
+                const num = parseInt(servings.split('-')[0]) || parseInt(servings);
+
+                switch (filter) {
+                    case '1-2': return num <= 2;
+                    case '3-4': return num >= 3 && num <= 4;
+                    case '5+': return num >= 5;
+                    default: return true;
+                }
+            }
+
+            applySorting() {
+                const sortBy = document.getElementById('sort-by')?.value || 'date';
+
+                this.filteredRecipes.sort((a, b) => {
+                    switch (sortBy) {
+                        case 'title':
+                            return a.title.localeCompare(b.title);
+                        case 'time-asc':
+                            return this.extractTimeInMinutes(a.cook_time) - this.extractTimeInMinutes(b.cook_time);
+                        case 'time-desc':
+                            return this.extractTimeInMinutes(b.cook_time) - this.extractTimeInMinutes(a.cook_time);
+                        case 'ingredients':
+                            return (a.ingredients?.length || 0) - (b.ingredients?.length || 0);
+                        default: // date
+                            return b.post_id - a.post_id;
+                    }
+                });
             }
 
             matchesSearchTerm(recipe, searchTerm) {
@@ -358,7 +736,6 @@
                         case 'cuisine': if (recipe.cuisine_type !== value) return false; break;
                         case 'dietary': if (!recipe.dietary_tags?.includes(value)) return false; break;
                         case 'method': if (!recipe.cooking_methods?.includes(value)) return false; break;
-                        case 'equipment': if (!recipe.equipment?.includes(value)) return false; break;
                         case 'occasion': if (!recipe.occasion?.includes(value)) return false; break;
                         case 'difficulty': if (recipe.difficulty !== value) return false; break;
                     }
@@ -366,36 +743,6 @@
                 return true;
             }
 
-            updateActiveFiltersDisplay() {
-                const container = document.getElementById('active-filters');
-                const tagsContainer = document.getElementById('active-filter-tags');
-
-                if (this.activeFilters.size === 0) {
-                    container.classList.add('hidden');
-                    return;
-                }
-
-                container.classList.remove('hidden');
-                tagsContainer.innerHTML = Array.from(this.activeFilters)
-                    .map(filterKey => {
-                        const [type, value] = filterKey.split(':');
-                        return `<span class="tag tag-difficulty cursor-pointer" onclick="app.removeFilter('${filterKey}')">${value.replace(/_/g, ' ')} ✕</span>`;
-                    })
-                    .join('');
-            }
-
-            removeFilter(filterKey) {
-                this.activeFilters.delete(filterKey);
-                this.applyFilters();
-                this.updateActiveFiltersDisplay();
-
-                const [type, value] = filterKey.split(':');
-                const button = Array.from(document.querySelectorAll('.filter-btn'))
-                    .find(btn => btn.textContent.includes(value.replace(/_/g, ' ')));
-                if (button) button.classList.remove('filter-active');
-            }
-
-            // Recipe Rendering
             renderRecipes() {
                 const grid = document.getElementById('recipe-grid');
                 const noResults = document.getElementById('no-results');
@@ -413,35 +760,61 @@
                 noResults.classList.add('hidden');
 
                 grid.innerHTML = this.filteredRecipes
-                    .map(recipe => this.createRecipeCard(recipe))
+                    .map(recipe => this.createEnhancedRecipeCard(recipe))
                     .join('');
             }
 
-            createRecipeCard(recipe) {
+            createEnhancedRecipeCard(recipe) {
+                const isFavorite = this.favorites.has(recipe.post_id);
+                const nutritionEstimate = this.estimateNutrition(recipe);
+
                 return `
                     <div class="recipe-card bg-white rounded-lg shadow-sm hover:shadow-lg overflow-hidden">
                         ${this.renderRecipeImage(recipe)}
 
                         <div class="card-content p-6">
-                            <div class="mb-4">
-                                <h3 class="text-lg font-semibold text-gray-800 line-clamp-2 mb-2">${recipe.title}</h3>
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-lg font-semibold text-gray-800 line-clamp-2 flex-1">${recipe.title}</h3>
+                                <div class="flex gap-2 ml-2">
+                                    <button onclick="app.toggleFavorite('${recipe.post_id}')"
+                                            class="favorite-heart ${isFavorite ? 'active' : ''} text-xl">
+                                        ${isFavorite ? '❤️' : '🤍'}
+                                    </button>
+                                    <button onclick="app.addToComparison('${recipe.post_id}')"
+                                            class="text-blue-600 hover:text-blue-800 text-sm">
+                                        📊
+                                    </button>
+                                </div>
                             </div>
 
+                            <!-- Enhanced Recipe Info -->
                             <div class="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
                                 ${recipe.cuisine_type ? `<div>🌍 ${recipe.cuisine_type}</div>` : ''}
                                 ${recipe.difficulty ? `<div>⭐ ${recipe.difficulty}</div>` : ''}
                                 ${recipe.total_time && recipe.total_time !== 'unknown' ? `<div>🕒 ${recipe.total_time}</div>` : ''}
-                                ${recipe.cooking_methods?.length ? `<div>🔥 ${recipe.cooking_methods[0].replace(/_/g, ' ')}</div>` : ''}
+                                ${recipe.servings ? `<div>👥 ${recipe.servings}</div>` : ''}
                             </div>
 
+                            <!-- Nutritional Estimate -->
+                            <div class="nutritional-estimate p-3 rounded-lg mb-4">
+                                <div class="text-xs text-gray-600 mb-1">Estimated Nutrition</div>
+                                <div class="flex justify-between text-sm">
+                                    <span>~${nutritionEstimate.calories} cal</span>
+                                    <span>${nutritionEstimate.protein}g protein</span>
+                                    <span>${nutritionEstimate.healthScore}/10 🌱</span>
+                                </div>
+                            </div>
+
+                            <!-- Tags -->
                             <div class="space-y-2 mb-4">
-                                ${this.renderTagSection(recipe.proteins, 'tag-protein', 'proteins')}
-                                ${this.renderTagSection(recipe.vegetables?.slice(0, 4), 'tag-vegetable', 'vegetables', recipe.vegetables?.length)}
-                                ${this.renderTagSection(recipe.occasion?.slice(0, 3), 'tag-occasion', 'occasions')}
+                                ${this.renderTagSection(recipe.proteins, 'tag-protein')}
+                                ${this.renderTagSection(recipe.vegetables?.slice(0, 4), 'tag-vegetable', recipe.vegetables?.length)}
+                                ${this.renderTagSection(recipe.dietary_tags?.slice(0, 3), 'tag-dietary')}
                             </div>
 
+                            <!-- Enhanced Footer -->
                             <div class="card-footer">
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 mb-2">
                                     <button onclick="app.openRecipe('${recipe.post_id}')"
                                             class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                                         View Recipe
@@ -449,6 +822,17 @@
                                     <button onclick="app.openInstagramPost('${recipe.post_id}')"
                                             class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all">
                                         📸
+                                    </button>
+                                </div>
+
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <button onclick="app.addIngredientsToShopping('${recipe.post_id}')"
+                                            class="hover:text-green-600">
+                                        🛒 Add to Shopping
+                                    </button>
+                                    <button onclick="app.shareRecipe('${recipe.post_id}')"
+                                            class="hover:text-blue-600">
+                                        📤 Share
                                     </button>
                                 </div>
                             </div>
@@ -467,53 +851,215 @@
                                  onerror="this.parentElement.innerHTML='<div class=\\'recipe-image-placeholder h-48 text-white text-2xl\\'>🍽️</div>'">
                         </div>
                     `;
-                } else {
-                    return '<div class="recipe-image-placeholder h-48 text-white text-2xl">🍽️</div>';
                 }
+                return '<div class="recipe-image-placeholder h-48 text-white text-2xl">🍽️</div>';
             }
 
-            renderTagSection(items, tagClass, label, totalCount) {
-                if (!items || items.length === 0) return '';
-
+            renderTagSection(items, tagClass, totalCount) {
+                if (!items?.length) return '';
                 let html = items.map(item => `<span class="tag ${tagClass}">${item}</span>`).join('');
-
                 if (totalCount && totalCount > items.length) {
                     html += `<span class="tag ${tagClass}">+${totalCount - items.length}</span>`;
                 }
-
                 return html;
             }
 
-            // Statistics
+            estimateNutrition(recipe) {
+                // Simple heuristic-based nutrition estimation
+                let calories = 200; // base
+                let protein = 10;   // base
+                let healthScore = 5; // base
+
+                // Protein sources
+                if (recipe.proteins?.includes('chicken')) { calories += 150; protein += 25; }
+                if (recipe.proteins?.includes('fish')) { calories += 120; protein += 20; healthScore += 2; }
+                if (recipe.proteins?.includes('beef')) { calories += 200; protein += 25; }
+                if (recipe.proteins?.includes('eggs')) { calories += 70; protein += 6; }
+
+                // Vegetables boost health score
+                const vegCount = recipe.vegetables?.length || 0;
+                healthScore += Math.min(vegCount * 0.5, 3);
+                calories += vegCount * 15;
+
+                // Cooking methods
+                if (recipe.cooking_methods?.includes('frying')) { calories += 100; healthScore -= 1; }
+                if (recipe.cooking_methods?.includes('grilling')) { healthScore += 1; }
+                if (recipe.cooking_methods?.includes('steaming')) { healthScore += 2; }
+
+                // Dietary tags
+                if (recipe.dietary_tags?.includes('vegetarian')) healthScore += 1;
+                if (recipe.dietary_tags?.includes('vegan')) healthScore += 2;
+                if (recipe.dietary_tags?.includes('low_carb')) { calories -= 50; healthScore += 1; }
+
+                return {
+                    calories: Math.max(100, Math.round(calories)),
+                    protein: Math.max(5, Math.round(protein)),
+                    healthScore: Math.max(1, Math.min(10, Math.round(healthScore)))
+                };
+            }
+
             updateStats() {
                 document.getElementById('total-recipes').textContent = this.recipes.length;
                 document.getElementById('showing-recipes').textContent = this.filteredRecipes.length;
+                document.getElementById('favorites-count').textContent = this.favorites.size;
 
+                // Enhanced stats
                 const allIngredients = new Set();
-                this.recipes.forEach(recipe => {
-                    if (recipe.vegetables) recipe.vegetables.forEach(v => allIngredients.add(v));
-                    if (recipe.ingredients) recipe.ingredients.forEach(i => allIngredients.add(i));
-                });
-                document.getElementById('unique-ingredients').textContent = allIngredients.size;
+                let easyCount = 0;
+                let vegetarianCount = 0;
 
-                // Calculate average cook time
+                this.recipes.forEach(recipe => {
+                    recipe.vegetables?.forEach(v => allIngredients.add(v));
+                    recipe.ingredients?.forEach(i => allIngredients.add(i));
+
+                    if (recipe.difficulty === 'easy') easyCount++;
+                    if (recipe.dietary_tags?.includes('vegetarian')) vegetarianCount++;
+                });
+
+                document.getElementById('unique-ingredients').textContent = allIngredients.size;
+                document.getElementById('easy-recipes').textContent = easyCount;
+                document.getElementById('vegetarian-count').textContent = vegetarianCount;
+
+                // Average cook time
                 const validTimes = this.recipes
-                    .map(r => r.cook_time)
-                    .filter(time => time && time !== 'unknown' && time.includes('minute'))
-                    .map(time => parseInt(time));
+                    .map(r => this.extractTimeInMinutes(r.cook_time))
+                    .filter(time => time > 0);
 
                 const avgTime = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : 0;
                 document.getElementById('avg-cook-time').textContent = avgTime ? `${avgTime}min` : '-';
             }
 
-            // Navigation
+            // Advanced Features Implementation
+            toggleFavorite(postId) {
+                if (this.favorites.has(postId)) {
+                    this.favorites.delete(postId);
+                } else {
+                    this.favorites.add(postId);
+                }
+
+                localStorage.setItem('recipe-favorites', JSON.stringify([...this.favorites]));
+                this.updateStats();
+                this.renderRecipes();
+            }
+
+            addToComparison(postId) {
+                const recipe = this.recipes.find(r => r.post_id == postId);
+                if (!recipe || this.comparisonRecipes.find(r => r.post_id == postId)) return;
+
+                this.comparisonRecipes.push(recipe);
+                this.updateComparisonPanel();
+
+                if (this.comparisonRecipes.length === 1) {
+                    document.getElementById('comparison-panel').classList.add('active');
+                }
+            }
+
+            updateComparisonPanel() {
+                const content = document.getElementById('comparison-content');
+
+                if (this.comparisonRecipes.length === 0) {
+                    content.innerHTML = '<p class="text-gray-600 text-center py-8">Select recipes to compare</p>';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <div class="space-y-4">
+                        ${this.comparisonRecipes.map(recipe => `
+                            <div class="border rounded-lg p-3">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-sm">${recipe.title}</h4>
+                                    <button onclick="app.removeFromComparison('${recipe.post_id}')" class="text-red-500 hover:text-red-700">×</button>
+                                </div>
+                                <div class="text-xs text-gray-600 space-y-1">
+                                    <div>⏱️ ${recipe.total_time || 'Unknown'}</div>
+                                    <div>👥 ${recipe.servings || 'Unknown'}</div>
+                                    <div>⭐ ${recipe.difficulty || 'Unknown'}</div>
+                                    <div>🧄 ${recipe.ingredients?.length || 0} ingredients</div>
+                                </div>
+                            </div>
+                        `).join('')}
+
+                        ${this.comparisonRecipes.length >= 2 ? `
+                            <button onclick="app.generateComparisonReport()"
+                                    class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm">
+                                📊 Generate Report
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            removeFromComparison(postId) {
+                this.comparisonRecipes = this.comparisonRecipes.filter(r => r.post_id != postId);
+                this.updateComparisonPanel();
+
+                if (this.comparisonRecipes.length === 0) {
+                    document.getElementById('comparison-panel').classList.remove('active');
+                }
+            }
+
+            addIngredientsToShopping(postId) {
+                const recipe = this.recipes.find(r => r.post_id == postId);
+                if (!recipe?.ingredients) return;
+
+                recipe.ingredients.forEach(ingredient => this.shoppingList.add(ingredient));
+                localStorage.setItem('shopping-list', JSON.stringify([...this.shoppingList]));
+
+                // Show feedback
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                toast.textContent = `Added ${recipe.ingredients.length} ingredients to shopping list`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+
+            // Utility functions for buttons
+            clearFilters() {
+                this.activeFilters.clear();
+                document.querySelectorAll('.filter-active').forEach(btn => btn.classList.remove('filter-active'));
+                document.getElementById('search-input').value = '';
+                document.getElementById('min-time').value = '';
+                document.getElementById('max-time').value = '';
+                document.getElementById('servings-filter').value = '';
+                this.applyFilters();
+                this.updateActiveFiltersDisplay();
+            }
+
+            updateActiveFiltersDisplay() {
+                const container = document.getElementById('active-filters');
+                const tagsContainer = document.getElementById('active-filter-tags');
+
+                if (this.activeFilters.size === 0) {
+                    container.classList.add('hidden');
+                    return;
+                }
+
+                container.classList.remove('hidden');
+                tagsContainer.innerHTML = Array.from(this.activeFilters)
+                    .map(filterKey => {
+                        const [type, value] = filterKey.split(':');
+                        return `<span class="tag tag-difficulty cursor-pointer" onclick="app.removeFilter('${filterKey}')">${value.replace(/_/g, ' ')} ✕</span>`;
+                    }).join('');
+            }
+
+            removeFilter(filterKey) {
+                this.activeFilters.delete(filterKey);
+                this.applyFilters();
+                this.updateActiveFiltersDisplay();
+
+                const [type, value] = filterKey.split(':');
+                const button = Array.from(document.querySelectorAll('.filter-btn'))
+                    .find(btn => btn.textContent.includes(value.replace(/_/g, ' ')));
+                if (button) button.classList.remove('filter-active');
+            }
+
             openRecipe(postId) {
                 window.location.href = `recipe.html?id=${postId}`;
             }
 
             openInstagramPost(postId) {
                 const recipe = this.recipes.find(r => r.post_id == postId);
-                if (recipe && recipe.code) {
+                if (recipe?.code) {
                     window.open(`https://instagram.com/p/${recipe.code}`, '_blank');
                 } else {
                     alert('Instagram post is not available for this recipe');
@@ -530,10 +1076,74 @@
             }
         }
 
-        // Initialize app when DOM is loaded
+        // Global functions for onclick handlers
+        function toggleAdvancedFilters() {
+            document.getElementById('advanced-filters').classList.toggle('hidden');
+        }
+
+        function toggleFavorites() {
+            // Implementation for favorites view
+            app.activeFilters.clear();
+            app.filteredRecipes = app.recipes.filter(r => app.favorites.has(r.post_id));
+            app.renderRecipes();
+            app.updateStats();
+        }
+
+        function randomRecipe() {
+            const randomIndex = Math.floor(Math.random() * app.recipes.length);
+            const randomRecipe = app.recipes[randomIndex];
+            app.openRecipe(randomRecipe.post_id);
+        }
+
+        function toggleVoiceSearch() {
+            if (app.voiceRecognition) {
+                app.voiceRecognition.start();
+            } else {
+                alert('Voice search not supported in your browser');
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            app.applyFilters();
+        }
+
+        function closeComparison() {
+            document.getElementById('comparison-panel').classList.remove('active');
+        }
+
+        function showShoppingList() {
+            document.getElementById('shopping-modal').classList.remove('hidden');
+        }
+
+        function toggleShoppingList() {
+            document.getElementById('shopping-modal').classList.toggle('hidden');
+        }
+
+        function exportData() {
+            const data = {
+                recipes: app.filteredRecipes,
+                favorites: [...app.favorites],
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `foodiegram-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+
+        function applySorting() {
+            app.applySorting();
+            app.renderRecipes();
+        }
+
+        // Initialize the application
         let app;
         document.addEventListener('DOMContentLoaded', () => {
-            app = new RecipeBrowser();
+            app = new AdvancedRecipeBrowser();
         });
     </script>
 </body>

@@ -16,3 +16,4 @@ posts = [cache.get_post(post_id) for post_id in collection.post_pks[:4]]
 extractor = RecipeExtractor(api_key=environment.OPENAI_API_KEY, model="gpt-4.1")
 recipes = extractor.parse_results(posts)
 extractor.save_analysis(recipes)
+batch_id = "batch_68ab3084fd8c8190a8d2c03b8f5f0a60"

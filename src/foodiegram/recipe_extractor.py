@@ -71,6 +71,7 @@ class RecipeExtractor:
             endpoint="/v1/responses",
             completion_window="24h",
         )
+        tasks_path.rename(Path(f"data/{batch.id}_tasks.jsonl"))
         return batch.id
 
     def wait_for_batch(self, batch_id: str) -> Batch:
@@ -82,17 +83,30 @@ class RecipeExtractor:
             batch = self._client.batches.retrieve(batch_id)
             elapsed = time.time() - start_time
 
+            if batch.expires_at:
+                expires_at = time.strftime(
+                    "%Y-%m-%d %H:%M:%S",
+                    time.localtime(int(batch.expires_at)),
+                )
+                logger.info(
+                    "Batch expires at: %s (%s)",
+                    batch.expires_at,
+                    expires_at,
+                )
+
             # Show progress if available
             if hasattr(batch, "request_counts") and batch.request_counts:
                 completed = getattr(batch.request_counts, "completed", 0)
+                failed = getattr(batch.request_counts, "failed", 0)
                 total = getattr(batch.request_counts, "total", 0)
                 if total > 0:
                     progress = (completed / total) * 100
                     logger.info(
-                        "Progress: %d/%d (%.1f%%) - %.0fs elapsed",
+                        "Progress: %d/%d (%.1f%%) - %d failed - %.0fs elapsed",
                         completed,
                         total,
                         progress,
+                        failed,
                         elapsed,
                     )
 
@@ -104,8 +118,8 @@ class RecipeExtractor:
 
     def download_results(self, batch: Batch) -> None:
         """Download batch results and return file paths."""
-        results_path = Path("data/results.jsonl")
-        errors_path = Path("data/errors.jsonl")
+        results_path = Path(f"data/{batch.id}_results.jsonl")
+        errors_path = Path(f"data/{batch.id}_errors.jsonl")
 
         if batch.error_file_id:
             content = self._client.files.content(batch.error_file_id).text
@@ -117,9 +131,9 @@ class RecipeExtractor:
             results_path.write_text(content, encoding="utf-8")
             logger.info("Downloaded results to %s", results_path)
 
-    def parse_results(self, posts: list[Media]) -> list[Recipe]:
+    def parse_results(self, posts: list[Media], batch_id: str) -> list[Recipe]:
         """Parse batch results into Recipe objects with comprehensive data."""
-        results_path = Path("data/results.jsonl")
+        results_path = Path(f"data/{batch_id}_results.jsonl")
         if not results_path.exists():
             logger.warning("Results file not found: %s", results_path)
             return []
@@ -156,7 +170,7 @@ class RecipeExtractor:
                     post_id=post.id,
                     code=post.code,
                     caption=post.caption_text,
-                    thumbnail_url=post.thumbnail_url,
+                    thumbnail_url=str(post.thumbnail_url),
                     **recipe_data,
                 )
                 recipes.append(recipe)
@@ -271,3 +285,27 @@ def extract_recipes_comprehensively(
 
     logger.info("✅ Comprehensive extraction complete: %d recipes", len(recipes))
     return recipes
+
+
+if __name__ == "__main__":
+    from foodiegram import env
+    from foodiegram.cache_manager import CacheManager
+    from foodiegram.instageram_extractor import load_or_fetch_collection
+
+    environment = env.Env.get_env()
+
+    cache = CacheManager()
+    collection = load_or_fetch_collection(
+        environment,
+        collection_id=environment.INSTAGRAM_COLLECTION_ID,
+        limit=4,
+    )
+    posts = [cache.get_post(post_id) for post_id in collection.post_pks[:5]]
+
+    extractor = RecipeExtractor(api_key=environment.OPENAI_API_KEY, model="gpt-4.1")
+    # batch_id = "batch_68ab3084fd8c8190a8d2c03b8f5f0a60"
+    # batch = extractor.wait_for_batch(batch_id)
+
+    batch_id = "batch_68ab3084fd8c8190a8d2c03b8f5f0a60"
+    recipes = extractor.parse_results(posts)
+    extractor.save_analysis(recipes)

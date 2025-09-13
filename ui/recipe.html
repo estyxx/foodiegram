@@ -313,10 +313,12 @@
 
             async loadRecipes() {
                 try {
-                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    const response = await fetch('../data/extracted_recipes.json');
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-                    this.allRecipes = await response.json();
+                    let recipes = await response.json();
+                    recipes = recipes.recipes;
+                    this.allRecipes = recipes; // Adjust if JSON structure differs
                     console.log(`✅ Loaded ${this.allRecipes.length} recipes for lookup`);
                 } catch (error) {
                     console.error('⚠️ Error loading recipes:', error);

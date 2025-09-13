@@ -66,11 +66,11 @@ if __name__ == "__main__":
     extract_recipes_batch_api(
         environment=environment,
         collection_id=environment.INSTAGRAM_COLLECTION_ID,
-        limit=4,
+        limit=5,
     )
 
-    extract_recipe_realtime(
-        environment=environment,
-        collection_id=environment.INSTAGRAM_COLLECTION_ID,
-        limit=4,
-    )
+    # extract_recipe_realtime(
+    #     environment=environment,
+    #     collection_id=environment.INSTAGRAM_COLLECTION_ID,
+    #     limit=4,
+    # )
