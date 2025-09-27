@@ -233,7 +233,13 @@
     <div class="container mx-auto px-4 py-8">
         <!-- Enhanced Header with Quick Actions -->
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">🍳 Foodiegram</h1>
+            <div class="flex justify-between items-center mb-4">
+                <div></div>
+                <h1 class="text-4xl font-bold text-gray-800">🍳 Foodiegram</h1>
+                <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm">
+                    🔓 Logout
+                </button>
+            </div>
             <p class="text-gray-600 mb-4">Your Instagram recipe collection, organized and searchable</p>
 
             <!-- Quick Action Buttons -->
@@ -465,6 +471,10 @@
                 this.init();
             }
 
+            getStoredPassword() {
+                return localStorage.getItem('cookstagram_password');
+            }
+
             async init() {
                 try {
                     await this.loadRecipes();
@@ -485,7 +495,14 @@
                     // Try to load from API first, fallback to local file
                     let response;
                     try {
-                        response = await fetch('https://cookstagram-data.vercel.app/api/recipes');
+                        // Get stored password for API authentication
+                        const storedPassword = this.getStoredPassword();
+                        response = await fetch('https://cookstagram-data.vercel.app/api/recipes', {
+                            headers: {
+                                'Authorization': `Bearer ${storedPassword}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
                     } catch (apiError) {
                         console.log('API not available, trying local file...');
                         response = await fetch('../data/extracted_recipes_realtime.json');
@@ -1148,10 +1165,36 @@
             app.renderRecipes();
         }
 
+        function logout() {
+            // Clear authentication data
+            localStorage.removeItem('cookstagram_authenticated');
+            localStorage.removeItem('cookstagram_auth_expiry');
+            localStorage.removeItem('cookstagram_password');
+
+            // Redirect to login page
+            window.location.href = 'login.html';
+        }
+
+        // Authentication check
+        function checkAuthentication() {
+            const isAuthenticated = localStorage.getItem('cookstagram_authenticated');
+            const authExpiry = localStorage.getItem('cookstagram_auth_expiry');
+
+            if (!isAuthenticated || !authExpiry || new Date().getTime() >= parseInt(authExpiry)) {
+                // Not authenticated or session expired, redirect to login
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
         // Initialize the application
         let app;
         document.addEventListener('DOMContentLoaded', () => {
-            app = new AdvancedRecipeBrowser();
+            // Check authentication first
+            if (checkAuthentication()) {
+                app = new AdvancedRecipeBrowser();
+            }
         });
     </script>
 </body>

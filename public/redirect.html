@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .container {
+            text-align: center;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h2>Redirecting to Cookstagram...</h2>
+        <p>Please wait while we redirect you to the login page.</p>
+    </div>
+
+    <script>
+        // Check if user is already authenticated
+        const isAuthenticated = localStorage.getItem('cookstagram_authenticated');
+        const authExpiry = localStorage.getItem('cookstagram_auth_expiry');
+
+        if (isAuthenticated && authExpiry && new Date().getTime() < parseInt(authExpiry)) {
+            // User is authenticated, redirect to main app
+            window.location.href = 'index.html';
+        } else {
+            // User is not authenticated, redirect to login
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
