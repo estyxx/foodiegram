@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>🍳 Foodiegram - Mobile</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="Foodiegram">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Foodiegram">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="msapplication-TileColor" content="#2563eb">
+
+    <!-- Icons -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    spacing: {
+                        'safe-top': 'env(safe-area-inset-top)',
+                        'safe-bottom': 'env(safe-area-inset-bottom)',
+                        'safe-left': 'env(safe-area-inset-left)',
+                        'safe-right': 'env(safe-area-inset-right)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Enhanced Mobile Styles */
+        :root {
+            --safe-area-inset-top: env(safe-area-inset-top);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom);
+            --safe-area-inset-left: env(safe-area-inset-left);
+            --safe-area-inset-right: env(safe-area-inset-right);
+        }
+
+        /* Prevent zoom on input focus */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+
+        /* Touch-friendly interactions */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Swipe gestures */
+        .swipeable {
+            touch-action: pan-x;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .swipeable.swiping {
+            transition: none;
+        }
+
+        .swipe-actions {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            z-index: -1;
+        }
+
+        .swipe-action {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            min-width: 80px;
+            flex: 1;
+        }
+
+        .swipe-favorite { background: linear-gradient(45deg, #ef4444, #f87171); }
+        .swipe-share { background: linear-gradient(45deg, #3b82f6, #60a5fa); }
+        .swipe-shopping { background: linear-gradient(45deg, #10b981, #34d399); }
+
+        /* Bottom sheet */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px 16px 0 0;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+            padding-bottom: env(safe-area-inset-bottom);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+
+        .bottom-sheet-handle {
+            width: 40px;
+            height: 4px;
+            background: #d1d5db;
+            border-radius: 2px;
+            margin: 12px auto;
+        }
+
+        /* Floating action button */
+        .fab {
+            position: fixed;
+            bottom: calc(20px + env(safe-area-inset-bottom));
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #2563eb, #3b82f6);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 40;
+            transition: all 0.3s ease;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Pull to refresh */
+        .pull-to-refresh {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pull-indicator {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .pull-indicator.visible {
+            top: 20px;
+        }
+
+        /* Recipe card animations */
+        @keyframes cardSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .recipe-card {
+            animation: cardSlideIn 0.3s ease forwards;
+            touch-action: pan-y;
+        }
+
+        /* Haptic feedback simulation */
+        .haptic-light:active {
+            animation: hapticPulse 0.1s ease;
+        }
+
+        @keyframes hapticPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.98); }
+            100% { transform: scale(1); }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1f2937;
+                color: white;
+            }
+
+            .recipe-card {
+                background: #374151;
+            }
+
+            .bottom-sheet {
+                background: #1f2937;
+                border-top: 1px solid #4b5563;
+            }
+        }
+
+        /* Responsive text sizes */
+        .text-responsive-sm {
+            font-size: clamp(0.875rem, 2.5vw, 1rem);
+        }
+
+        .text-responsive-base {
+            font-size: clamp(1rem, 3vw, 1.125rem);
+        }
+
+        .text-responsive-lg {
+            font-size: clamp(1.125rem, 3.5vw, 1.25rem);
+        }
+
+        /* Safe area handling */
+        .safe-area-top {
+            padding-top: env(safe-area-inset-top);
+        }
+
+        .safe-area-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* iOS style back button */
+        .ios-back {
+            position: relative;
+        }
+
+        .ios-back::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-right: 10px solid currentColor;
+        }
+
+        /* Custom scrollbar for mobile */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen overflow-x-hidden">
+    <!-- Status bar background for iOS -->
+    <div class="safe-area-top bg-blue-600"></div>
+
+    <!-- Header with safe area -->
+    <div class="bg-white shadow-sm sticky top-0 z-30">
+        <div class="px-4 py-3 safe-area-top">
+            <div class="flex items-center justify-between">
+                <h1 class="text-responsive-lg font-bold text-gray-800">🍳 Foodiegram</h1>
+                <div class="flex gap-2">
+                    <button id="search-btn" class="touch-target text-gray-600 hover:text-blue-600">
+                        🔍
+                    </button>
+                    <button id="menu-btn" class="touch-target text-gray-600 hover:text-blue-600">
+                        ☰
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pull to refresh indicator -->
+    <div id="pull-indicator" class="pull-indicator">
+        <div class="animate-spin">⟳</div>
+    </div>
+
+    <!-- Quick stats bar -->
+    <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2">
+        <div class="flex justify-between text-center">
+            <div>
+                <div class="text-responsive-sm font-bold" id="total-recipes-mobile">0</div>
+                <div class="text-xs opacity-80">Recipes</div>
+            </div>
+            <div>
+                <div class="text-responsive-sm font-bold" id="favorites-mobile">0</div>
+                <div class="text-xs opacity-80">Favorites</div>
+            </div>
+            <div>
+                <div class="text-responsive-sm font-bold" id="cuisines-mobile">0</div>
+                <div class="text-xs opacity-80">Cuisines</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search overlay -->
+    <div id="search-overlay" class="fixed inset-0 bg-white z-40 transform translate-y-full transition-transform duration-300">
+        <div class="safe-area-top p-4">
+            <div class="flex items-center gap-3 mb-4">
+                <button id="search-close" class="touch-target text-gray-600 ios-back">
+                    Back
+                </button>
+            </div>
+
+            <div class="relative mb-6">
+                <input type="text" id="mobile-search"
+                       placeholder="Search recipes..."
+                       class="w-full px-4 py-3 text-responsive-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <button id="voice-search-mobile" class="text-gray-400 hover:text-blue-500">
+                        🎤
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick filters for mobile -->
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-semibold text-gray-700 mb-2">Quick Filters</h3>
+                    <div id="mobile-quick-filters" class="flex flex-wrap gap-2">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Recent searches -->
+                <div id="recent-searches" class="hidden">
+                    <h3 class="font-semibold text-gray-700 mb-2">Recent Searches</h3>
+                    <div id="recent-searches-list" class="space-y-2">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe grid with pull-to-refresh -->
+    <div id="recipe-container" class="pull-to-refresh px-4 py-4">
+        <div id="recipe-grid-mobile" class="space-y-4">
+            <!-- Recipe cards will be populated here -->
+        </div>
+
+        <!-- Load more button -->
+        <div class="text-center py-8">
+            <button id="load-more" class="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition-colors">
+                Load More Recipes
+            </button>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button id="fab-main" class="fab haptic-light">
+        ✨
+    </button>
+
+    <!-- Bottom Sheet Menu -->
+    <div id="bottom-sheet" class="bottom-sheet">
+        <div class="bottom-sheet-handle"></div>
+
+        <div class="px-4 pb-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button onclick="mobileApp.showFavorites()" class="bg-red-50 hover:bg-red-100 text-red-700 p-4 rounded-xl text-center transition-colors">
+                    <div class="text-2xl mb-1">❤️</div>
+                    <div class="text-sm font-medium">My Favorites</div>
+                </button>
+
+                <button onclick="mobileApp.showShoppingList()" class="bg-green-50 hover:bg-green-100 text-green-700 p-4 rounded-xl text-center transition-colors">
+                    <div class="text-2xl mb-1">🛒</div>
+                    <div class="text-sm font-medium">Shopping List</div>
+                </button>
+
+                <button onclick="mobileApp.randomRecipe()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 p-4 rounded-xl text-center transition-colors">
+                    <div class="text-2xl mb-1">🎲</div>
+                    <div class="text-sm font-medium">Random Recipe</div>
+                </button>
+
+                <button onclick="mobileApp.showMealPlanner()" class="bg-orange-50 hover:bg-orange-100 text-orange-700 p-4 rounded-xl text-center transition-colors">
+                    <div class="text-2xl mb-1">📅</div>
+                    <div class="text-sm font-medium">Meal Planner</div>
+                </button>
+            </div>
+
+            <!-- Settings -->
+            <div class="border-t pt-4">
+                <h4 class="font-medium text-gray-700 mb-3">Settings</h4>
+                <div class="space-y-3">
+                    <label class="flex items-center justify-between">
+                        <span class="text-gray-700">Dark Mode</span>
+                        <input type="checkbox" id="dark-mode-toggle" class="toggle-switch">
+                    </label>
+
+                    <label class="flex items-center justify-between">
+                        <span class="text-gray-700">Notifications</span>
+                        <input type="checkbox" id="notifications-toggle" class="toggle-switch">
+                    </label>
+
+                    <label class="flex items-center justify-between">
+                        <span class="text-gray-700">Haptic Feedback</span>
+                        <input type="checkbox" id="haptic-toggle" class="toggle-switch" checked>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading spinner -->
+    <div id="loading-spinner" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 text-center">
+            <div class="animate-spin text-4xl mb-2">🍳</div>
+            <div class="text-gray-700">Loading recipes...</div>
+        </div>
+    </div>
+
+    <!-- Offline banner -->
+    <div id="offline-banner" class="hidden fixed bottom-0 left-0 right-0 bg-yellow-500 text-white px-4 py-2 text-center z-50">
+        📱 You're offline. Some features may be limited.
+    </div>
+
+    <!-- Mobile-optimized JavaScript -->
+    <script>
+        class MobileRecipeApp {
+            constructor() {
+                this.recipes = [];
+                this.filteredRecipes = [];
+                this.displayedCount = 0;
+                this.batchSize = 10;
+                this.favorites = new Set(JSON.parse(localStorage.getItem('recipe-favorites') || '[]'));
+                this.recentSearches = JSON.parse(localStorage.getItem('recent-searches') || '[]');
+                this.currentPage = 0;
+                this.isLoading = false;
+                this.touchStartY = 0;
+                this.pullDistance = 0;
+                this.isRefreshing = false;
+
+                this.init();
+            }
+
+            async init() {
+                await this.loadRecipes();
+                this.setupEventListeners();
+                this.setupPWA();
+                this.renderInitialRecipes();
+                this.updateStats();
+                this.setupSwipeGestures();
+                this.setupPullToRefresh();
+
+                console.log('📱 Mobile app initialized');
+            }
+
+            async loadRecipes() {
+                try {
+                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    this.recipes = await response.json();
+                    this.filteredRecipes = [...this.recipes];
+
+                    console.log(`✅ Loaded ${this.recipes.length} recipes`);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipes:', error);
+                    this.showOfflineBanner();
+                }
+            }
+
+            setupEventListeners() {
+                // Search functionality
+                document.getElementById('search-btn').addEventListener('click', () => this.showSearchOverlay());
+                document.getElementById('search-close').addEventListener('click', () => this.hideSearchOverlay());
+                document.getElementById('mobile-search').addEventListener('input', (e) => this.handleSearch(e.target.value));
+
+                // Menu functionality
+                document.getElementById('menu-btn').addEventListener('click', () => this.showBottomSheet());
+                document.getElementById('fab-main').addEventListener('click', () => this.showBottomSheet());
+
+                // Bottom sheet
+                document.getElementById('bottom-sheet').addEventListener('click', (e) => {
+                    if (e.target.id === 'bottom-sheet') this.hideBottomSheet();
+                });
+
+                // Load more
+                document.getElementById('load-more').addEventListener('click', () => this.loadMoreRecipes());
+
+                // Settings toggles
+                document.getElementById('dark-mode-toggle').addEventListener('change', (e) => this.toggleDarkMode(e.target.checked));
+                document.getElementById('notifications-toggle').addEventListener('change', (e) => this.toggleNotifications(e.target.checked));
+                document.getElementById('haptic-toggle').addEventListener('change', (e) => this.toggleHapticFeedback(e.target.checked));
+
+                // Keyboard events
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.hideSearchOverlay();
+                        this.hideBottomSheet();
+                    }
+                });
+
+                // Online/offline events
+                window.addEventListener('online', () => this.hideOfflineBanner());
+                window.addEventListener('offline', () => this.showOfflineBanner());
+            }
+
+            setupPWA() {
+                // Service worker registration
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(registration => {
+                            console.log('✅ Service Worker registered:', registration);
+                        })
+                        .catch(error => {
+                            console.error('❌ Service Worker registration failed:', error);
+                        });
+                }
+
+                // Install prompt
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    this.deferredPrompt = e;
+                    this.showInstallPrompt();
+                });
+            }
+
+            setupSwipeGestures() {
+                let startX, startY, currentX, currentY;
+
+                document.addEventListener('touchstart', (e) => {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                });
+
+                document.addEventListener('touchmove', (e) => {
+                    if (!startX || !startY) return;
+
+                    currentX = e.touches[0].clientX;
+                    currentY = e.touches[0].clientY;
+
+                    const diffX = startX - currentX;
+                    const diffY = startY - currentY;
+
+                    // Detect swipe gestures
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        if (Math.abs(diffX) > 30) {
+                            if (diffX > 0) {
+                                // Swipe left - could trigger action
+                            } else {
+                                // Swipe right - could trigger action
+                            }
+                        }
+                    }
+                });
+
+                document.addEventListener('touchend', () => {
+                    startX = null;
+                    startY = null;
+                });
+            }
+
+            setupPullToRefresh() {
+                const container = document.getElementById('recipe-container');
+                const indicator = document.getElementById('pull-indicator');
+
+                let startY = 0;
+                let currentY = 0;
+                let isPulling = false;
+
+                container.addEventListener('touchstart', (e) => {
+                    startY = e.touches[0].clientY;
+                });
+
+                container.addEventListener('touchmove', (e) => {
+                    currentY = e.touches[0].clientY;
+                    const pullDistance = currentY - startY;
+
+                    if (pullDistance > 0 && container.scrollTop === 0) {
+                        e.preventDefault();
+                        isPulling = true;
+
+                        const progress = Math.min(pullDistance / 80, 1);
+                        indicator.style.transform = `translateX(-50%) scale(${progress})`;
+
+                        if (pullDistance > 60) {
+                            indicator.classList.add('visible');
+                        }
+                    }
+                });
+
+                container.addEventListener('touchend', () => {
+                    if (isPulling && currentY - startY > 60) {
+                        this.refreshRecipes();
+                    }
+
+                    isPulling = false;
+                    indicator.classList.remove('visible');
+                    indicator.style.transform = 'translateX(-50%) scale(0)';
+                });
+            }
+
+            async refreshRecipes() {
+                if (this.isRefreshing) return;
+
+                this.isRefreshing = true;
+                this.hapticFeedback('medium');
+
+                try {
+                    await this.loadRecipes();
+                    this.renderInitialRecipes();
+                    this.updateStats();
+
+                    // Show success feedback
+                    this.showToast('Recipes refreshed!');
+                } catch (error) {
+                    this.showToast('Failed to refresh recipes', 'error');
+                } finally {
+                    setTimeout(() => {
+                        this.isRefreshing = false;
+                    }, 1000);
+                }
+            }
+
+            renderInitialRecipes() {
+                this.displayedCount = 0;
+                this.currentPage = 0;
+                document.getElementById('recipe-grid-mobile').innerHTML = '';
+                this.loadMoreRecipes();
+            }
+
+            loadMoreRecipes() {
+                if (this.isLoading) return;
+
+                this.isLoading = true;
+                const startIdx = this.displayedCount;
+                const endIdx = Math.min(startIdx + this.batchSize, this.filteredRecipes.length);
+                const recipesToShow = this.filteredRecipes.slice(startIdx, endIdx);
+
+                const grid = document.getElementById('recipe-grid-mobile');
+
+                recipesToShow.forEach((recipe, index) => {
+                    const card = this.createMobileRecipeCard(recipe, startIdx + index);
+                    grid.appendChild(card);
+                });
+
+                this.displayedCount = endIdx;
+                this.isLoading = false;
+
+                // Hide load more button if all recipes are displayed
+                const loadMoreBtn = document.getElementById('load-more');
+                if (this.displayedCount >= this.filteredRecipes.length) {
+                    loadMoreBtn.style.display = 'none';
+                } else {
+                    loadMoreBtn.style.display = 'block';
+                }
+            }
+
+            createMobileRecipeCard(recipe, index) {
+                const card = document.createElement('div');
+                card.className = 'recipe-card bg-white rounded-xl shadow-sm overflow-hidden swipeable';
+                card.style.animationDelay = `${index * 50}ms`;
+
+                const isFavorite = this.favorites.has(String(recipe.post_pk));
+
+                card.innerHTML = `
+                    <!-- Swipe actions background -->
+                    <div class="swipe-actions">
+                        <div class="swipe-action swipe-favorite">❤️</div>
+                        <div class="swipe-action swipe-share">📤</div>
+                        <div class="swipe-action swipe-shopping">🛒</div>
+                    </div>
+
+                    <!-- Card content -->
+                    <div class="card-main">
+                        <!-- Recipe image -->
+                        ${recipe.thumbnail_url ? `
+                            <div class="relative h-48">
+                                <img src="${recipe.thumbnail_url}"
+                                     alt="${recipe.title}"
+                                     class="w-full h-full object-cover"
+                                     onerror="this.parentElement.innerHTML='<div class=\\'bg-gradient-to-br from-blue-400 to-purple-500 h-48 flex items-center justify-center text-white text-4xl\\'>🍽️</div>'">
+                                <div class="absolute top-3 right-3">
+                                    <button onclick="mobileApp.toggleFavorite('${String(recipe.post_pk)}', this)"
+                                            class="touch-target bg-white bg-opacity-80 rounded-full backdrop-blur-sm">
+                                        ${isFavorite ? '❤️' : '🤍'}
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-gradient-to-br from-blue-400 to-purple-500 h-48 flex items-center justify-center text-white text-4xl">🍽️</div>
+                        `}
+
+                        <!-- Card content -->
+                        <div class="p-4">
+                            <h3 class="text-responsive-base font-semibold text-gray-800 mb-2 line-clamp-2">${recipe.title}</h3>
+
+                            <!-- Quick info -->
+                            <div class="flex flex-wrap gap-2 mb-3 text-sm text-gray-600">
+                                ${recipe.cuisine_type ? `<span class="bg-gray-100 px-2 py-1 rounded">🌍 ${recipe.cuisine_type}</span>` : ''}
+                                ${recipe.difficulty ? `<span class="bg-gray-100 px-2 py-1 rounded">⭐ ${recipe.difficulty}</span>` : ''}
+                                ${recipe.total_time && recipe.total_time !== 'unknown' ? `<span class="bg-gray-100 px-2 py-1 rounded">⏱️ ${recipe.total_time}</span>` : ''}
+                            </div>
+
+                            <!-- Ingredients preview -->
+                            <div class="mb-3">
+                                <div class="text-sm text-gray-600 mb-1">Main ingredients:</div>
+                                <div class="text-sm">
+                                    ${recipe.ingredients?.slice(0, 3).join(', ') || 'No ingredients listed'}
+                                    ${recipe.ingredients?.length > 3 ? ` and ${recipe.ingredients.length - 3} more...` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Action buttons -->
+                            <div class="flex gap-2 pt-3 border-t">
+                                <button onclick="mobileApp.openRecipe('${String(recipe.post_pk)}')"
+                                        class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-responsive-sm font-medium haptic-light">
+                                    View Recipe
+                                </button>
+                                <button onclick="mobileApp.shareRecipe('${String(recipe.post_pk)}')"
+                                        class="touch-target bg-gray-100 text-gray-600 rounded-lg haptic-light">
+                                    📤
+                                </button>
+                                <button onclick="mobileApp.addToShoppingList('${String(recipe.post_pk)}')"
+                                        class="touch-target bg-gray-100 text-gray-600 rounded-lg haptic-light">
+                                    🛒
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                return card;
+            }
+
+            // UI Control Methods
+            showSearchOverlay() {
+                document.getElementById('search-overlay').style.transform = 'translateY(0)';
+                setTimeout(() => {
+                    document.getElementById('mobile-search').focus();
+                }, 300);
+            }
+
+            hideSearchOverlay() {
+                document.getElementById('search-overlay').style.transform = 'translateY(100%)';
+            }
+
+            showBottomSheet() {
+                document.getElementById('bottom-sheet').classList.add('open');
+            }
+
+            hideBottomSheet() {
+                document.getElementById('bottom-sheet').classList.remove('open');
+            }
+
+            showOfflineBanner() {
+                document.getElementById('offline-banner').classList.remove('hidden');
+            }
+
+            hideOfflineBanner() {
+                document.getElementById('offline-banner').classList.add('hidden');
+            }
+
+            showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `fixed top-20 left-4 right-4 p-4 rounded-lg text-white z-50 ${
+                    type === 'error' ? 'bg-red-500' : 'bg-green-500'
+                }`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-20px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2000);
+            }
+
+            // App Features
+            handleSearch(query) {
+                if (!query.trim()) {
+                    this.filteredRecipes = [...this.recipes];
+                } else {
+                    this.filteredRecipes = this.recipes.filter(recipe => {
+                        const searchable = [
+                            recipe.title,
+                            ...(recipe.ingredients || []),
+                            ...(recipe.proteins || []),
+                            ...(recipe.vegetables || [])
+                        ].join(' ').toLowerCase();
+
+                        return searchable.includes(query.toLowerCase());
+                    });
+                }
+
+                this.renderInitialRecipes();
+                this.updateStats();
+
+                // Save to recent searches
+                if (query.trim()) {
+                    this.addToRecentSearches(query.trim());
+                }
+            }
+
+            addToRecentSearches(query) {
+                this.recentSearches = [query, ...this.recentSearches.filter(s => s !== query)].slice(0, 10);
+                localStorage.setItem('recent-searches', JSON.stringify(this.recentSearches));
+            }
+
+            toggleFavorite(postId, button) {
+                this.hapticFeedback('light');
+
+                if (this.favorites.has(String(postId))) {
+                    this.favorites.delete(String(postId));
+                    button.textContent = '🤍';
+                } else {
+                    this.favorites.add(String(postId));
+                    button.textContent = '❤️';
+                }
+
+                localStorage.setItem('recipe-favorites', JSON.stringify([...this.favorites]));
+                this.updateStats();
+            }
+
+            openRecipe(postId) {
+                window.location.href = `recipe.html?id=${String(postId)}`;
+            }
+
+            shareRecipe(postId) {
+                const recipe = this.recipes.find(r => String(r.post_pk) === String(postId));
+                if (!recipe) return;
+
+                if (navigator.share) {
+                    navigator.share({
+                        title: recipe.title,
+                        text: `Check out this recipe: ${recipe.title}`,
+                        url: window.location.href + `recipe.html?id=${postId}`
+                    });
+                } else {
+                    // Fallback
+                    navigator.clipboard.writeText(`${recipe.title} - ${window.location.href}recipe.html?id=${postId}`);
+                    this.showToast('Recipe link copied to clipboard!');
+                }
+            }
+
+            addToShoppingList(postId) {
+                const recipe = this.recipes.find(r => String(r.post_pk) === String(postId));
+                if (!recipe?.ingredients) return;
+
+                const shoppingList = new Set(JSON.parse(localStorage.getItem('shopping-list') || '[]'));
+                recipe.ingredients.forEach(ingredient => shoppingList.add(ingredient));
+
+                localStorage.setItem('shopping-list', JSON.stringify([...shoppingList]));
+                this.showToast(`Added ${recipe.ingredients.length} ingredients to shopping list`);
+                this.hapticFeedback('medium');
+            }
+
+            updateStats() {
+                document.getElementById('total-recipes-mobile').textContent = this.filteredRecipes.length;
+                document.getElementById('favorites-mobile').textContent = this.favorites.size;
+
+                const cuisines = new Set(this.recipes.map(r => r.cuisine_type).filter(c => c && c !== 'unknown'));
+                document.getElementById('cuisines-mobile').textContent = cuisines.size;
+            }
+
+            // Settings
+            toggleDarkMode(enabled) {
+                document.body.classList.toggle('dark', enabled);
+                localStorage.setItem('dark-mode', enabled);
+            }
+
+            toggleNotifications(enabled) {
+                if (enabled && 'Notification' in window) {
+                    Notification.requestPermission();
+                }
+                localStorage.setItem('notifications-enabled', enabled);
+            }
+
+            toggleHapticFeedback(enabled) {
+                localStorage.setItem('haptic-enabled', enabled);
+            }
+
+            hapticFeedback(intensity = 'light') {
+                if (!localStorage.getItem('haptic-enabled')) return;
+
+                if (navigator.vibrate) {
+                    const patterns = {
+                        light: [10],
+                        medium: [50],
+                        heavy: [100]
+                    };
+                    navigator.vibrate(patterns[intensity] || patterns.light);
+                }
+            }
+
+            // Quick actions
+            showFavorites() {
+                this.filteredRecipes = this.recipes.filter(r => this.favorites.has(String(r.post_pk)));
+                this.renderInitialRecipes();
+                this.hideBottomSheet();
+            }
+
+            showShoppingList() {
+                // Implement shopping list view
+                this.hideBottomSheet();
+                this.showToast('Shopping list feature coming soon!');
+            }
+
+            randomRecipe() {
+                const randomIndex = Math.floor(Math.random() * this.recipes.length);
+                const randomRecipe = this.recipes[randomIndex];
+                this.openRecipe(randomRecipe.post_pk);
+            }
+
+            showMealPlanner() {
+                this.hideBottomSheet();
+                this.showToast('Meal planner feature coming soon!');
+            }
+        }
+
+        // Initialize mobile app
+        let mobileApp;
+        document.addEventListener('DOMContentLoaded', () => {
+            mobileApp = new MobileRecipeApp();
+        });
+
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (event) => {
+            const now = new Date().getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+</body>
+</html>

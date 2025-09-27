@@ -38,6 +38,16 @@ editors
 .vscode/
 .idea/
 
-*.json
-cache/*
-data/*
+# Data files (moved to private repo)
+data/
+cache/
+export.json
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel

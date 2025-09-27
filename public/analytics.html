@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Analytics Dashboard - Foodiegram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Dashboard-specific styles */
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-left: 4px solid;
+        }
+
+        .stat-card.primary { border-left-color: #3b82f6; }
+        .stat-card.success { border-left-color: #10b981; }
+        .stat-card.warning { border-left-color: #f59e0b; }
+        .stat-card.danger { border-left-color: #ef4444; }
+
+        .trend-up {
+            color: #10b981;
+        }
+
+        .trend-down {
+            color: #ef4444;
+        }
+
+        .trend-neutral {
+            color: #6b7280;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .insight-card {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+
+        .recommendation-card {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .health-score-ring {
+            stroke-width: 10;
+            fill: none;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .filter-pill {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            transition: all 0.2s ease;
+        }
+
+        .filter-pill.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .data-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.3s ease;
+        }
+
+        .export-btn:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .loading-skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .comparison-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+
+        .comparison-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            transition: width 0.5s ease;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">📊 Recipe Analytics Dashboard</h1>
+                <p class="text-gray-600">Comprehensive insights into your recipe collection and cooking habits</p>
+            </div>
+            <div class="flex gap-3 mt-4 md:mt-0">
+                <select id="time-period" onchange="dashboard.updateTimeFilter(this.value)"
+                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Time</option>
+                    <option value="month">Last Month</option>
+                    <option value="week">Last Week</option>
+                    <option value="today">Today</option>
+                </select>
+                <button onclick="dashboard.exportReport()"
+                        class="export-btn text-white px-4 py-2 rounded-lg">
+                    📤 Export Report
+                </button>
+                <button onclick="dashboard.refreshData()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    🔄 Refresh
+                </button>
+                <button onclick="window.history.back()"
+                        class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    ← Back
+                </button>
+            </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="dashboard-card stat-card primary p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Total Recipes</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-recipes">0</p>
+                    </div>
+                    <div class="text-3xl text-blue-600">🍽️</div>
+                </div>
+                <div class="mt-2 flex items-center">
+                    <span class="trend-up text-sm">↗ +12%</span>
+                    <span class="text-gray-500 text-sm ml-2">vs last month</span>
+                </div>
+            </div>
+
+            <div class="dashboard-card stat-card success p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Collection Health</p>
+                        <p class="text-2xl font-bold text-gray-800"><span id="health-score">0</span>/100</p>
+                    </div>
+                    <div class="text-3xl text-green-600">💚</div>
+                </div>
+                <div class="mt-2 flex items-center">
+                    <span class="trend-up text-sm">↗ +5%</span>
+                    <span class="text-gray-500 text-sm ml-2">improving</span>
+                </div>
+            </div>
+
+            <div class="dashboard-card stat-card warning p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Avg Completeness</p>
+                        <p class="text-2xl font-bold text-gray-800"><span id="completeness-score">0</span>%</p>
+                    </div>
+                    <div class="text-3xl text-yellow-600">📋</div>
+                </div>
+                <div class="mt-2 flex items-center">
+                    <span class="trend-neutral text-sm">→ 0%</span>
+                    <span class="text-gray-500 text-sm ml-2">no change</span>
+                </div>
+            </div>
+
+            <div class="dashboard-card stat-card danger p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Favorites</p>
+                        <p class="text-2xl font-bold text-gray-800" id="favorites-count">0</p>
+                    </div>
+                    <div class="text-3xl text-red-600">❤️</div>
+                </div>
+                <div class="mt-2 flex items-center">
+                    <span class="trend-up text-sm">↗ +3</span>
+                    <span class="text-gray-500 text-sm ml-2">this week</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Cuisine Distribution -->
+            <div class="dashboard-card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Cuisine Distribution</h3>
+                    <button onclick="dashboard.toggleChartType('cuisine')" class="text-sm text-blue-600 hover:underline">
+                        Switch View
+                    </button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="cuisine-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Difficulty Breakdown -->
+            <div class="dashboard-card p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Recipe Difficulty</h3>
+                <div class="chart-container">
+                    <canvas id="difficulty-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Health Score Visualization -->
+            <div class="dashboard-card p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Collection Health Score</h3>
+
+                <div class="flex justify-center mb-4">
+                    <div class="relative">
+                        <svg width="120" height="120">
+                            <circle cx="60" cy="60" r="45" stroke="#e5e7eb" stroke-width="10" fill="none"/>
+                            <circle id="health-ring" cx="60" cy="60" r="45"
+                                    class="health-score-ring" stroke="#10b981" stroke-width="10"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div id="health-display" class="text-2xl font-bold text-gray-800">85</div>
+                                <div class="text-xs text-gray-500">Score</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Completeness</span>
+                        <div class="comparison-bar w-24">
+                            <div class="comparison-fill" style="width: 85%"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Diversity</span>
+                        <div class="comparison-bar w-24">
+                            <div class="comparison-fill" style="width: 70%"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Quality</span>
+                        <div class="comparison-bar w-24">
+                            <div class="comparison-fill" style="width: 90%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Ingredients -->
+            <div class="dashboard-card p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Most Used Ingredients</h3>
+                <div id="ingredients-list" class="space-y-3">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="dashboard-card p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Stats</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Unique Cuisines</span>
+                        <span class="font-semibold" id="unique-cuisines">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Avg Cook Time</span>
+                        <span class="font-semibold" id="avg-cook-time">0 min</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Vegetarian %</span>
+                        <span class="font-semibold" id="vegetarian-percent">0%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">With Images</span>
+                        <span class="font-semibold" id="images-percent">0%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Complete Recipes</span>
+                        <span class="font-semibold" id="complete-recipes">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights and Recommendations -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- AI Insights -->
+            <div class="dashboard-card insight-card p-6">
+                <div class="flex items-center mb-4">
+                    <div class="text-2xl mr-3">💡</div>
+                    <h3 class="text-lg font-semibold text-gray-800">AI Insights</h3>
+                </div>
+
+                <div id="insights-content" class="space-y-3">
+                    <!-- Insights will be generated here -->
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="dashboard-card recommendation-card p-6">
+                <div class="flex items-center mb-4">
+                    <div class="text-2xl mr-3">🎯</div>
+                    <h3 class="text-lg font-semibold text-gray-800">Recommendations</h3>
+                </div>
+
+                <div id="recommendations-content" class="space-y-3">
+                    <!-- Recommendations will be generated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Analysis Table -->
+        <div class="dashboard-card p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Recipe Analysis Details</h3>
+                <div class="flex gap-2">
+                    <button onclick="dashboard.filterTable('all')" class="filter-pill px-3 py-1 rounded-full text-sm active">All</button>
+                    <button onclick="dashboard.filterTable('complete')" class="filter-pill px-3 py-1 rounded-full text-sm">Complete</button>
+                    <button onclick="dashboard.filterTable('incomplete')" class="filter-pill px-3 py-1 rounded-full text-sm">Needs Work</button>
+                    <button onclick="dashboard.filterTable('favorites')" class="filter-pill px-3 py-1 rounded-full text-sm">Favorites</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full data-table">
+                    <thead>
+                        <tr>
+                            <th>Recipe</th>
+                            <th>Cuisine</th>
+                            <th>Difficulty</th>
+                            <th>Ingredients</th>
+                            <th>Instructions</th>
+                            <th>Completeness</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recipes-table-body">
+                        <!-- Table rows will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="mt-4 flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    Showing <span id="table-start">1</span>-<span id="table-end">10</span> of <span id="table-total">0</span> recipes
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="dashboard.previousPage()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</button>
+                    <button onclick="dashboard.nextPage()" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Missing Recipe Types -->
+        <div class="dashboard-card p-6">
+            <div class="flex items-center mb-4">
+                <div class="text-2xl mr-3">🔍</div>
+                <h3 class="text-lg font-semibold text-gray-800">Recipe Collection Gaps</h3>
+            </div>
+
+            <p class="text-gray-600 mb-4">Based on analysis, here are recipe types that could improve your collection diversity:</p>
+
+            <div id="missing-recipes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Missing recipe suggestions will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Dashboard JavaScript -->
+    <script>
+        class AnalyticsDashboard {
+            constructor() {
+                this.recipes = [];
+                this.favorites = new Set(JSON.parse(localStorage.getItem('recipe-favorites') || '[]'));
+                this.charts = {};
+                this.currentFilter = 'all';
+                this.currentPage = 1;
+                this.itemsPerPage = 10;
+                this.timeFilter = 'all';
+
+                this.init();
+            }
+
+            async init() {
+                this.showLoadingState();
+                await this.loadData();
+                await this.generateAnalytics();
+                this.renderDashboard();
+                this.hideLoadingState();
+
+                console.log('📊 Analytics Dashboard initialized');
+            }
+
+            showLoadingState() {
+                // Add loading skeletons
+                document.querySelectorAll('.dashboard-card').forEach(card => {
+                    if (!card.querySelector('.loading-skeleton')) {
+                        const skeleton = document.createElement('div');
+                        skeleton.className = 'loading-skeleton h-4 rounded mb-2';
+                        card.appendChild(skeleton);
+                    }
+                });
+            }
+
+            hideLoadingState() {
+                document.querySelectorAll('.loading-skeleton').forEach(skeleton => {
+                    skeleton.remove();
+                });
+            }
+
+            async loadData() {
+                try {
+                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    this.recipes = await response.json();
+                    console.log(`✅ Loaded ${this.recipes.length} recipes for analysis`);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipes:', error);
+                    this.recipes = [];
+                }
+            }
+
+            async generateAnalytics() {
+                this.analytics = {
+                    basic: this.calculateBasicStats(),
+                    cuisine: this.analyzeCuisines(),
+                    difficulty: this.analyzeDifficulty(),
+                    ingredients: this.analyzeIngredients(),
+                    health: this.calculateHealthScore(),
+                    insights: this.generateInsights(),
+                    recommendations: this.generateRecommendations(),
+                    gaps: this.findRecipeGaps()
+                };
+            }
+
+            calculateBasicStats() {
+                const total = this.recipes.length;
+                const withImages = this.recipes.filter(r => r.thumbnail_url).length;
+                const vegetarian = this.recipes.filter(r => r.dietary_tags?.includes('vegetarian')).length;
+                const complete = this.recipes.filter(r => r.ingredients?.length > 0 && r.instructions?.length > 0).length;
+
+                // Calculate average cook time
+                const cookTimes = this.recipes
+                    .map(r => this.extractTimeMinutes(r.cook_time))
+                    .filter(time => time > 0);
+                const avgCookTime = cookTimes.length > 0 ? Math.round(cookTimes.reduce((a, b) => a + b, 0) / cookTimes.length) : 0;
+
+                return {
+                    total,
+                    withImages,
+                    vegetarian,
+                    complete,
+                    avgCookTime,
+                    imagesPercent: total > 0 ? Math.round((withImages / total) * 100) : 0,
+                    vegetarianPercent: total > 0 ? Math.round((vegetarian / total) * 100) : 0,
+                    completePercent: total > 0 ? Math.round((complete / total) * 100) : 0
+                };
+            }
+
+            analyzeCuisines() {
+                const cuisines = {};
+                this.recipes.forEach(recipe => {
+                    const cuisine = recipe.cuisine_type || 'unknown';
+                    cuisines[cuisine] = (cuisines[cuisine] || 0) + 1;
+                });
+
+                return Object.entries(cuisines)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 10);
+            }
+
+            analyzeDifficulty() {
+                const difficulty = { easy: 0, medium: 0, hard: 0, unknown: 0 };
+
+                this.recipes.forEach(recipe => {
+                    const level = recipe.difficulty || 'unknown';
+                    difficulty[level] = (difficulty[level] || 0) + 1;
+                });
+
+                return difficulty;
+            }
+
+            analyzeIngredients() {
+                const ingredientCount = {};
+
+                this.recipes.forEach(recipe => {
+                    recipe.ingredients?.forEach(ingredient => {
+                        const clean = ingredient.toLowerCase().trim();
+                        ingredientCount[clean] = (ingredientCount[clean] || 0) + 1;
+                    });
+                });
+
+                return Object.entries(ingredientCount)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 15);
+            }
+
+            calculateHealthScore() {
+                let score = 0;
+                const total = this.recipes.length;
+
+                if (total === 0) return 0;
+
+                // Completeness (40%)
+                const complete = this.recipes.filter(r =>
+                    r.title && r.ingredients?.length > 0 && r.instructions?.length > 0
+                ).length;
+                score += (complete / total) * 40;
+
+                // Diversity (30%)
+                const uniqueCuisines = new Set(this.recipes.map(r => r.cuisine_type).filter(c => c && c !== 'unknown')).size;
+                score += Math.min(uniqueCuisines / 10, 1) * 30;
+
+                // Quality indicators (30%)
+                const withImages = this.recipes.filter(r => r.thumbnail_url).length;
+                const withDetailedInstructions = this.recipes.filter(r => r.instructions?.length >= 3).length;
+
+                score += (withImages / total) * 15;
+                score += (withDetailedInstructions / total) * 15;
+
+                return Math.round(score);
+            }
+
+            generateInsights() {
+                const insights = [];
+                const stats = this.analytics.basic;
+
+                // Collection size insight
+                if (stats.total > 100) {
+                    insights.push({
+                        text: `You have a substantial collection of ${stats.total} recipes! This puts you in the top 10% of recipe collectors.`,
+                        type: 'positive'
+                    });
+                } else if (stats.total < 20) {
+                    insights.push({
+                        text: `Your collection is just getting started with ${stats.total} recipes. Consider adding more to build a diverse cooking repertoire.`,
+                        type: 'suggestion'
+                    });
+                }
+
+                // Cuisine diversity
+                const cuisines = this.analytics.cuisine;
+                const dominantCuisine = cuisines[0];
+                if (dominantCuisine && dominantCuisine[1] > stats.total * 0.5) {
+                    insights.push({
+                        text: `Your collection is heavily focused on ${dominantCuisine[0]} cuisine (${Math.round((dominantCuisine[1]/stats.total)*100)}%). Consider exploring other cuisines for variety.`,
+                        type: 'suggestion'
+                    });
+                }
+
+                // Health and completeness
+                if (stats.completePercent > 80) {
+                    insights.push({
+                        text: `Excellent! ${stats.completePercent}% of your recipes are complete with ingredients and instructions.`,
+                        type: 'positive'
+                    });
+                } else if (stats.completePercent < 50) {
+                    insights.push({
+                        text: `Only ${stats.completePercent}% of your recipes are complete. Focus on adding missing ingredients and instructions.`,
+                        type: 'warning'
+                    });
+                }
+
+                // Vegetarian options
+                if (stats.vegetarianPercent > 30) {
+                    insights.push({
+                        text: `Great variety! ${stats.vegetarianPercent}% of your recipes are vegetarian-friendly.`,
+                        type: 'positive'
+                    });
+                }
+
+                return insights;
+            }
+
+            generateRecommendations() {
+                const recommendations = [];
+                const stats = this.analytics.basic;
+
+                // Image recommendations
+                if (stats.imagesPercent < 70) {
+                    recommendations.push({
+                        title: 'Add More Recipe Images',
+                        description: `Only ${stats.imagesPercent}% of your recipes have images. Visual appeal increases engagement by 67%.`,
+                        priority: 'high',
+                        action: 'Add images to recipes without thumbnails'
+                    });
+                }
+
+                // Completeness recommendations
+                if (stats.completePercent < 80) {
+                    recommendations.push({
+                        title: 'Complete Missing Recipe Data',
+                        description: `${100 - stats.completePercent}% of recipes need ingredients or instructions added.`,
+                        priority: 'high',
+                        action: 'Review and complete recipe information'
+                    });
+                }
+
+                // Diversity recommendations
+                const topCuisines = this.analytics.cuisine.slice(0, 3).map(c => c[0]);
+                const missingCuisines = ['mexican', 'asian', 'mediterranean', 'indian'].filter(c => !topCuisines.includes(c));
+
+                if (missingCuisines.length > 0) {
+                    recommendations.push({
+                        title: 'Diversify Your Cuisine Collection',
+                        description: `Consider adding ${missingCuisines.join(', ')} recipes for better variety.`,
+                        priority: 'medium',
+                        action: 'Search for recipes from underrepresented cuisines'
+                    });
+                }
+
+                // Seasonal recommendations
+                const currentMonth = new Date().getMonth();
+                const seasonalSuggestions = this.getSeasonalSuggestions(currentMonth);
+                if (seasonalSuggestions.length > 0) {
+                    recommendations.push({
+                        title: 'Seasonal Recipe Suggestions',
+                        description: `Perfect timing for ${seasonalSuggestions.join(', ')} recipes.`,
+                        priority: 'low',
+                        action: 'Add seasonal recipes to your collection'
+                    });
+                }
+
+                return recommendations;
+            }
+
+            getSeasonalSuggestions(month) {
+                const seasons = {
+                    winter: [11, 0, 1], // Dec, Jan, Feb
+                    spring: [2, 3, 4],  // Mar, Apr, May
+                    summer: [5, 6, 7],  // Jun, Jul, Aug
+                    fall: [8, 9, 10]    // Sep, Oct, Nov
+                };
+
+                if (seasons.winter.includes(month)) {
+                    return ['hearty soups', 'stews', 'comfort food'];
+                } else if (seasons.spring.includes(month)) {
+                    return ['fresh salads', 'light dishes', 'asparagus recipes'];
+                } else if (seasons.summer.includes(month)) {
+                    return ['grilled dishes', 'cold soups', 'fresh fruit desserts'];
+                } else {
+                    return ['pumpkin dishes', 'apple recipes', 'warming spices'];
+                }
+            }
+
+            findRecipeGaps() {
+                const common = [
+                    { type: 'Breakfast Smoothies', keywords: ['smoothie', 'breakfast'] },
+                    { type: 'Healthy Salads', keywords: ['salad', 'healthy'] },
+                    { type: 'One-Pot Meals', keywords: ['one pot', 'easy'] },
+                    { type: 'Dessert Recipes', keywords: ['dessert', 'sweet'] },
+                    { type: 'Quick Dinners', keywords: ['quick', 'dinner', 'easy'] },
+                    { type: 'Vegetarian Proteins', keywords: ['vegetarian', 'protein', 'tofu'] }
+                ];
+
+                return common.filter(gap => {
+                    const matches = this.recipes.filter(recipe => {
+                        const text = `${recipe.title} ${recipe.dish_type} ${recipe.meal_type} ${recipe.dietary_tags?.join(' ') || ''}`.toLowerCase();
+                        return gap.keywords.some(keyword => text.includes(keyword));
+                    });
+                    return matches.length < 3; // Less than 3 recipes of this type
+                });
+            }
+
+            renderDashboard() {
+                this.updateBasicStats();
+                this.createCharts();
+                this.renderInsights();
+                this.renderRecommendations();
+                this.renderIngredientsTable();
+                this.renderRecipesTable();
+                this.renderMissingRecipes();
+                this.updateHealthScore();
+            }
+
+            updateBasicStats() {
+                const stats = this.analytics.basic;
+
+                document.getElementById('total-recipes').textContent = stats.total;
+                document.getElementById('health-score').textContent = this.analytics.health;
+                document.getElementById('completeness-score').textContent = stats.completePercent;
+                document.getElementById('favorites-count').textContent = this.favorites.size;
+
+                document.getElementById('unique-cuisines').textContent = this.analytics.cuisine.length;
+                document.getElementById('avg-cook-time').textContent = `${stats.avgCookTime} min`;
+                document.getElementById('vegetarian-percent').textContent = `${stats.vegetarianPercent}%`;
+                document.getElementById('images-percent').textContent = `${stats.imagesPercent}%`;
+                document.getElementById('complete-recipes').textContent = `${stats.completePercent}%`;
+            }
+
+            createCharts() {
+                this.createCuisineChart();
+                this.createDifficultyChart();
+            }
+
+            createCuisineChart() {
+                const ctx = document.getElementById('cuisine-chart').getContext('2d');
+                const data = this.analytics.cuisine;
+
+                this.charts.cuisine = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(([cuisine]) => cuisine),
+                        datasets: [{
+                            data: data.map(([, count]) => count),
+                            backgroundColor: [
+                                '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+                                '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6b7280'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createDifficultyChart() {
+                const ctx = document.getElementById('difficulty-chart').getContext('2d');
+                const data = this.analytics.difficulty;
+
+                this.charts.difficulty = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Easy', 'Medium', 'Hard', 'Unknown'],
+                        datasets: [{
+                            label: 'Number of Recipes',
+                            data: [data.easy, data.medium, data.hard, data.unknown],
+                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6b7280'],
+                            borderColor: ['#059669', '#d97706', '#dc2626', '#4b5563'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderInsights() {
+                const container = document.getElementById('insights-content');
+                const insights = this.analytics.insights;
+
+                container.innerHTML = insights.map(insight => `
+                    <div class="flex items-start gap-3 p-3 rounded-lg ${
+                        insight.type === 'positive' ? 'bg-green-50 border-l-2 border-green-400' :
+                        insight.type === 'warning' ? 'bg-red-50 border-l-2 border-red-400' :
+                        'bg-blue-50 border-l-2 border-blue-400'
+                    }">
+                        <div class="text-lg">
+                            ${insight.type === 'positive' ? '✅' :
+                              insight.type === 'warning' ? '⚠️' : '💡'}
+                        </div>
+                        <div class="text-sm text-gray-700">${insight.text}</div>
+                    </div>
+                `).join('');
+            }
+
+            renderRecommendations() {
+                const container = document.getElementById('recommendations-content');
+                const recommendations = this.analytics.recommendations;
+
+                container.innerHTML = recommendations.map(rec => `
+                    <div class="p-3 rounded-lg border-l-2 ${
+                        rec.priority === 'high' ? 'bg-red-50 border-red-400' :
+                        rec.priority === 'medium' ? 'bg-yellow-50 border-yellow-400' :
+                        'bg-blue-50 border-blue-400'
+                    }">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-sm font-semibold">${rec.title}</span>
+                            <span class="text-xs px-2 py-1 rounded-full ${
+                                rec.priority === 'high' ? 'bg-red-200 text-red-800' :
+                                rec.priority === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                                'bg-blue-200 text-blue-800'
+                            }">
+                                ${rec.priority}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-600 mb-2">${rec.description}</div>
+                        <div class="text-xs text-gray-500 italic">${rec.action}</div>
+                    </div>
+                `).join('');
+            }
+
+            renderIngredientsTable() {
+                const container = document.getElementById('ingredients-list');
+                const ingredients = this.analytics.ingredients.slice(0, 8);
+
+                container.innerHTML = ingredients.map(([ingredient, count], index) => `
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-semibold">
+                                ${index + 1}
+                            </div>
+                            <span class="text-sm text-gray-800 capitalize">${ingredient}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 rounded-full" style="width: ${Math.min((count / ingredients[0][1]) * 100, 100)}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-600 w-8 text-right">${count}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            renderRecipesTable() {
+                const filteredRecipes = this.getFilteredRecipes();
+                const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+                const endIndex = Math.min(startIndex + this.itemsPerPage, filteredRecipes.length);
+                const pageRecipes = filteredRecipes.slice(startIndex, endIndex);
+
+                const tbody = document.getElementById('recipes-table-body');
+
+                tbody.innerHTML = pageRecipes.map(recipe => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="font-medium">
+                            <div class="flex items-center gap-2">
+                                ${recipe.thumbnail_url ?
+                                    `<img src="${recipe.thumbnail_url}" alt="${recipe.title}" class="w-8 h-8 object-cover rounded">` :
+                                    `<div class="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-xs">🍽️</div>`
+                                }
+                                <span class="truncate max-w-xs">${recipe.title}</span>
+                            </div>
+                        </td>
+                        <td>${recipe.cuisine_type || '-'}</td>
+                        <td>
+                            <span class="px-2 py-1 rounded-full text-xs ${
+                                recipe.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                                recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                recipe.difficulty === 'hard' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                            }">
+                                ${recipe.difficulty || 'unknown'}
+                            </span>
+                        </td>
+                        <td>${recipe.ingredients?.length || 0}</td>
+                        <td>${recipe.instructions?.length || 0}</td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-green-500 rounded-full" style="width: ${this.calculateRecipeCompleteness(recipe)}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-600">${this.calculateRecipeCompleteness(recipe)}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <button onclick="dashboard.openRecipe('${String(recipe.post_pk)}')"
+                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Update pagination
+                document.getElementById('table-start').textContent = startIndex + 1;
+                document.getElementById('table-end').textContent = endIndex;
+                document.getElementById('table-total').textContent = filteredRecipes.length;
+            }
+
+            renderMissingRecipes() {
+                const container = document.getElementById('missing-recipes');
+                const gaps = this.analytics.gaps;
+
+                container.innerHTML = gaps.map(gap => `
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="font-semibold text-blue-900 mb-2">${gap.type}</div>
+                        <div class="text-sm text-blue-700 mb-3">
+                            Few recipes of this type in your collection
+                        </div>
+                        <div class="text-xs text-blue-600">
+                            Keywords: ${gap.keywords.join(', ')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateHealthScore() {
+                const score = this.analytics.health;
+                document.getElementById('health-display').textContent = score;
+
+                // Update ring
+                const circumference = 283; // 2 * π * 45
+                const offset = circumference - (score / 100) * circumference;
+                document.getElementById('health-ring').style.strokeDasharray = `${circumference} ${circumference}`;
+                document.getElementById('health-ring').style.strokeDashoffset = offset;
+
+                // Change color based on score
+                const color = score > 80 ? '#10b981' : score > 60 ? '#f59e0b' : '#ef4444';
+                document.getElementById('health-ring').style.stroke = color;
+            }
+
+            // Utility methods
+            extractTimeMinutes(timeStr) {
+                if (!timeStr || timeStr === 'unknown') return 0;
+                const match = timeStr.match(/(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            }
+
+            calculateRecipeCompleteness(recipe) {
+                let score = 0;
+
+                if (recipe.title && recipe.title.length > 5) score += 20;
+                if (recipe.ingredients && recipe.ingredients.length > 0) score += 30;
+                if (recipe.instructions && recipe.instructions.length > 0) score += 30;
+                if (recipe.thumbnail_url) score += 10;
+                if (recipe.difficulty && recipe.difficulty !== 'unknown') score += 10;
+
+                return score;
+            }
+
+            getFilteredRecipes() {
+                let filtered = this.recipes;
+
+                switch (this.currentFilter) {
+                    case 'complete':
+                        filtered = this.recipes.filter(r =>
+                            r.ingredients?.length > 0 && r.instructions?.length > 0
+                        );
+                        break;
+                    case 'incomplete':
+                        filtered = this.recipes.filter(r =>
+                            !r.ingredients?.length || !r.instructions?.length
+                        );
+                        break;
+                    case 'favorites':
+                        filtered = this.recipes.filter(r => this.favorites.has(r.post_pk));
+                        break;
+                }
+
+                return filtered;
+            }
+
+            // Event handlers
+            filterTable(filter) {
+                this.currentFilter = filter;
+                this.currentPage = 1;
+
+                // Update filter pill styles
+                document.querySelectorAll('.filter-pill').forEach(pill => {
+                    pill.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                this.renderRecipesTable();
+            }
+
+            previousPage() {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.renderRecipesTable();
+                }
+            }
+
+            nextPage() {
+                const filteredRecipes = this.getFilteredRecipes();
+                const maxPage = Math.ceil(filteredRecipes.length / this.itemsPerPage);
+
+                if (this.currentPage < maxPage) {
+                    this.currentPage++;
+                    this.renderRecipesTable();
+                }
+            }
+
+            openRecipe(postId) {
+                window.open(`recipe.html?id=${postId}`, '_blank');
+            }
+
+            toggleChartType(chartName) {
+                if (this.charts[chartName]) {
+                    const chart = this.charts[chartName];
+                    chart.config.type = chart.config.type === 'doughnut' ? 'bar' : 'doughnut';
+                    chart.update();
+                }
+            }
+
+            updateTimeFilter(period) {
+                this.timeFilter = period;
+                // In a real implementation, this would filter data by date
+                this.renderDashboard();
+            }
+
+            async refreshData() {
+                this.showLoadingState();
+                await this.loadData();
+                await this.generateAnalytics();
+                this.renderDashboard();
+                this.hideLoadingState();
+
+                this.showToast('Dashboard refreshed!', 'success');
+            }
+
+            exportReport() {
+                const report = {
+                    generatedAt: new Date().toISOString(),
+                    summary: this.analytics.basic,
+                    healthScore: this.analytics.health,
+                    topCuisines: this.analytics.cuisine.slice(0, 5),
+                    topIngredients: this.analytics.ingredients.slice(0, 10),
+                    insights: this.analytics.insights,
+                    recommendations: this.analytics.recommendations,
+                    gaps: this.analytics.gaps
+                };
+
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `foodiegram-analytics-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                this.showToast('Analytics report exported!', 'success');
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    info: 'bg-blue-500'
+                };
+
+                toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100%)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize dashboard
+        let dashboard;
+        document.addEventListener('DOMContentLoaded', () => {
+            dashboard = new AnalyticsDashboard();
+        });
+    </script>
+</body>
+</html>

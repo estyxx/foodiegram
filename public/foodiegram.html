@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍳 Cooking Assistant - Foodiegram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Cooking Assistant Styles */
+        .timer-circle {
+            stroke-dasharray: 283; /* 2 * π * r where r = 45 */
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 1s linear;
+        }
+
+        .step-active {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-left: 4px solid #3b82f6;
+            transform: scale(1.02);
+        }
+
+        .step-completed {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border-left: 4px solid #10b981;
+            opacity: 0.8;
+        }
+
+        .ingredient-checked {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .voice-indicator {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .cooking-mode {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+        }
+
+        .temp-gauge {
+            background: linear-gradient(to right,
+                #3b82f6 0%, #10b981 25%, #f59e0b 50%, #ef4444 75%, #7c3aed 100%);
+            height: 8px;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .temp-indicator {
+            position: absolute;
+            top: -2px;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border: 2px solid #374151;
+            border-radius: 50%;
+            transform: translateX(-50%);
+        }
+
+        .scaling-controls {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+        }
+
+        .nutrition-ring {
+            stroke-width: 8;
+            fill: none;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .smart-suggestions {
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            border-left: 4px solid #8b5cf6;
+        }
+
+        @media (max-width: 768px) {
+            .cooking-assistant {
+                padding: 1rem;
+            }
+
+            .timer-display {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">👩‍🍳 Cooking Assistant</h1>
+                <p class="text-gray-600">Smart kitchen companion with timers, scaling, and voice guidance</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="assistant.toggleCookingMode()"
+                        id="cooking-mode-btn"
+                        class="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors">
+                    🔥 Cooking Mode
+                </button>
+                <button onclick="assistant.toggleVoiceControl()"
+                        id="voice-control-btn"
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                    🎤 Voice Control
+                </button>
+                <button onclick="window.history.back()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    ← Back
+                </button>
+            </div>
+        </div>
+
+        <!-- Recipe Selection -->
+        <div id="recipe-selection" class="bg-white rounded-lg p-6 shadow-sm mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Select Recipe to Cook</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="recipe-cards">
+                <!-- Recipe selection cards will be populated here -->
+            </div>
+        </div>
+
+        <!-- Cooking Interface (Hidden by default) -->
+        <div id="cooking-interface" class="hidden">
+            <!-- Recipe Overview -->
+            <div class="bg-white rounded-lg p-6 shadow-sm mb-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h2 id="recipe-title" class="text-2xl font-bold text-gray-800 mb-2">Recipe Title</h2>
+                        <div class="flex gap-4 text-sm text-gray-600">
+                            <span id="recipe-difficulty">⭐ Medium</span>
+                            <span id="recipe-time">⏱️ 45 minutes</span>
+                            <span id="recipe-servings">👥 4 servings</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <button onclick="assistant.scaleRecipe()"
+                                class="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg hover:bg-orange-200 transition-colors text-sm">
+                            📏 Scale Recipe
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="text-sm text-gray-600 text-center">
+                    Step <span id="current-step">0</span> of <span id="total-steps">0</span>
+                </div>
+            </div>
+
+            <!-- Main Cooking Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column: Instructions -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Current Step -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Current Step</h3>
+                            <div class="flex gap-2">
+                                <button onclick="assistant.previousStep()"
+                                        class="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-200">
+                                    ← Previous
+                                </button>
+                                <button onclick="assistant.nextStep()"
+                                        class="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700">
+                                    Next →
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="current-step-content" class="text-lg leading-relaxed">
+                            Select a recipe to start cooking
+                        </div>
+
+                        <!-- Step Actions -->
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <button onclick="assistant.setTimer()"
+                                    class="bg-orange-100 text-orange-700 px-3 py-2 rounded-lg hover:bg-orange-200 text-sm">
+                                ⏱️ Set Timer
+                            </button>
+                            <button onclick="assistant.addNote()"
+                                    class="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 text-sm">
+                                📝 Add Note
+                            </button>
+                            <button onclick="assistant.readAloud()"
+                                    class="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 text-sm">
+                                🔊 Read Aloud
+                            </button>
+                            <button onclick="assistant.showTips()"
+                                    class="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 text-sm">
+                                💡 Tips
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- All Steps Overview -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">All Steps</h3>
+                        <div id="steps-list" class="space-y-3 max-h-96 overflow-y-auto">
+                            <!-- Steps will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Tools & Info -->
+                <div class="space-y-6">
+                    <!-- Smart Timer -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm text-center">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Smart Timer</h3>
+
+                        <div class="relative inline-block mb-4">
+                            <svg width="120" height="120" class="transform -rotate-90">
+                                <circle cx="60" cy="60" r="45" stroke="#e5e7eb" stroke-width="8" fill="none"/>
+                                <circle id="timer-circle" cx="60" cy="60" r="45"
+                                        class="timer-circle" stroke="#3b82f6" stroke-width="8" fill="none"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div id="timer-display" class="text-2xl font-bold text-gray-800">00:00</div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex gap-2 justify-center">
+                                <input type="number" id="timer-minutes" placeholder="Min" class="w-16 px-2 py-1 border rounded text-center">
+                                <input type="number" id="timer-seconds" placeholder="Sec" class="w-16 px-2 py-1 border rounded text-center">
+                            </div>
+
+                            <div class="flex gap-2 justify-center">
+                                <button onclick="assistant.startTimer()"
+                                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">
+                                    ▶️ Start
+                                </button>
+                                <button onclick="assistant.pauseTimer()"
+                                        class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 text-sm">
+                                    ⏸️ Pause
+                                </button>
+                                <button onclick="assistant.stopTimer()"
+                                        class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm">
+                                    ⏹️ Stop
+                                </button>
+                            </div>
+
+                            <!-- Quick Timer Presets -->
+                            <div class="flex gap-1 justify-center flex-wrap">
+                                <button onclick="assistant.quickTimer(5)" class="bg-gray-100 px-2 py-1 rounded text-xs">5min</button>
+                                <button onclick="assistant.quickTimer(10)" class="bg-gray-100 px-2 py-1 rounded text-xs">10min</button>
+                                <button onclick="assistant.quickTimer(15)" class="bg-gray-100 px-2 py-1 rounded text-xs">15min</button>
+                                <button onclick="assistant.quickTimer(20)" class="bg-gray-100 px-2 py-1 rounded text-xs">20min</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ingredients Checklist -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Ingredients</h3>
+                        <div id="ingredients-checklist" class="space-y-2 max-h-64 overflow-y-auto">
+                            <!-- Ingredients will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Temperature Guide -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Temperature Guide</h3>
+
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Current Temperature</label>
+                                <div class="temp-gauge">
+                                    <div id="temp-indicator" class="temp-indicator" style="left: 25%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>Cold</span>
+                                    <span>Warm</span>
+                                    <span>Hot</span>
+                                    <span>Very Hot</span>
+                                </div>
+                            </div>
+
+                            <!-- Temperature Presets -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span>Rare (120°F)</span>
+                                    <button onclick="assistant.setTargetTemp(120)" class="text-blue-600 hover:underline">Set</button>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span>Medium (140°F)</span>
+                                    <button onclick="assistant.setTargetTemp(140)" class="text-blue-600 hover:underline">Set</button>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span>Well Done (160°F)</span>
+                                    <button onclick="assistant.setTargetTemp(160)" class="text-blue-600 hover:underline">Set</button>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span>Boiling (212°F)</span>
+                                    <button onclick="assistant.setTargetTemp(212)" class="text-blue-600 hover:underline">Set</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conversion Calculator -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Conversions</h3>
+
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" id="convert-amount" placeholder="Amount" class="px-2 py-1 border rounded text-sm">
+                                <select id="convert-from" class="px-2 py-1 border rounded text-sm">
+                                    <option value="cups">Cups</option>
+                                    <option value="tbsp">Tbsp</option>
+                                    <option value="tsp">Tsp</option>
+                                    <option value="ml">ml</option>
+                                    <option value="g">Grams</option>
+                                    <option value="oz">Oz</option>
+                                </select>
+                            </div>
+
+                            <div class="text-center">
+                                <button onclick="assistant.convert()" class="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700">
+                                    Convert
+                                </button>
+                            </div>
+
+                            <div id="conversion-result" class="text-center text-sm text-gray-600">
+                                Enter values to convert
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recipe Scaling Modal -->
+        <div id="scaling-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Scale Recipe</h3>
+
+                    <div class="scaling-controls p-4 rounded-lg mb-4">
+                        <div class="text-center mb-3">
+                            <div class="text-sm text-gray-700 mb-2">Current servings: <span id="current-servings">4</span></div>
+                            <div class="flex items-center justify-center gap-3">
+                                <button onclick="assistant.adjustServings(-1)" class="bg-orange-600 text-white w-8 h-8 rounded-full hover:bg-orange-700">-</button>
+                                <span id="new-servings" class="text-2xl font-bold text-orange-700">4</span>
+                                <button onclick="assistant.adjustServings(1)" class="bg-orange-600 text-white w-8 h-8 rounded-full hover:bg-orange-700">+</button>
+                            </div>
+                            <div class="text-sm text-gray-600 mt-2">Scaling factor: <span id="scale-factor">1.0x</span></div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="assistant.applyScaling()" class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                            Apply Scaling
+                        </button>
+                        <button onclick="assistant.cancelScaling()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voice Control Indicator -->
+        <div id="voice-indicator" class="fixed top-4 right-4 bg-purple-600 text-white p-3 rounded-full shadow-lg voice-indicator hidden">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-white rounded-full"></div>
+                <span class="text-sm">Listening...</span>
+            </div>
+        </div>
+
+        <!-- Smart Tips Panel -->
+        <div id="tips-panel" class="fixed bottom-4 left-4 right-4 bg-white rounded-lg shadow-xl p-4 transform translate-y-full transition-transform duration-300">
+            <div class="flex justify-between items-start mb-2">
+                <h4 class="font-semibold text-gray-800">💡 Smart Tip</h4>
+                <button onclick="assistant.hideTips()" class="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div id="tip-content" class="text-sm text-gray-700">
+                Pro tip will appear here based on your current cooking step
+            </div>
+        </div>
+    </div>
+
+    <!-- Cooking Assistant JavaScript -->
+    <script>
+        class CookingAssistant {
+            constructor() {
+                this.recipes = [];
+                this.currentRecipe = null;
+                this.currentStep = 0;
+                this.scalingFactor = 1;
+                this.originalServings = 4;
+                this.timerInterval = null;
+                this.timerSeconds = 0;
+                this.timerTotal = 0;
+                this.isTimerRunning = false;
+                this.speechSynthesis = window.speechSynthesis;
+                this.speechRecognition = null;
+                this.isVoiceActive = false;
+                this.cookingMode = false;
+                this.completedSteps = new Set();
+                this.checkedIngredients = new Set();
+
+                this.init();
+            }
+
+            async init() {
+                await this.loadRecipes();
+                this.renderRecipeSelection();
+                this.setupVoiceRecognition();
+                this.setupKeyboardShortcuts();
+
+                // Load any URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const recipeId = urlParams.get('recipe');
+                if (recipeId) {
+                    this.selectRecipe(recipeId);
+                }
+
+                console.log('👩‍🍳 Cooking Assistant ready!');
+            }
+
+            async loadRecipes() {
+                try {
+                    const response = await fetch('../data/extracted_recipes_realtime.json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    this.recipes = await response.json();
+                    console.log(`✅ Loaded ${this.recipes.length} recipes`);
+                } catch (error) {
+                    console.error('⚠️ Error loading recipes:', error);
+                }
+            }
+
+            renderRecipeSelection() {
+                const container = document.getElementById('recipe-cards');
+
+                // Show recipes with instructions (suitable for cooking)
+                const cookableRecipes = this.recipes.filter(r => r.instructions?.length > 0);
+
+                container.innerHTML = cookableRecipes.slice(0, 9).map(recipe => `
+                    <div class="recipe-card bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                         onclick="assistant.selectRecipe('${recipe.post_pk}')">
+                        ${recipe.thumbnail_url ?
+                            `<img src="${recipe.thumbnail_url}" alt="${recipe.title}" class="w-full h-32 object-cover rounded mb-3">` :
+                            `<div class="w-full h-32 bg-gradient-to-br from-blue-400 to-purple-500 rounded mb-3 flex items-center justify-center text-white text-2xl">🍽️</div>`
+                        }
+                        <h3 class="font-semibold text-gray-800 mb-2 line-clamp-2">${recipe.title}</h3>
+                        <div class="flex justify-between text-sm text-gray-600">
+                            <span>${recipe.difficulty || 'Medium'}</span>
+                            <span>${recipe.total_time || 'Unknown'}</span>
+                        </div>
+                        <div class="mt-2 text-sm text-blue-600">
+                            ${recipe.instructions?.length || 0} steps
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            selectRecipe(recipeId) {
+                this.currentRecipe = this.recipes.find(r => r.post_pk == recipeId);
+                if (!this.currentRecipe) return;
+
+                this.currentStep = 0;
+                this.completedSteps.clear();
+                this.checkedIngredients.clear();
+
+                // Hide selection, show cooking interface
+                document.getElementById('recipe-selection').classList.add('hidden');
+                document.getElementById('cooking-interface').classList.remove('hidden');
+
+                this.renderRecipeInterface();
+                this.updateProgress();
+
+                // Welcome message
+                this.speak(`Let's cook ${this.currentRecipe.title}! I'll guide you through each step.`);
+            }
+
+            renderRecipeInterface() {
+                if (!this.currentRecipe) return;
+
+                // Update header
+                document.getElementById('recipe-title').textContent = this.currentRecipe.title;
+                document.getElementById('recipe-difficulty').textContent = `⭐ ${this.currentRecipe.difficulty || 'Medium'}`;
+                document.getElementById('recipe-time').textContent = `⏱️ ${this.currentRecipe.total_time || 'Unknown'}`;
+                document.getElementById('recipe-servings').textContent = `👥 ${this.currentRecipe.servings || '4 servings'}`;
+
+                // Update step counters
+                const totalSteps = this.currentRecipe.instructions?.length || 0;
+                document.getElementById('total-steps').textContent = totalSteps;
+
+                // Render ingredients
+                this.renderIngredients();
+
+                // Render all steps
+                this.renderStepsList();
+
+                // Show current step
+                this.showCurrentStep();
+            }
+
+            renderIngredients() {
+                const container = document.getElementById('ingredients-checklist');
+
+                if (!this.currentRecipe.ingredients?.length) {
+                    container.innerHTML = '<p class="text-gray-500 italic">No ingredients listed</p>';
+                    return;
+                }
+
+                container.innerHTML = this.currentRecipe.ingredients.map((ingredient, index) => `
+                    <label class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <input type="checkbox"
+                               onchange="assistant.toggleIngredient(${index}, this.checked)"
+                               class="mt-1 rounded">
+                        <span class="flex-1 text-sm ${this.checkedIngredients.has(index) ? 'ingredient-checked' : ''}">
+                            ${this.scaleIngredient(ingredient)}
+                        </span>
+                    </label>
+                `).join('');
+            }
+
+            scaleIngredient(ingredient) {
+                if (this.scalingFactor === 1) return ingredient;
+
+                // Simple scaling - find numbers and multiply them
+                return ingredient.replace(/(\d+\.?\d*)/g, (match) => {
+                    const scaled = parseFloat(match) * this.scalingFactor;
+                    return scaled % 1 === 0 ? scaled.toString() : scaled.toFixed(1);
+                });
+            }
+
+            renderStepsList() {
+                const container = document.getElementById('steps-list');
+
+                if (!this.currentRecipe.instructions?.length) {
+                    container.innerHTML = '<p class="text-gray-500 italic">No instructions available</p>';
+                    return;
+                }
+
+                container.innerHTML = this.currentRecipe.instructions.map((step, index) => `
+                    <div class="step-item p-4 rounded-lg border cursor-pointer ${
+                        index === this.currentStep ? 'step-active' :
+                        this.completedSteps.has(index) ? 'step-completed' : 'bg-gray-50'
+                    }" onclick="assistant.goToStep(${index})">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                index === this.currentStep ? 'bg-blue-600 text-white' :
+                                this.completedSteps.has(index) ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-600'
+                            }">
+                                ${this.completedSteps.has(index) ? '✓' : index + 1}
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm ${index === this.currentStep ? 'font-semibold' : ''}">${step}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            showCurrentStep() {
+                const steps = this.currentRecipe.instructions || [];
+                if (steps.length === 0) return;
+
+                const step = steps[this.currentStep] || 'Cooking complete!';
+                document.getElementById('current-step-content').textContent = step;
+                document.getElementById('current-step').textContent = Math.min(this.currentStep + 1, steps.length);
+
+                this.updateProgress();
+                this.showSmartTips();
+
+                // Auto-detect timers in steps
+                this.detectTimerInStep(step);
+            }
+
+            detectTimerInStep(step) {
+                const timePatterns = [
+                    /(\d+)\s*minutes?/i,
+                    /(\d+)\s*mins?/i,
+                    /(\d+)\s*hours?/i,
+                    /(\d+)\s*hrs?/i
+                ];
+
+                for (const pattern of timePatterns) {
+                    const match = step.match(pattern);
+                    if (match) {
+                        const time = parseInt(match[1]);
+                        const unit = match[0].toLowerCase();
+                        const minutes = unit.includes('hour') || unit.includes('hr') ? time * 60 : time;
+
+                        document.getElementById('timer-minutes').value = minutes;
+                        break;
+                    }
+                }
+            }
+
+            // Navigation methods
+            nextStep() {
+                if (!this.currentRecipe.instructions) return;
+
+                this.completedSteps.add(this.currentStep);
+
+                if (this.currentStep < this.currentRecipe.instructions.length - 1) {
+                    this.currentStep++;
+                    this.showCurrentStep();
+                    this.renderStepsList();
+
+                    const step = this.currentRecipe.instructions[this.currentStep];
+                    if (this.isVoiceActive) {
+                        this.speak(`Step ${this.currentStep + 1}: ${step}`);
+                    }
+                } else {
+                    this.completeRecipe();
+                }
+            }
+
+            previousStep() {
+                if (this.currentStep > 0) {
+                    this.completedSteps.delete(this.currentStep);
+                    this.currentStep--;
+                    this.showCurrentStep();
+                    this.renderStepsList();
+                }
+            }
+
+            goToStep(stepIndex) {
+                this.currentStep = stepIndex;
+                this.showCurrentStep();
+                this.renderStepsList();
+            }
+
+            completeRecipe() {
+                this.speak('Congratulations! Your recipe is complete. Enjoy your meal!');
+                this.showToast('🎉 Recipe completed! Enjoy your meal!', 'success');
+
+                // Reset for next recipe
+                setTimeout(() => {
+                    if (confirm('Would you like to cook another recipe?')) {
+                        this.resetInterface();
+                    }
+                }, 2000);
+            }
+
+            resetInterface() {
+                document.getElementById('cooking-interface').classList.add('hidden');
+                document.getElementById('recipe-selection').classList.remove('hidden');
+
+                this.currentRecipe = null;
+                this.currentStep = 0;
+                this.completedSteps.clear();
+                this.checkedIngredients.clear();
+                this.stopTimer();
+            }
+
+            updateProgress() {
+                if (!this.currentRecipe.instructions) return;
+
+                const progress = ((this.currentStep + 1) / this.currentRecipe.instructions.length) * 100;
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+            }
+
+            // Timer functionality
+            setTimer() {
+                const minutes = prompt('Set timer for how many minutes?', '10');
+                if (minutes && !isNaN(minutes)) {
+                    document.getElementById('timer-minutes').value = minutes;
+                    this.startTimer();
+                }
+            }
+
+            startTimer() {
+                const minutes = parseInt(document.getElementById('timer-minutes').value) || 0;
+                const seconds = parseInt(document.getElementById('timer-seconds').value) || 0;
+
+                this.timerTotal = minutes * 60 + seconds;
+                this.timerSeconds = this.timerTotal;
+
+                if (this.timerSeconds <= 0) return;
+
+                this.isTimerRunning = true;
+                this.timerInterval = setInterval(() => {
+                    this.timerSeconds--;
+                    this.updateTimerDisplay();
+
+                    if (this.timerSeconds <= 0) {
+                        this.timerComplete();
+                    }
+                }, 1000);
+
+                this.speak(`Timer set for ${minutes} minutes ${seconds} seconds`);
+            }
+
+            pauseTimer() {
+                this.isTimerRunning = false;
+                clearInterval(this.timerInterval);
+            }
+
+            stopTimer() {
+                this.isTimerRunning = false;
+                clearInterval(this.timerInterval);
+                this.timerSeconds = 0;
+                this.updateTimerDisplay();
+            }
+
+            quickTimer(minutes) {
+                document.getElementById('timer-minutes').value = minutes;
+                document.getElementById('timer-seconds').value = 0;
+                this.startTimer();
+            }
+
+            updateTimerDisplay() {
+                const minutes = Math.floor(this.timerSeconds / 60);
+                const seconds = this.timerSeconds % 60;
+
+                document.getElementById('timer-display').textContent =
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                // Update circular progress
+                const progress = this.timerTotal > 0 ? (this.timerTotal - this.timerSeconds) / this.timerTotal : 0;
+                const circumference = 283; // 2 * π * 45
+                const offset = circumference - (progress * circumference);
+
+                document.getElementById('timer-circle').style.strokeDashoffset = offset;
+            }
+
+            timerComplete() {
+                this.stopTimer();
+                this.speak('Timer finished!');
+
+                // Play notification sound (if possible)
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Cooking Timer', {
+                        body: 'Your timer has finished!',
+                        icon: '/ui/icons/icon-192.png'
+                    });
+                }
+
+                // Visual notification
+                this.showToast('⏰ Timer finished!', 'success');
+
+                // Flash the timer
+                const timerElement = document.getElementById('timer-display');
+                timerElement.style.color = '#ef4444';
+                setTimeout(() => {
+                    timerElement.style.color = '';
+                }, 3000);
+            }
+
+            // Scaling functionality
+            scaleRecipe() {
+                this.originalServings = parseInt(this.currentRecipe.servings) || 4;
+                document.getElementById('current-servings').textContent = this.originalServings;
+                document.getElementById('new-servings').textContent = this.originalServings;
+                document.getElementById('scale-factor').textContent = '1.0x';
+
+                document.getElementById('scaling-modal').classList.remove('hidden');
+            }
+
+            adjustServings(change) {
+                const currentEl = document.getElementById('new-servings');
+                let newServings = parseInt(currentEl.textContent) + change;
+                newServings = Math.max(1, Math.min(20, newServings)); // Limit 1-20
+
+                currentEl.textContent = newServings;
+
+                const factor = newServings / this.originalServings;
+                document.getElementById('scale-factor').textContent = `${factor.toFixed(1)}x`;
+            }
+
+            applyScaling() {
+                const newServings = parseInt(document.getElementById('new-servings').textContent);
+                this.scalingFactor = newServings / this.originalServings;
+
+                // Update servings display
+                document.getElementById('recipe-servings').textContent = `👥 ${newServings} servings`;
+
+                // Re-render ingredients with scaling
+                this.renderIngredients();
+
+                this.cancelScaling();
+                this.showToast(`Recipe scaled for ${newServings} servings`, 'success');
+            }
+
+            cancelScaling() {
+                document.getElementById('scaling-modal').classList.add('hidden');
+            }
+
+            // Voice functionality
+            setupVoiceRecognition() {
+                if ('webkitSpeechRecognition' in window) {
+                    this.speechRecognition = new webkitSpeechRecognition();
+                    this.speechRecognition.continuous = true;
+                    this.speechRecognition.interimResults = false;
+
+                    this.speechRecognition.onresult = (event) => {
+                        const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                        this.processVoiceCommand(command);
+                    };
+
+                    this.speechRecognition.onerror = (event) => {
+                        console.error('Speech recognition error:', event.error);
+                    };
+                }
+            }
+
+            toggleVoiceControl() {
+                if (!this.speechRecognition) {
+                    this.showToast('Voice control not supported in your browser', 'error');
+                    return;
+                }
+
+                if (this.isVoiceActive) {
+                    this.speechRecognition.stop();
+                    this.isVoiceActive = false;
+                    document.getElementById('voice-indicator').classList.add('hidden');
+                    document.getElementById('voice-control-btn').textContent = '🎤 Voice Control';
+                } else {
+                    this.speechRecognition.start();
+                    this.isVoiceActive = true;
+                    document.getElementById('voice-indicator').classList.remove('hidden');
+                    document.getElementById('voice-control-btn').textContent = '🔇 Stop Voice';
+                }
+            }
+
+            processVoiceCommand(command) {
+                console.log('Voice command:', command);
+
+                if (command.includes('next') || command.includes('continue')) {
+                    this.nextStep();
+                } else if (command.includes('previous') || command.includes('back')) {
+                    this.previousStep();
+                } else if (command.includes('repeat') || command.includes('read')) {
+                    this.readAloud();
+                } else if (command.includes('timer')) {
+                    if (command.includes('start')) this.startTimer();
+                    else if (command.includes('stop')) this.stopTimer();
+                    else if (command.includes('pause')) this.pauseTimer();
+                    else this.setTimer();
+                } else if (command.includes('ingredients')) {
+                    this.speak('Here are the ingredients: ' + (this.currentRecipe.ingredients?.join(', ') || 'No ingredients listed'));
+                }
+            }
+
+            speak(text) {
+                if (this.speechSynthesis && this.isVoiceActive) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.8;
+                    utterance.pitch = 1;
+                    this.speechSynthesis.speak(utterance);
+                }
+            }
+
+            readAloud() {
+                const steps = this.currentRecipe.instructions || [];
+                const currentStepText = steps[this.currentStep] || '';
+                this.speak(`Step ${this.currentStep + 1}: ${currentStepText}`);
+            }
+
+            // Utility functions
+            toggleCookingMode() {
+                this.cookingMode = !this.cookingMode;
+
+                if (this.cookingMode) {
+                    document.body.classList.add('cooking-mode');
+                    document.getElementById('cooking-mode-btn').textContent = '🔆 Normal Mode';
+                } else {
+                    document.body.classList.remove('cooking-mode');
+                    document.getElementById('cooking-mode-btn').textContent = '🔥 Cooking Mode';
+                }
+            }
+
+            toggleIngredient(index, checked) {
+                if (checked) {
+                    this.checkedIngredients.add(index);
+                } else {
+                    this.checkedIngredients.delete(index);
+                }
+
+                this.renderIngredients();
+            }
+
+            addNote() {
+                const note = prompt('Add a note for this step:');
+                if (note) {
+                    // Store note (could be enhanced to persist)
+                    this.showToast('📝 Note added', 'success');
+                }
+            }
+
+            showTips() {
+                const tips = this.getSmartTips();
+                document.getElementById('tip-content').textContent = tips;
+                document.getElementById('tips-panel').style.transform = 'translateY(0)';
+            }
+
+            hideTips() {
+                document.getElementById('tips-panel').style.transform = 'translateY(100%)';
+            }
+
+            showSmartTips() {
+                // Auto-show tips for certain steps
+                const currentStepText = this.currentRecipe.instructions?.[this.currentStep]?.toLowerCase() || '';
+
+                if (currentStepText.includes('boil') || currentStepText.includes('simmer')) {
+                    setTimeout(() => this.showTips(), 2000);
+                }
+            }
+
+            getSmartTips() {
+                const currentStepText = this.currentRecipe.instructions?.[this.currentStep]?.toLowerCase() || '';
+                const tips = [
+                    'Taste and adjust seasoning as you go',
+                    'Keep ingredients at room temperature for better mixing',
+                    'Use a timer for precision cooking',
+                    'Clean as you cook to stay organized'
+                ];
+
+                // Context-specific tips
+                if (currentStepText.includes('boil')) {
+                    return 'Pro tip: Add salt to water before it boils for better flavor absorption.';
+                } else if (currentStepText.includes('sauté')) {
+                    return 'Pro tip: Don\'t overcrowd the pan when sautéing for better browning.';
+                } else if (currentStepText.includes('mix') || currentStepText.includes('stir')) {
+                    return 'Pro tip: Stir gently to avoid overmixing, especially with delicate ingredients.';
+                }
+
+                return tips[Math.floor(Math.random() * tips.length)];
+            }
+
+            convert() {
+                const amount = parseFloat(document.getElementById('convert-amount').value);
+                const from = document.getElementById('convert-from').value;
+
+                if (!amount || isNaN(amount)) {
+                    document.getElementById('conversion-result').textContent = 'Enter a valid amount';
+                    return;
+                }
+
+                const conversions = {
+                    cups: { ml: 236.59, tbsp: 16, tsp: 48 },
+                    tbsp: { ml: 14.79, cups: 0.0625, tsp: 3 },
+                    tsp: { ml: 4.93, tbsp: 0.33, cups: 0.0208 },
+                    ml: { cups: 0.0042, tbsp: 0.0676, tsp: 0.2029 },
+                    g: { oz: 0.0353 },
+                    oz: { g: 28.35 }
+                };
+
+                const results = [];
+                const fromConversions = conversions[from] || {};
+
+                Object.entries(fromConversions).forEach(([unit, factor]) => {
+                    const result = (amount * factor).toFixed(2);
+                    results.push(`${result} ${unit}`);
+                });
+
+                document.getElementById('conversion-result').textContent =
+                    results.length > 0 ? results.join(' | ') : 'No conversions available';
+            }
+
+            setTargetTemp(temp) {
+                const percentage = Math.min((temp / 250) * 100, 100); // Max 250°F = 100%
+                document.getElementById('temp-indicator').style.left = `${percentage}%`;
+                this.showToast(`Target temperature set: ${temp}°F`, 'info');
+            }
+
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT') return;
+
+                    switch(e.key) {
+                        case 'ArrowRight':
+                        case ' ':
+                            e.preventDefault();
+                            this.nextStep();
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            this.previousStep();
+                            break;
+                        case 't':
+                            e.preventDefault();
+                            this.setTimer();
+                            break;
+                        case 'r':
+                            e.preventDefault();
+                            this.readAloud();
+                            break;
+                    }
+                });
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    info: 'bg-blue-500'
+                };
+
+                toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translate(-50%, -20px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize cooking assistant
+        let assistant;
+        document.addEventListener('DOMContentLoaded', () => {
+            assistant = new CookingAssistant();
+        });
+
+        // Request notification permission on load
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    </script>
+</body>
+</html>

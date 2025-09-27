@@ -68,14 +68,25 @@ class RecipeBrowser {
      */
     async loadRecipes() {
         try {
-            const response = await fetch(
-                "../data/extracted_recipes_realtime.json"
-            );
+            // Try to load from API first, fallback to local file
+            let response;
+            try {
+                response = await fetch(
+                    "https://cookstagram-data.vercel.app/api/recipes"
+                );
+            } catch (apiError) {
+                console.log("API not available, trying local file...");
+                response = await fetch(
+                    "../data/extracted_recipes_realtime.json"
+                );
+            }
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            this.recipes = await response.json();
+            const data = await response.json();
+            this.recipes = data.recipes || data;
             this.filteredRecipes = [...this.recipes];
 
             console.log(

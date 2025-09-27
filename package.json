@@ -1,0 +1,17 @@
+{
+  "name": "cookstagram-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Cookstagram recipe browser",
+  "main": "ui/index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static site'",
+    "start": "npx serve public",
+    "dev": "npx serve public -l 3000"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  },
+  "keywords": ["instagram", "recipes", "frontend", "browser"],
+  "author": "Ester Beltrami",
+  "license": "MIT"
+}

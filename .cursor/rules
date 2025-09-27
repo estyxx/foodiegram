@@ -1,0 +1,289 @@
+---
+description: Project context
+globs:
+alwaysApply: Always
+---
+
+# Foodiegram - AI Agent Development Guide
+
+## Project Overview
+
+**Foodiegram** is a recipe management platform that extracts, analyzes, and organizes recipes from Instagram posts using AI. Started as a simple Instagram scraper, it has evolved into a comprehensive cooking companion with meal planning, analytics, and cooking assistance features.
+
+### Core Purpose
+- Extract recipes from Instagram saved collections
+- AI-powered recipe analysis and data extraction
+- Create a personal recipe database from social media content
+- Provide meal planning and cooking assistance tools
+
+## Current Architecture
+
+### Tech Stack Decisions
+- **Frontend**: Vanilla HTML/CSS/JavaScript (deliberately chosen over React for simplicity)
+- **Backend**: Python for data extraction, JavaScript for API endpoints
+- **AI**: OpenAI GPT models for recipe analysis
+- **Data Storage**: JSON files (individual per recipe + index system)
+- **Deployment**: Targeting Vercel for MVP
+
+### File Structure
+```
+foodiegram/
+├── src/                          # Python extraction scripts
+│   ├── analyzer.py              # Recipe analysis with OpenAI
+│   ├── recipe_extractor.py      # Batch processing system
+│   ├── cache_manager.py         # Instagram data caching
+│   ├── instagram_extractor.py   # Instagram API wrapper
+│   ├── types.py                 # Pydantic data models
+│   └── env.py                   # Environment management
+├── ui/                          # Frontend application
+│   ├── index.html              # Main recipe browser
+│   ├── recipe.html             # Individual recipe view
+│   ├── app.js                  # Main application logic
+│   ├── styles.css              # Styling
+│   └── advanced-features.html  # Extended functionality
+├── data/                       # Recipe storage (git-ignored)
+│   ├── recipes/                # Individual recipe JSON files
+│   ├── cache/                  # Instagram cache
+│   └── extracted_recipes_realtime.json # Main recipe collection
+├── scripts/                    # Utility scripts
+└── docs/                      # Documentation
+```
+
+## Development Guidelines
+
+### Code Style Preferences
+
+#### Python
+- Use Pydantic models for data validation
+- Async/await for I/O operations where applicable
+- Type hints required for all functions
+- Error handling with try/catch blocks
+- Log operations for debugging
+
+#### JavaScript
+- ES6+ modern JavaScript syntax
+- Class-based architecture for complex features
+- Avoid jQuery or heavy frameworks - keep vanilla
+- Use const/let appropriately
+- Consistent naming: camelCase for variables, PascalCase for classes
+
+#### CSS
+- Mobile-first responsive design
+- CSS Grid and Flexbox for layouts
+- CSS custom properties (variables) for theming
+- BEM methodology for class naming when applicable
+- Prefer CSS over JavaScript for animations
+
+### Data Models
+
+#### Core Recipe Structure
+```python
+class Recipe(BaseModel):
+    post_pk: int
+    code: str  # Instagram short code
+    title: str
+    ingredients: List[str]
+    instructions: List[str]
+
+    # Classifications
+    dish_type: str
+    meal_type: str
+    cuisine_type: str
+    difficulty: str
+
+    # Ingredient breakdown
+    proteins: List[str]
+    vegetables: List[str]
+    herbs_spices: List[str]
+
+    # Time and serving
+    prep_time: str
+    cook_time: str
+    total_time: str
+    servings: str
+
+    # Enhanced metadata
+    dietary_tags: List[str]
+    health_tags: List[str]
+    season: List[str]
+    occasion: List[str]
+```
+
+### Key Design Patterns
+
+#### Recipe Extraction Pattern
+1. Instagram data fetch and cache
+2. OpenAI analysis with structured prompts
+3. Data validation and cleaning
+4. Individual file storage + index update
+
+#### UI Component Pattern
+```javascript
+class FeatureManager {
+    constructor() {
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        this.setupEventListeners();
+        this.render();
+    }
+
+    render() {
+        // Update DOM
+    }
+
+    handleError(error) {
+        console.error('Feature error:', error);
+        // Show user-friendly message
+    }
+}
+```
+
+## Current Development Status
+
+### Working Features
+- Instagram recipe extraction (single and batch)
+- AI-powered recipe analysis with 35+ data points
+- Basic recipe browser with search and filtering
+- Recipe detail view with ingredient checklist
+- Export/import functionality
+
+### In Development
+- Individual recipe file storage system
+- Vercel deployment configuration
+- Enhanced nutrition extraction
+- Data backup and sync strategies
+
+### Future Roadmap
+- Meal planning interface
+- Cooking assistant with timers
+- Recipe analytics dashboard
+- Mobile PWA features
+
+## Common Development Tasks
+
+### Adding New Recipe Fields
+1. Update `types.py` Recipe model
+2. Modify extraction prompt in `analyzer.py`
+3. Update UI rendering in `app.js`
+4. Test with sample recipes
+
+### Creating New UI Components
+1. Follow class-based pattern
+2. Implement error handling
+3. Add loading states
+4. Ensure mobile responsiveness
+5. Update main app integration
+
+### API Integration
+- All external API calls should be rate-limited
+- Implement retry logic with exponential backoff
+- Cache responses when appropriate
+- Handle network failures gracefully
+
+## Environment Variables
+
+```bash
+# Required
+OPENAI_API_KEY=your_openai_key
+INSTAGRAM_USERNAME=your_instagram_username
+INSTAGRAM_PASSWORD=your_app_specific_password
+
+# Optional
+INSTAGRAM_COLLECTION_ID=your_collection_id
+```
+
+## Testing Guidelines
+
+### Manual Testing Checklist
+- Recipe extraction from various Instagram post types
+- Search functionality with edge cases
+- Mobile responsiveness on different devices
+- Error handling for network failures
+- Data persistence across sessions
+
+### Common Edge Cases
+- Instagram posts with non-English content
+- Recipes with unusual ingredients or measurements
+- Very long or very short recipe descriptions
+- Posts with multiple recipes
+- Expired or deleted Instagram content
+
+## Performance Considerations
+
+### Current Bottlenecks
+- OpenAI API rate limits during batch processing
+- Large JSON file loading in browser
+- Instagram API rate limiting
+
+### Optimization Strategies
+- Implement pagination for recipe lists
+- Use intersection observers for lazy loading
+- Compress images and optimize assets
+- Cache frequently accessed data
+
+## Deployment Notes
+
+### MVP Requirements
+- Core recipe browser functionality
+- Basic search and filtering
+- Recipe detail view
+- New recipe addition via Instagram URL
+
+### Production Considerations
+- Secure API key management
+- Error monitoring setup
+- Backup strategy for recipe data
+- Performance monitoring
+
+## Code Quality Standards
+
+### Required Practices
+- All functions must handle errors gracefully
+- User-facing errors should be informative but not technical
+- Loading states for all async operations
+- Mobile-first responsive design
+- Accessibility considerations (keyboard navigation, screen readers)
+
+### Avoid These Patterns
+- Global variables (use classes or modules)
+- Inline event handlers in HTML
+- Hardcoded values (use configuration)
+- Synchronous operations for I/O
+- Overly complex inheritance hierarchies
+
+## Working with This Codebase
+
+### For New Features
+1. Check if existing patterns can be extended
+2. Maintain the vanilla JS approach unless complexity demands otherwise
+3. Follow the established file structure
+4. Update documentation for significant changes
+
+### For Bug Fixes
+1. Reproduce the issue locally
+2. Check browser console for JavaScript errors
+3. Verify API responses and data structures
+4. Test across different devices/browsers
+
+### For UI Improvements
+1. Maintain mobile-first approach
+2. Ensure consistent with existing design language
+3. Test with real recipe data
+4. Consider accessibility impact
+
+## AI Agent Instructions
+
+When working on this codebase:
+1. Prioritize simplicity over complexity
+2. Maintain the vanilla JavaScript approach
+3. Follow existing code patterns and naming conventions
+4. Always include error handling in new code
+5. Consider mobile users in all UI changes
+6. Test suggestions with the actual recipe data structure
+7. Respect the decision to avoid over-engineering with frameworks
+8. Focus on the core use case: recipe management and meal planning
+
+Remember: This is a personal project focused on practical recipe management, not a showcase of the latest web technologies. Functionality and maintainability are more important than using trendy frameworks.
