@@ -504,8 +504,7 @@
                             }
                         });
                     } catch (apiError) {
-                        console.log('API not available, trying local file...');
-                        response = await fetch('../data/extracted_recipes_realtime.json');
+                        console.error('API not available, trying local file...', apiError);
                     }
 
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -737,7 +736,7 @@
                         case 'ingredients':
                             return (a.ingredients?.length || 0) - (b.ingredients?.length || 0);
                         default: // date
-                            return b.post_id - a.post_id;
+                            return b.post_pk - a.post_pk;
                     }
                 });
             }
@@ -790,7 +789,7 @@
             }
 
             createEnhancedRecipeCard(recipe) {
-                const isFavorite = this.favorites.has(recipe.post_id);
+                const isFavorite = this.favorites.has(recipe.post_pk);
                 const nutritionEstimate = this.estimateNutrition(recipe);
 
                 return `
@@ -801,11 +800,11 @@
                             <div class="flex justify-between items-start mb-3">
                                 <h3 class="text-lg font-semibold text-gray-800 line-clamp-2 flex-1">${recipe.title}</h3>
                                 <div class="flex gap-2 ml-2">
-                                    <button onclick="app.toggleFavorite('${recipe.post_id}')"
+                                    <button onclick="app.toggleFavorite('${recipe.post_pk}')"
                                             class="favorite-heart ${isFavorite ? 'active' : ''} text-xl">
                                         ${isFavorite ? '❤️' : '🤍'}
                                     </button>
-                                    <button onclick="app.addToComparison('${recipe.post_id}')"
+                                    <button onclick="app.addToComparison('${recipe.post_pk}')"
                                             class="text-blue-600 hover:text-blue-800 text-sm">
                                         📊
                                     </button>
@@ -840,22 +839,22 @@
                             <!-- Enhanced Footer -->
                             <div class="card-footer">
                                 <div class="flex gap-2 mb-2">
-                                    <button onclick="app.openRecipe('${recipe.post_id}')"
+                                    <button onclick="app.openRecipe('${recipe.post_pk}')"
                                             class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                                         View Recipe
                                     </button>
-                                    <button onclick="app.openInstagramPost('${recipe.post_id}')"
+                                    <button onclick="app.openInstagramPost('${recipe.post_pk}')"
                                             class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all">
                                         📸
                                     </button>
                                 </div>
 
                                 <div class="flex justify-between text-xs text-gray-500">
-                                    <button onclick="app.addIngredientsToShopping('${recipe.post_id}')"
+                                    <button onclick="app.addIngredientsToShopping('${recipe.post_pk}')"
                                             class="hover:text-green-600">
                                         🛒 Add to Shopping
                                     </button>
-                                    <button onclick="app.shareRecipe('${recipe.post_id}')"
+                                    <button onclick="app.shareRecipe('${recipe.post_pk}')"
                                             class="hover:text-blue-600">
                                         📤 Share
                                     </button>
@@ -968,8 +967,8 @@
             }
 
             addToComparison(postId) {
-                const recipe = this.recipes.find(r => r.post_id == postId);
-                if (!recipe || this.comparisonRecipes.find(r => r.post_id == postId)) return;
+                const recipe = this.recipes.find(r => r.post_pk == postId);
+                if (!recipe || this.comparisonRecipes.find(r => r.post_pk == postId)) return;
 
                 this.comparisonRecipes.push(recipe);
                 this.updateComparisonPanel();
@@ -993,7 +992,7 @@
                             <div class="border rounded-lg p-3">
                                 <div class="flex justify-between items-start mb-2">
                                     <h4 class="font-semibold text-sm">${recipe.title}</h4>
-                                    <button onclick="app.removeFromComparison('${recipe.post_id}')" class="text-red-500 hover:text-red-700">×</button>
+                                    <button onclick="app.removeFromComparison('${recipe.post_pk}')" class="text-red-500 hover:text-red-700">×</button>
                                 </div>
                                 <div class="text-xs text-gray-600 space-y-1">
                                     <div>⏱️ ${recipe.total_time || 'Unknown'}</div>
@@ -1015,7 +1014,7 @@
             }
 
             removeFromComparison(postId) {
-                this.comparisonRecipes = this.comparisonRecipes.filter(r => r.post_id != postId);
+                this.comparisonRecipes = this.comparisonRecipes.filter(r => r.post_pk != postId);
                 this.updateComparisonPanel();
 
                 if (this.comparisonRecipes.length === 0) {
@@ -1024,7 +1023,7 @@
             }
 
             addIngredientsToShopping(postId) {
-                const recipe = this.recipes.find(r => r.post_id == postId);
+                const recipe = this.recipes.find(r => r.post_pk == postId);
                 if (!recipe?.ingredients) return;
 
                 recipe.ingredients.forEach(ingredient => this.shoppingList.add(ingredient));
@@ -1083,7 +1082,7 @@
             }
 
             openInstagramPost(postId) {
-                const recipe = this.recipes.find(r => r.post_id == postId);
+                const recipe = this.recipes.find(r => r.post_pk == postId);
                 if (recipe?.code) {
                     window.open(`https://instagram.com/p/${recipe.code}`, '_blank');
                 } else {
@@ -1109,7 +1108,7 @@
         function toggleFavorites() {
             // Implementation for favorites view
             app.activeFilters.clear();
-            app.filteredRecipes = app.recipes.filter(r => app.favorites.has(r.post_id));
+            app.filteredRecipes = app.recipes.filter(r => app.favorites.has(r.post_pk));
             app.renderRecipes();
             app.updateStats();
         }
@@ -1117,7 +1116,7 @@
         function randomRecipe() {
             const randomIndex = Math.floor(Math.random() * app.recipes.length);
             const randomRecipe = app.recipes[randomIndex];
-            app.openRecipe(randomRecipe.post_id);
+            app.openRecipe(randomRecipe.post_pk);
         }
 
         function toggleVoiceSearch() {

@@ -293,15 +293,16 @@
 
             async init() {
                 try {
+                    // Extract recipe ID from URL parameters
                     const urlParams = new URLSearchParams(window.location.search);
                     const recipeId = urlParams.get('id');
+                    console.log(recipeId);
 
                     if (!recipeId) {
                         this.showError('No recipe ID provided');
                         return;
                     }
 
-                    await this.loadRecipes();
                     await this.loadRecipe(recipeId);
 
                     console.log('🍳 Recipe detail page initialized successfully!');
@@ -311,33 +312,33 @@
                 }
             }
 
-            async loadRecipes() {
-                try {
-                    const response = await fetch('../data/extracted_recipes.json');
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-                    let recipes = await response.json();
-                    recipes = recipes.recipes;
-                    this.allRecipes = recipes; // Adjust if JSON structure differs
-                    console.log(`✅ Loaded ${this.allRecipes.length} recipes for lookup`);
-                } catch (error) {
-                    console.error('⚠️ Error loading recipes:', error);
-                    throw error;
-                }
-            }
-
             async loadRecipe(recipeId) {
                 try {
-                    this.currentRecipe = this.allRecipes.find(r => String(r.post_id) === String(recipeId));
+                    // Get stored password for API authentication
+                    const storedPassword = localStorage.getItem('cookstagram_password');
+                    console.log(storedPassword);
+                    const response = await fetch(`https://cookstagram-data.vercel.app/api/recipes/${recipeId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${storedPassword}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
 
-                    if (!this.currentRecipe) {
-                        throw new Error(`Recipe with ID ${recipeId} not found`);
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Authentication required. Please log in again.');
+                        } else if (response.status === 404) {
+                            throw new Error(`Recipe with ID ${recipeId} not found`);
+                        } else {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                     }
 
+                    this.currentRecipe = await response.json();
                     this.renderRecipe(this.currentRecipe);
                 } catch (error) {
                     console.error('⚠️ Error loading recipe:', error);
-                    this.showError();
+                    this.showError(error.message);
                 }
             }
 
@@ -514,10 +515,26 @@
             }
         });
 
+        // Authentication check
+        function checkAuthentication() {
+            const isAuthenticated = localStorage.getItem('cookstagram_authenticated');
+            const authExpiry = localStorage.getItem('cookstagram_auth_expiry');
+
+            if (!isAuthenticated || !authExpiry || new Date().getTime() >= parseInt(authExpiry)) {
+                // Not authenticated or session expired, redirect to login
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
         // Initialize app
         let app;
         document.addEventListener('DOMContentLoaded', () => {
-            app = new RecipeDetailPage();
+            // Check authentication first
+            if (checkAuthentication()) {
+                app = new RecipeDetailPage();
+            }
         });
 
         // Close modal with Escape key
