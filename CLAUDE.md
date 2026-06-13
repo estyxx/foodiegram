@@ -92,12 +92,15 @@ boundaries (Instagram SDK, LLM JSON output, persisted files/API). Don't mix in
   canonical URL `https://www.instagram.com/p/{code}/`.
 - **All Instagram IDs are stored and handled as `str`.** They overflow JS number
   precision and round-trip badly through JSON as ints. `pk: str`, never `int`.
-- **Preserve original language.** Store the caption verbatim. Store
-  `ingredients_original` (as written, IT/EN) *and* normalized English tags for
-  filtering. Search must work in both languages — never overwrite the Italian.
+- **Preserve original language.** Store the caption verbatim. Search must work in
+  both languages — never overwrite Italian content with English translations.
 - Instagram media URLs **expire**. Capture the image at extraction time and store
-  the durable (Cloudinary) URL + `public_id`. Never persist a raw cdninstagram URL
-  as the source of truth.
+  the durable (Cloudinary) URL. Never persist a raw cdninstagram URL as the
+  source of truth.
+- **Ingredient strings stay raw.** Store `"750g chicken breast"` as-is; do not
+  destructure into `{quantity: 750, unit: "g", item: "chicken breast"}` in the DB.
+  The scaling regex (`/(\d+\.?\d*)/`) handles numeric extraction at read time in
+  both the JS frontend and the `/scale` API endpoint.
 
 ## Errors & logging
 
@@ -118,21 +121,33 @@ boundaries (Instagram SDK, LLM JSON output, persisted files/API). Don't mix in
 
 ## Architecture (layered, DDD-lite — not full DDD)
 
+Package: `foodiegram`. Module root: `src/foodiegram/`.
 Dependencies point **inward only**: interfaces → app → adapters → domain.
 Domain depends on nothing.
 
 ```
-domain/      pure models, enums, errors. No I/O. No SDKs.
-instagram/   instagrapi adapter + caching. Knows about Media; maps it to domain.
-ai/          LLM extraction: prompts (as .txt files), schema, batch + interactive.
-images/      Cloudinary adapter. Download → upload → return durable URL/public_id.
-storage/     repository: JSON now, SQLite later, same interface.
-app/         services / use-cases. Thin orchestration of the above. No business
-             logic leaking into adapters.
-settings.py  pydantic-settings (BaseSettings). Loads + validates env. Never logged.
-cli.py       typer entrypoints (fetch / analyze / build).
-api.py       FastAPI (added in Phase 3, not before).
+domain/               pure models, enums, errors. No I/O. No SDKs.
+  enums.py            StrEnum for MealType, DishType, CuisineType, Difficulty
+  models.py           ExtractedRecipe, Recipe, Collection (Pydantic, frozen)
+  errors.py           FoodiegramError hierarchy
+instagram/            instagrapi adapter + caching. Knows about Media; maps to domain.
+ai/                   LLM extraction: prompts (.txt), schema, batch + interactive.
+images/               Cloudinary adapter. Download → upload → return durable URL.
+repository.py         RecipeRepository — JSON now, SQLite later, same interface.
+api.py                FastAPI: /recipes CRUD + /scale convenience endpoint.
+api_models.py         API-layer response models (RecipeSummary, RecipeDetail, etc.)
+settings.py           pydantic-settings BaseSettings. Env prefix FOODIEGRAM_.
+                      Never log the settings object itself.
 ```
+
+`RecipeRepository` interface **must not change** when we swap JSON for SQLite.
+Method signatures (`get`, `save`, `list_all`, `delete`, `find`) are the stable API;
+all callers import `RecipeRepository`, never the storage implementation.
+
+The `/scale` endpoint is a **convenience** — it is not the source of truth for the
+scaling widget. The browser JS (`extractNumber` / `scaleIngredient`) does the same
+math client-side on already-loaded data. Never let the UI depend on a round-trip for
+a calculation it can do locally.
 
 No repository-of-repositories, no unit-of-work, no domain events, no generic
 `BaseService`. If an abstraction has exactly one implementation and always will,

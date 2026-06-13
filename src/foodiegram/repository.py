@@ -46,17 +46,18 @@ class RecipeRepository:
         if path.exists():
             try:
                 existing = Recipe.model_validate_json(path.read_bytes())
-            except (ValidationError, ValueError) as exc:
-                msg = f"Cannot read existing recipe {path}"
-                raise StorageError(msg) from exc
-            if existing.edited_by_user:
-                recipe = recipe.model_copy(
-                    update={
-                        "user_notes": existing.user_notes,
-                        "is_favorite": existing.is_favorite,
-                        "edited_by_user": existing.edited_by_user,
-                    },
-                )
+                if existing.edited_by_user:
+                    recipe = recipe.model_copy(
+                        update={
+                            "user_notes": existing.user_notes,
+                            "is_favorite": existing.is_favorite,
+                            "edited_by_user": existing.edited_by_user,
+                        },
+                    )
+            except (ValidationError, ValueError):
+                # Stale schema (pre-migration file) — no user edits can exist;
+                # proceed and overwrite with the new format.
+                logger.warning("Overwriting stale-schema file %s", path)
 
         tmp = path.with_suffix(".tmp")
         try:

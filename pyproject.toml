@@ -11,15 +11,18 @@ requires-python = ">=3.13"
 dependencies = [
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
+    "fastapi[standard]>=0.115",
     "instagrapi>=2.2.1",
     "openai>=1.99.9",
     "pydantic>=2.11.7",
     "pydantic-ai-slim[openai]>=0.7.2",
     "pydantic-settings>=2.14.1",
+    "python-multipart>=0.0.9",
+    "uvicorn[standard]>=0.30",
 ]
 
 [project.scripts]
-foodiegram = "foodiegram:main"
+foodiegram-api = "foodiegram.api:main"
 
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]
@@ -43,11 +46,15 @@ ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module
 ]
 [tool.ruff.lint.per-file-ignores]
 # Standalone migration/utility scripts are not an importable package.
-"scripts/*" = ["INP001"]
+# T201: print() is the intended output mechanism for CLI scripts.
+# PLR2004: small literal constants are clear enough in script context.
+"scripts/*" = ["INP001", "T201", "PLR2004"]
 # `assert` and hardcoded test credentials are the expected idiom in tests.
 "tests/*" = ["S101", "S105", "S106"]
 # Client and Settings are used at runtime (class attrs + property body), not just annotations.
 "src/foodiegram/instageram_extractor.py" = ["TC001", "TC002"]
+# S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
+"src/foodiegram/settings.py" = ["S104"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

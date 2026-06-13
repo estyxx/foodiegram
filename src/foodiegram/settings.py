@@ -8,6 +8,9 @@ _SECRET_KEYWORDS = ("key", "password", "secret", "sessionid", "token")
 class Settings(BaseSettings):
     """Application configuration, loaded and validated from the environment."""
 
+    # env_prefix is intentionally absent: the existing .env uses unprefixed names
+    # (INSTAGRAM_USERNAME, OPENAI_API_KEY, …).  To adopt FOODIEGRAM_ prefix, rename
+    # every key in .env first, then add env_prefix="FOODIEGRAM_" here.
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -25,6 +28,10 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str
     cloudinary_api_key: str
     cloudinary_api_secret: str
+
+    data_dir: Path = Path("data/recipes")
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
 
     def __repr__(self) -> str:
         """Return a repr with secret-bearing fields masked."""

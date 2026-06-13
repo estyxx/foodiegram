@@ -66,7 +66,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     overflow: hidden;
     position: relative;
@@ -217,7 +217,7 @@
 .filter-btn {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid #d1d5db;
-    background: white;
+    background: var(--surface);
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     border-radius: 24px;
@@ -268,7 +268,8 @@
 #search-input {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-width: 2px;
-    background: white;
+    background: var(--surface);
+    color: var(--text);
 }
 
 #search-input:focus {
@@ -522,14 +523,4 @@ button:focus {
     }
 }
 
-/* Dark mode support (if needed in future) */
-@media (prefers-color-scheme: dark) {
-    .recipe-card {
-        background: #1f2937;
-        border: 1px solid #374151;
-    }
-
-    .recipe-image-placeholder {
-        background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
-    }
-}
+/* Dark mode tokens are defined in index.html :root — no overrides needed here. */
