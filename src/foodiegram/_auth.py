@@ -37,6 +37,7 @@ def login_client(settings: Settings) -> Client:
     username = settings.instagram_username
     password = settings.instagram_password
     verification_code = os.getenv("INSTAGRAM_2FA_CODE", "")
+    sessionid = settings.instagram_sessionid
 
     client = Client()
     login_via_session = False
@@ -64,11 +65,18 @@ def login_client(settings: Settings) -> Client:
         except Exception as exc:  # noqa: BLE001 — instagrapi raises many undocumented types
             logger.info("Could not log in via saved session: %s", exc)
 
+    if not login_via_session and sessionid:
+        logger.info("Bootstrapping from browser sessionid.")
+        client = Client()
+        client.login_by_sessionid(sessionid)
+        client.dump_settings(session_file)
+        login_via_session = True
+
     if not login_via_session:
         logger.info("Logging in fresh with username and password.")
         client = Client()
         try:
-            client.login(username, password)
+            client.login(username, password, verification_code=verification_code)
         except ChallengeRequired:
             _resolve_challenge(client)
 

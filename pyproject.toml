@@ -39,6 +39,7 @@ ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module
 "D104", # https://docs.astral.sh/ruff/rules/undocumented-public-package/
 "D203", # https://docs.astral.sh/ruff/rules/incorrect-blank-line-before-class/
 "D213", # https://docs.astral.sh/ruff/rules/multi-line-summary-second-line/
+"PLR0913", # query/filter methods legitimately take many keyword-only args
 ]
 [tool.ruff.lint.per-file-ignores]
 # Standalone migration/utility scripts are not an importable package.

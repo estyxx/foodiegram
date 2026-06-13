@@ -2,14 +2,14 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 from instagrapi.types import Media
 from openai import OpenAI
 from openai.types import Batch
 from pydantic import ValidationError
 
-from foodiegram.domain import Recipe
-from foodiegram.types import ExtractedRecipe
+from foodiegram.domain import ExtractedRecipe, Recipe
 
 logger = logging.getLogger(__name__)
 
@@ -164,13 +164,17 @@ class RecipeExtractor:
                     response_body["output"][0]["content"][0]["text"],
                 )
 
-                recipe = Recipe.model_validate(
-                    {
-                        **recipe_data,
-                        "code": post.code,
-                        "pk": str(post.pk),
-                        "caption": post.caption_text,
-                        "thumbnail_url": str(post.thumbnail_url),
+                extracted = ExtractedRecipe.model_validate(recipe_data)
+                recipe = Recipe.from_extracted(
+                    code=post.code,
+                    pk=str(post.pk),
+                    caption=post.caption_text,
+                    extracted=extracted,
+                ).model_copy(
+                    update={
+                        "thumbnail_url": str(post.thumbnail_url)
+                        if post.thumbnail_url
+                        else None,
                     },
                 )
                 recipes.append(recipe)
@@ -182,7 +186,7 @@ class RecipeExtractor:
         logger.info("Successfully parsed %d recipes", len(recipes))
         return recipes
 
-    def analyze_extraction_quality(self, recipes: list[Recipe]) -> dict:
+    def analyze_extraction_quality(self, recipes: list[Recipe]) -> dict[str, Any]:
         """Analyze the quality and completeness of extractions."""
         if not recipes:
             return {"error": "No recipes to analyze"}

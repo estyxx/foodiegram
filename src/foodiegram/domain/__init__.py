@@ -5,12 +5,14 @@ from foodiegram.domain.errors import (
     InstagramFetchError,
     StorageError,
 )
-from foodiegram.domain.models import Recipe
+from foodiegram.domain.models import Collection, ExtractedRecipe, Recipe
 
 __all__ = [
+    "Collection",
     "CuisineType",
     "Difficulty",
     "DishType",
+    "ExtractedRecipe",
     "ExtractionError",
     "FoodiegramError",
     "InstagramFetchError",

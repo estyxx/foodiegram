@@ -6,7 +6,7 @@ from pathlib import Path
 
 from instagrapi.types import Media
 
-from foodiegram.types import Collection
+from foodiegram.domain import Collection
 
 logger = logging.getLogger(__name__)
 

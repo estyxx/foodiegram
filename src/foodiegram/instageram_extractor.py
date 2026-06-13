@@ -8,8 +8,8 @@ from instagrapi import Client
 
 from foodiegram._auth import login_client
 from foodiegram.cache_manager import CacheManager
+from foodiegram.domain import Collection
 from foodiegram.settings import Settings
-from foodiegram.types import Collection
 
 if TYPE_CHECKING:
     from instagrapi.types import Media
@@ -84,7 +84,7 @@ class InstagramExtractor:
         logger.info("Fetching up to %d posts from collection %s", limit, collection_id)
 
         try:
-            return self.client.collection_medias(
+            medias: list[Media] = self.client.collection_medias(
                 collection_pk=collection_id,
                 amount=limit,
                 last_media_pk=last_media_pk,
@@ -92,8 +92,8 @@ class InstagramExtractor:
         except Exception:
             logger.exception("Error fetching batch")
             return []
-
-        return []
+        else:
+            return medias
 
 
 def load_or_fetch_collection(

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_SECRET_KEYWORDS = ("key", "password", "secret", "token")
+_SECRET_KEYWORDS = ("key", "password", "secret", "sessionid", "token")
 
 
 class Settings(BaseSettings):
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     instagram_password: str
     instagram_collection_id: str
     instagram_session_file: Path
+    instagram_sessionid: str = ""
     openai_api_key: str
     cloudinary_cloud_name: str
     cloudinary_api_key: str
