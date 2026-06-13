@@ -43,6 +43,17 @@ data/
 cache/
 export.json
 
+# External artifacts / font assets — not part of the package
+GeneralSans_Complete/
+"Recipe Management System Architecture"/
+cookstagram-data/
+
+# Runtime / scratch files
+post.json
+session.json
+PASSWORD_SETUP.md
+REPOSITORY_MIGRATION.md
+
 # Node.js
 node_modules/
 npm-debug.log*

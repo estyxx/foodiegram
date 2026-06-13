@@ -1,16 +1,15 @@
 import logging
 from pathlib import Path
 
-from foodiegram import env
 from foodiegram.instageram_extractor import InstagramExtractor
+from foodiegram.settings import Settings
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def read_collection_ids_from_file(file_path: str) -> list[int]:
+def read_collection_ids_from_file(file_path: str) -> list[str]:
     """Read collection IDs from the collections_food.txt file."""
-    collection_ids = []
+    collection_ids: list[str] = []
     try:
         with Path(file_path).open(encoding="utf-8") as file:
             for file_line in file:
@@ -19,23 +18,20 @@ def read_collection_ids_from_file(file_path: str) -> list[int]:
                     # Extract the first column (collection ID)
                     parts = stripped_line.split()
                     if parts:
-                        collection_id = int(parts[0])
-                        collection_ids.append(collection_id)
+                        collection_ids.append(parts[0])
     except FileNotFoundError:
         logger.exception("File %s not found", file_path)
-    except (ValueError, OSError):
+    except OSError:
         logger.exception("Error reading file %s", file_path)
 
     return collection_ids
 
 
 if __name__ == "__main__":
-    environment = env.Env.get_env()
+    logging.basicConfig(level=logging.INFO)
+    environment = Settings()
 
-    extractor = InstagramExtractor(
-        username=environment.INSTAGRAM_USERNAME,
-        password=environment.INSTAGRAM_PASSWORD,
-    )
+    extractor = InstagramExtractor(environment)
 
     # Read collection IDs from the file
     collections_file = "cache/collections/collections_food.txt"
@@ -45,7 +41,7 @@ if __name__ == "__main__":
 
     # Fetch posts for each collection
     for collection_id in collection_ids:
-        logger.info("Fetching posts for collection ID: %d", collection_id)
+        logger.info("Fetching posts for collection ID: %s", collection_id)
         try:
             # Use a very high limit to get all posts
             posts = extractor.fetch_collection_posts(
@@ -53,7 +49,7 @@ if __name__ == "__main__":
                 limit=10000,  # Very high limit to get all posts
             )
             logger.info(
-                "Successfully fetched %d posts for collection %d",
+                "Successfully fetched %d posts for collection %s",
                 len(posts),
                 collection_id,
             )
@@ -62,12 +58,12 @@ if __name__ == "__main__":
             if posts:
                 extractor.cache_manager.save_collection(collection_id, posts)
                 logger.info(
-                    "Saved %d posts to cache for collection %d",
+                    "Saved %d posts to cache for collection %s",
                     len(posts),
                     collection_id,
                 )
 
         except (ValueError, ConnectionError, TimeoutError):
-            logger.exception("Error fetching posts for collection %d", collection_id)
+            logger.exception("Error fetching posts for collection %s", collection_id)
 
     logger.info("Finished processing all collections")

@@ -59,66 +59,6 @@ class ExtractedRecipe(BaseModel):
     prep_style: list[str]
 
 
-class Recipe(BaseModel):
-    """Recipe data model including source post info."""
-
-    # Original post data
-    post_id: int
-    code: str
-
-    @property
-    def post_url(self) -> str:
-        """Construct the URL for the Instagram post."""
-        return f"https://instagram.com/p/{self.code}"
-
-    caption: str
-    thumbnail_url: str | None = None
-
-    title: str
-    ingredients: list[str]
-    instructions: list[str]
-
-    # Primary classifications
-    dish_type: str
-    meal_type: str
-    cuisine_type: str
-    difficulty: str
-
-    # Ingredient breakdown
-    proteins: list[str]
-    vegetables: list[str]
-    grains_starches: list[str]
-    herbs_spices: list[str]
-
-    # Cooking details
-    cooking_methods: list[str]
-    equipment: list[str]
-
-    # Time and serving
-    prep_time: str
-    cook_time: str
-    total_time: str
-    servings: str
-
-    # Experience tags
-    temperature: str
-    texture: list[str]
-    flavor_profile: list[str]
-
-    # Dietary and lifestyle
-    dietary_tags: list[str]
-    health_tags: list[str]
-
-    # Context and occasion
-    season: list[str]
-    occasion: list[str]
-    skill_level: str
-
-    # Special characteristics
-    style_tags: list[str]
-    prep_style: list[str]
-
-
 class Collection(BaseModel):
     """Data model for an Instagram collection."""
 

@@ -6,44 +6,35 @@ from typing import TYPE_CHECKING
 
 from instagrapi import Client
 
+from foodiegram._auth import login_client
 from foodiegram.cache_manager import CacheManager
+from foodiegram.settings import Settings
 from foodiegram.types import Collection
 
 if TYPE_CHECKING:
     from instagrapi.types import Media
 
-    from foodiegram import env
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class InstagramExtractor:
     """Class to handle extraction of saved posts from Instagram."""
 
-    _client: Client = None
-    username: str
-    password: str
+    _settings: Settings
     cache_manager: CacheManager
+    _client: Client | None = None
 
-    def __init__(
-        self,
-        username: str,
-        password: str,
-    ) -> None:
-        """Initialize the extractor with credentials and cache manager."""
-        self.username = username
-        self.password = password
+    def __init__(self, settings: Settings) -> None:
+        """Initialize the extractor with settings and cache manager."""
+        self._settings = settings
         self.cache_manager = CacheManager()
 
     @property
     def client(self) -> Client:
-        """Lazy load the Instagram client."""
-        if getattr(self, "_client", None):
+        """Lazy-load the Instagram client using the best-practices session pattern."""
+        if self._client is not None:
             return self._client
-
-        self._client = Client()
-        self._client.login(self.username, self.password)
+        self._client = login_client(self._settings)
         return self._client
 
     def fetch_collections(self) -> list[Collection]:
@@ -85,12 +76,12 @@ class InstagramExtractor:
 
     def fetch_collection_posts(
         self,
-        collection_id: int,
+        collection_id: str,
         limit: int = 100,
         last_media_pk: int = 0,
     ) -> list[Media]:
         """Fetch posts from Instagram with pagination support and incremental caching."""
-        logger.info("Fetching up to %d posts from collection %d", limit, collection_id)
+        logger.info("Fetching up to %d posts from collection %s", limit, collection_id)
 
         try:
             return self.client.collection_medias(
@@ -106,22 +97,19 @@ class InstagramExtractor:
 
 
 def load_or_fetch_collection(
-    environment: env.Env,
-    collection_id: int,
+    environment: Settings,
+    collection_id: str,
     limit: int = 100,
 ) -> Collection:
     """Load posts from cache or fetch from Instagram with smart caching."""
-    logger.info("Fetching posts from Instagram for collection %d", collection_id)
+    logger.info("Fetching posts from Instagram for collection %s", collection_id)
     cache_manager = CacheManager()
 
     if collection := cache_manager.get_collection(collection_id):
-        logger.info("Loaded collection %d from cache", collection_id)
+        logger.info("Loaded collection %s from cache", collection_id)
         return collection
 
-    extractor = InstagramExtractor(
-        username=environment.INSTAGRAM_USERNAME,
-        password=environment.INSTAGRAM_PASSWORD,
-    )
+    extractor = InstagramExtractor(environment)
 
     posts = []
     fetched = 0
@@ -142,7 +130,7 @@ def load_or_fetch_collection(
         collection = cache_manager.save_collection(collection_id, batch)
 
     logger.info(
-        "Successfully fetched/loaded %d posts for collection %d",
+        "Successfully fetched/loaded %d posts for collection %s",
         len(posts),
         collection_id,
     )

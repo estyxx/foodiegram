@@ -8,7 +8,6 @@ from instagrapi.types import Media
 
 from foodiegram.types import Collection
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

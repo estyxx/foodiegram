@@ -6,10 +6,11 @@ from pathlib import Path
 from instagrapi.types import Media
 from openai import OpenAI
 from openai.types import Batch
+from pydantic import ValidationError
 
-from foodiegram.types import ExtractedRecipe, Recipe
+from foodiegram.domain import Recipe
+from foodiegram.types import ExtractedRecipe
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -158,24 +159,23 @@ class RecipeExtractor:
 
                 post = post_lookup[custom_id]
 
-                # Extract recipe data from response
                 response_body = result["response"]["body"]
-
                 recipe_data = json.loads(
                     response_body["output"][0]["content"][0]["text"],
                 )
 
-                # Create Recipe object
-                recipe = Recipe(
-                    post_id=post.id,
-                    code=post.code,
-                    caption=post.caption_text,
-                    thumbnail_url=str(post.thumbnail_url),
-                    **recipe_data,
+                recipe = Recipe.model_validate(
+                    {
+                        **recipe_data,
+                        "code": post.code,
+                        "pk": str(post.pk),
+                        "caption": post.caption_text,
+                        "thumbnail_url": str(post.thumbnail_url),
+                    },
                 )
                 recipes.append(recipe)
 
-            except Exception:
+            except (KeyError, json.JSONDecodeError, ValidationError):
                 logger.exception("Error parsing line %d", line_num)
                 continue
 
@@ -278,7 +278,7 @@ def extract_recipes_comprehensively(
     extractor.download_results(batch)
 
     # Parse results
-    recipes = extractor.parse_results(posts)
+    recipes = extractor.parse_results(posts, batch_id)
 
     # Save with analysis
     extractor.save_analysis(recipes)
@@ -288,24 +288,22 @@ def extract_recipes_comprehensively(
 
 
 if __name__ == "__main__":
-    from foodiegram import env
     from foodiegram.cache_manager import CacheManager
     from foodiegram.instageram_extractor import load_or_fetch_collection
+    from foodiegram.settings import Settings
 
-    environment = env.Env.get_env()
+    logging.basicConfig(level=logging.INFO)
+    environment = Settings()
 
     cache = CacheManager()
     collection = load_or_fetch_collection(
         environment,
-        collection_id=environment.INSTAGRAM_COLLECTION_ID,
+        collection_id=environment.instagram_collection_id,
         limit=4,
     )
     posts = [cache.get_post(post_id) for post_id in collection.post_pks[:5]]
 
-    extractor = RecipeExtractor(api_key=environment.OPENAI_API_KEY, model="gpt-4.1")
-    # batch_id = "batch_68ab3084fd8c8190a8d2c03b8f5f0a60"
-    # batch = extractor.wait_for_batch(batch_id)
-
+    extractor = RecipeExtractor(api_key=environment.openai_api_key, model="gpt-4.1")
     batch_id = "batch_68ab3084fd8c8190a8d2c03b8f5f0a60"
-    recipes = extractor.parse_results(posts)
+    recipes = extractor.parse_results(posts, batch_id)
     extractor.save_analysis(recipes)
