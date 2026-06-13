@@ -1,4 +1,4 @@
-# 🍳 Cookstagram Frontend
+# 🍳 Foodiegram Frontend
 
 A beautiful, modern recipe browser for your Instagram saved collections.
 

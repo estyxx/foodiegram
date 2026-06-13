@@ -1,7 +1,7 @@
 {
-  "name": "cookstagram-frontend",
+  "name": "foodiegram-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Cookstagram recipe browser",
+  "description": "Frontend for Foodiegram recipe browser",
   "main": "ui/index.html",
   "scripts": {
     "build": "echo 'No build step required for static site'",
