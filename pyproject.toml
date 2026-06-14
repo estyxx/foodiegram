@@ -12,7 +12,7 @@ dependencies = [
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.115",
-    "instagrapi>=2.2.1",
+    "instagrapi>=2.10.6",
     "openai>=1.99.9",
     "pydantic>=2.11.7",
     "pydantic-ai-slim[openai]>=0.7.2",
@@ -71,8 +71,6 @@ files = ["src", "tests"]
 module = ["instagrapi.*"]
 ignore_missing_imports = true
 
-[tool.uv.sources]
-instagrapi = { path = "../instagrapi", editable = true }
 
 [dependency-groups]
 dev = [
