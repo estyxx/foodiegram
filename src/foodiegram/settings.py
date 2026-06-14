@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str
     cloudinary_api_key: str
     cloudinary_api_secret: str
+    cloudinary_url: str
 
     data_dir: Path = Path("data/recipes")
     api_host: str = "0.0.0.0"

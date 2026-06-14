@@ -66,9 +66,9 @@ mypy_path = "src"
 explicit_package_bases = true
 files = ["src", "tests"]
 
-# instagrapi ships no type stubs / py.typed marker.
+# instagrapi and cloudinary ship no type stubs / py.typed marker.
 [[tool.mypy.overrides]]
-module = ["instagrapi.*"]
+module = ["instagrapi.*", "cloudinary.*"]
 ignore_missing_imports = true
 
 
