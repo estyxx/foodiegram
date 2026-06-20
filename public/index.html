@@ -276,9 +276,9 @@
       color: var(--primary); font-size: .8rem; margin-left: .35rem;
     }
 
-    .ingredient-list { list-style: none; }
+    .ingredient-list { list-style: disc; padding-left: 1.4rem; }
     .ingredient-list li {
-      padding: .45rem .5rem; border-radius: 6px; font-size: .9rem;
+      padding: .35rem .25rem; border-radius: 4px; font-size: .9rem;
       transition: background .15s;
     }
     .ingredient-list li:hover { background: var(--bg); }
@@ -313,6 +313,65 @@
 
     /* Tags in detail */
     .detail-tags { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+    /* Times grid (Prep / Cook / Total) */
+    .times-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: .5rem; margin-bottom: .9rem;
+    }
+    .times-cell {
+      text-align: center; padding: .55rem .25rem;
+      background: var(--bg); border-radius: 7px;
+    }
+    .times-cell__label {
+      font-size: .68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-muted); margin-bottom: .2rem;
+    }
+    .times-cell__value { font-size: .9rem; font-weight: 500; color: var(--text); }
+    .times-cell__value--unknown { color: var(--text-muted); font-style: italic; font-weight: 400; }
+
+    /* Meta row (label + value inline) */
+    .meta-row {
+      display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem;
+    }
+    .meta-row__label {
+      font-size: .75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-muted); white-space: nowrap; min-width: 80px;
+    }
+    .meta-row__value { font-size: .9rem; color: var(--text); }
+
+    /* Tag label groups (Proteins / Veg / Grains / Herbs, Dietary, etc.) */
+    .tag-label-group { margin-bottom: .8rem; }
+    .tag-label-group:last-child { margin-bottom: 0; }
+    .tag-label-group__label {
+      font-size: .68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-muted); margin-bottom: .35rem;
+    }
+    .tag-label-group__tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+    /* Collapsible original caption */
+    .caption-details { }
+    .caption-details > summary {
+      font-size: .9rem; font-weight: 600; cursor: pointer;
+      list-style: none; display: flex; align-items: center; gap: .4rem;
+      color: var(--text-muted); padding: .1rem 0; user-select: none;
+    }
+    .caption-details > summary::-webkit-details-marker { display: none; }
+    .caption-details > summary::before {
+      content: '▶'; font-size: .6rem; transition: transform .2s; flex-shrink: 0;
+    }
+    .caption-details[open] > summary::before { transform: rotate(90deg); }
+    .caption-text {
+      font-size: .85rem; color: var(--text-muted); white-space: pre-wrap;
+      line-height: 1.65; margin-top: .75rem;
+      border-top: 1px solid var(--border); padding-top: .75rem;
+    }
+
+    /* No-instructions fallback */
+    .no-instructions {
+      font-size: .9rem; color: var(--text-muted);
+    }
+    .no-instructions a { color: var(--primary); }
 
     /* ------------------------------------------------------------------ */
     /* Responsive tweaks                                                    */
@@ -634,12 +693,25 @@ function cardHTML(recipe) {
   const favActive = recipe.is_favorite ? 'fav-btn--active' : '';
   const favSymbol = recipe.is_favorite ? '★' : '☆';
 
+  const isUntitled = !recipe.title || recipe.title === 'None';
+  const titleHTML = isUntitled
+    ? '<em style="color:var(--text-muted);font-weight:400">Untitled recipe</em>'
+    : esc(recipe.title);
+
+  const dietaryTags = recipe.dietary_tags || [];
+  const shownTags = dietaryTags.slice(0, 2)
+    .map(t => `<span class="tag tag-dietary">${esc(t.replace(/_/g,' '))}</span>`)
+    .join('');
+  const moreBadge = dietaryTags.length > 2
+    ? `<span class="tag" style="background:var(--bg);color:var(--text-muted)">+${dietaryTags.length - 2} more</span>`
+    : '';
+
   return `
     <article class="recipe-card" data-code="${esc(recipe.code)}">
       <div class="card-img">${renderImg(recipe)}</div>
       <div class="card-body">
         <div class="card-badges">
-          <h3 class="card-title" style="flex:1;margin:0">${esc(recipe.title)}</h3>
+          <h3 class="card-title" style="flex:1;margin:0">${titleHTML}</h3>
           <button class="fav-btn ${favActive}"
                   data-action="toggle-fav" data-code="${esc(recipe.code)}"
                   title="${recipe.is_favorite ? 'Remove from favourites' : 'Add to favourites'}">
@@ -652,9 +724,7 @@ function cardHTML(recipe) {
           ${recipe.meal_type     && recipe.meal_type     !== 'unknown' ? `<span class="badge badge-meal">${esc(recipe.meal_type.replace(/_/g,' '))}</span>` : ''}
         </div>
         <div class="card-tags">
-          ${(recipe.dietary_tags || []).slice(0,3).map(t =>
-            `<span class="tag tag-dietary">${esc(t.replace(/_/g,' '))}</span>`
-          ).join('')}
+          ${shownTags}${moreBadge}
         </div>
       </div>
     </article>`;
@@ -678,29 +748,26 @@ function renderRecipeDetail(recipe) {
 
   /* --- hero image --- */
   const heroSrc = recipe.cloudinary_url || recipe.thumbnail_url;
+  const titleDisplay = !recipe.title || recipe.title === 'None' ? 'Untitled recipe' : recipe.title;
   const heroImg = heroSrc
     ? `<img class="detail-hero-img" src="${esc(heroSrc)}"
-           alt="${esc(recipe.title)}" data-initial="${esc(recipe.title.charAt(0))}"
+           alt="${esc(titleDisplay)}" data-initial="${esc(titleDisplay.charAt(0))}"
            onerror="this.style.display='none'">`
     : '';
 
-  /* --- meta badges --- */
+  /* --- meta badges (hero) --- */
   const metaBadges = [
     recipe.cuisine_type  !== 'unknown' && recipe.cuisine_type  ? `<span class="badge badge-cuisine">${esc(recipe.cuisine_type.replace(/_/g,' '))}</span>` : '',
     recipe.difficulty    !== 'unknown' && recipe.difficulty    ? `<span class="badge badge-difficulty">${esc(recipe.difficulty)}</span>` : '',
     recipe.meal_type     !== 'unknown' && recipe.meal_type     ? `<span class="badge badge-meal">${esc(recipe.meal_type.replace(/_/g,' '))}</span>` : '',
     recipe.dish_type     !== 'unknown' && recipe.dish_type     ? `<span class="badge" style="background:#f0fdf4;color:#166534">${esc(recipe.dish_type.replace(/_/g,' '))}</span>` : '',
-    recipe.prep_time  ? `<span class="badge badge-difficulty">⏱ prep ${esc(recipe.prep_time)}</span>`  : '',
-    recipe.total_time ? `<span class="badge badge-difficulty">⏱ total ${esc(recipe.total_time)}</span>` : '',
-    recipe.servings   ? `<span class="badge badge-difficulty">👥 ${esc(recipe.servings)}</span>` : '',
   ].filter(Boolean).join('');
 
-  /* --- scaling: parseable ingredients for "by ingredient" select --- */
+  /* --- scaling widget --- */
   const parseableIngs = (recipe.ingredients || []).filter(i => extractNumber(i) !== null);
   const ingOptions = parseableIngs.map(i =>
     `<option value="${esc(i)}">${esc(i.length > 60 ? i.slice(0, 57) + '…' : i)}</option>`
   ).join('');
-
   const baseServingsInfo = recipe.base_servings != null
     ? `Base: <strong>${recipe.base_servings}</strong> servings`
     : `<em>Servings unknown — ingredient scaling still available</em>`;
@@ -708,22 +775,90 @@ function renderRecipeDetail(recipe) {
   /* --- instructions --- */
   const instructions = (recipe.instructions || []).length > 0
     ? `<ol class="instruction-list">${recipe.instructions.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`
-    : `<p style="color:var(--text-muted);font-size:.9rem">No instructions extracted yet.</p>`;
+    : `<p class="no-instructions">No instructions extracted — <a href="${esc(recipe.post_url)}" target="_blank" rel="noopener">view on Instagram</a></p>`;
 
-  /* --- dietary / health / other tags --- */
-  const allTags = [
-    ...(recipe.dietary_tags || []).map(t => `<span class="tag tag-dietary">${esc(t.replace(/_/g,' '))}</span>`),
-    ...(recipe.health_tags  || []).map(t => `<span class="tag tag-vegetable">${esc(t.replace(/_/g,' '))}</span>`),
-    ...(recipe.style_tags   || []).map(t => `<span class="tag tag-method">${esc(t.replace(/_/g,' '))}</span>`),
-    ...(recipe.occasion     || []).map(t => `<span class="tag tag-occasion">${esc(t.replace(/_/g,' '))}</span>`),
-    ...(recipe.cooking_methods || []).map(t => `<span class="tag tag-method">${esc(t.replace(/_/g,' '))}</span>`),
-  ].join('');
+  /* --- caption (collapsible) --- */
+  const captionSection = recipe.caption
+    ? `<div class="detail-section">
+        <details class="caption-details">
+          <summary>Original caption</summary>
+          <div class="caption-text">${esc(recipe.caption)}</div>
+        </details>
+      </div>`
+    : '';
+
+  /* --- times row --- */
+  const timeCell = (label, val) => {
+    const ok = val && val !== 'null' && val !== 'None';
+    return `<div class="times-cell">
+      <div class="times-cell__label">${label}</div>
+      <div class="times-cell__value${ok ? '' : ' times-cell__value--unknown'}">${ok ? esc(val) : 'Unknown'}</div>
+    </div>`;
+  };
+
+  /* --- servings + skill rows --- */
+  const servingsRow = recipe.servings
+    ? `<div class="meta-row"><span class="meta-row__label">Servings</span><span class="meta-row__value">${esc(recipe.servings)}</span></div>`
+    : '';
+  const skillRow = recipe.skill_level && recipe.skill_level !== 'None'
+    ? `<div class="meta-row"><span class="meta-row__label">Skill level</span><span class="badge badge-difficulty">${esc(recipe.skill_level)}</span></div>`
+    : '';
+
+  /* --- ingredient breakdown groups --- */
+  const ingGroups = [
+    { label: 'Proteins',       items: recipe.proteins         || [], cls: 'tag-protein'   },
+    { label: 'Vegetables',     items: recipe.vegetables       || [], cls: 'tag-vegetable' },
+    { label: 'Grains',         items: recipe.grains_starches  || [], cls: 'tag-method'    },
+    { label: 'Herbs & Spices', items: recipe.herbs_spices     || [], cls: 'tag-method'    },
+  ].filter(g => g.items.length > 0);
+
+  const ingGroupsSection = ingGroups.length > 0
+    ? `<div class="detail-section">
+        <div class="section-title">🧂 Breakdown</div>
+        ${ingGroups.map(g => `
+          <div class="tag-label-group">
+            <div class="tag-label-group__label">${g.label}</div>
+            <div class="tag-label-group__tags">
+              ${g.items.map(t => `<span class="tag ${g.cls}">${esc(t.replace(/_/g,' '))}</span>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>`
+    : '';
+
+  /* --- named tag groups (right column) --- */
+  const tagGroup = (label, tags, cls) => {
+    if (!tags || tags.length === 0) return '';
+    return `<div class="tag-label-group">
+      <div class="tag-label-group__label">${label}</div>
+      <div class="tag-label-group__tags">
+        ${tags.map(t => `<span class="tag ${cls}">${esc(t.replace(/_/g,' '))}</span>`).join('')}
+      </div>
+    </div>`;
+  };
+
+  const bestForTags = [...(recipe.occasion || []), ...(recipe.season || [])];
+  const cookingTags = [...(recipe.style_tags || []), ...(recipe.cooking_methods || [])];
+
+  const tagsBody = [
+    tagGroup('Dietary',   recipe.dietary_tags,   'tag-dietary'),
+    tagGroup('Flavour',   recipe.flavor_profile, 'tag-method'),
+    tagGroup('Best for',  bestForTags,            'tag-occasion'),
+    tagGroup('Health',    recipe.health_tags,     'tag-vegetable'),
+    tagGroup('Cooking',   cookingTags,            'tag-method'),
+  ].filter(Boolean).join('');
+
+  const tagsSection = tagsBody
+    ? `<div class="detail-section">
+        <div class="section-title">🏷 Tags</div>
+        ${tagsBody}
+      </div>`
+    : '';
 
   container.innerHTML = `
     <div class="detail-hero">
       ${heroImg}
       <div class="detail-hero-body">
-        <h1 class="detail-title">${esc(recipe.title)}</h1>
+        <h1 class="detail-title">${esc(titleDisplay)}</h1>
         <div class="detail-meta">${metaBadges}</div>
         <div class="detail-actions">
           <button class="btn btn-fav ${recipe.is_favorite ? 'active' : ''}"
@@ -738,15 +873,14 @@ function renderRecipeDetail(recipe) {
     </div>
 
     <div class="detail-cols">
-      <!-- LEFT: scaling widget + ingredients -->
+      <!-- LEFT: ingredients (with scaling widget) + instructions + caption -->
       <div>
         <div class="detail-section">
-          <div class="section-title">🧪 Ingredient scaling</div>
+          <div class="section-title">🥗 Ingredients</div>
           <div class="tabs">
             <button class="tab-btn tab-btn--active" data-tab="servings">By servings</button>
             <button class="tab-btn"                 data-tab="ingredient">By ingredient</button>
           </div>
-
           <div id="tab-servings" class="tab-panel tab-panel--active">
             <p class="scale-info">${baseServingsInfo}</p>
             <div class="scale-row">
@@ -757,7 +891,6 @@ function renderRecipeDetail(recipe) {
               <span class="scale-factor-badge" id="servings-factor-badge">×1</span>
             </div>
           </div>
-
           <div id="tab-ingredient" class="tab-panel">
             <div class="scale-row">
               <label for="ingredient-ref">Ingredient</label>
@@ -772,25 +905,35 @@ function renderRecipeDetail(recipe) {
               <span class="scale-factor-badge" id="ing-factor-badge">×1</span>
             </div>
           </div>
-
           <ul class="ingredient-list" id="scaled-ingredients">
             ${(recipe.ingredients || []).map(i => `<li>${esc(i)}</li>`).join('')}
           </ul>
         </div>
-      </div>
 
-      <!-- RIGHT: instructions + tags + notes -->
-      <div>
         <div class="detail-section">
           <div class="section-title">📋 Instructions</div>
           ${instructions}
         </div>
 
-        ${allTags ? `
+        ${captionSection}
+      </div>
+
+      <!-- RIGHT: times + breakdown + tags + notes -->
+      <div>
         <div class="detail-section">
-          <div class="section-title">🏷 Tags</div>
-          <div class="detail-tags">${allTags}</div>
-        </div>` : ''}
+          <div class="section-title">⏱ Times &amp; Servings</div>
+          <div class="times-grid">
+            ${timeCell('Prep',  recipe.prep_time)}
+            ${timeCell('Cook',  recipe.cook_time)}
+            ${timeCell('Total', recipe.total_time)}
+          </div>
+          ${servingsRow}
+          ${skillRow}
+        </div>
+
+        ${ingGroupsSection}
+
+        ${tagsSection}
 
         <div class="detail-section">
           <div class="section-title">📝 My notes</div>
