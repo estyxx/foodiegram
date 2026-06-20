@@ -1,4 +1,4 @@
-import contextlib
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -136,8 +136,10 @@ class Recipe(BaseModel):
     ) -> "Recipe":
         """Construct a Recipe from an ExtractedRecipe."""
         base_servings: int | None = None
-        with contextlib.suppress(ValueError, TypeError):
-            base_servings = int(extracted.servings)
+        if extracted.servings:
+            match = re.search(r"\d+", extracted.servings)
+            if match:
+                base_servings = int(match.group())
 
         try:
             meal_type = MealType(extracted.meal_type)
