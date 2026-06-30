@@ -1,44 +1,43 @@
-You are an expert culinary analyst. Extract comprehensive recipe information from this Instagram caption. Convert ALL Italian terms to English for consistency.
+You are an expert culinary analyst. Extract comprehensive recipe information from this Instagram caption.
 
 Caption: "{caption}"
 
-## TRANSLATION RULES (Italian → English):
-- pomodoro/pomodori → tomato/tomatoes
-- zucchine → zucchini
-- aglio → garlic
-- cipolla → onion
-- basilico → basil
-- parmigiano → parmesan
-- olio d'oliva → olive oil
-- sale → salt
-- pepe → pepper
-- prezzemolo → parsley
-- rosmarino → rosemary
-- peperoncino → chili pepper
-- funghi → mushrooms
-- melanzane → eggplant
-- peperoni → bell peppers
+## LANGUAGE RULES — READ CAREFULLY
+
+### Title, ingredients, and instructions: VERBATIM language
+- **title**, **ingredients**, and **instructions** must stay in the exact language the caption was originally written in.
+- Do NOT translate any part of them. You may split run-on sentences into separate instruction steps, and lightly clean up ingredient formatting (e.g. normalise spacing or punctuation), but never change the language or substance of the wording.
+- Example: "400g di farina 00" stays "400g di farina 00" — never "400g all-purpose flour".
+- Example: "Scaldare l'olio in padella" stays "Scaldare l'olio in padella" — never "Heat the oil in a pan".
+
+### Structured tag and classification fields: English only
+All of the following fields use English canonical values regardless of caption language:
+  dish_type, meal_type, cuisine_type, difficulty,
+  proteins, vegetables, grains_starches, herbs_spices,
+  cooking_methods, equipment, dietary_tags, health_tags,
+  season, occasion, skill_level, temperature, texture,
+  flavor_profile, style_tags, prep_style
 
 ## EXTRACTION GUIDELINES:
 
 ### Core Recipe Data:
-- **title**: Clear, descriptive recipe name
-- **ingredients**: All ingredients mentioned (in English)
-- **instructions**: Step-by-step cooking process (if available)
+- **title**: Recipe name — verbatim from caption, in the original language
+- **ingredients**: All ingredients mentioned — verbatim, in the original language
+- **instructions**: Step-by-step cooking process — verbatim, in the original language (if available)
 
-### Classifications:
+### Classifications (English values only):
 - **dish_type**: "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread", "sauce", "snack"
 - **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
 - **cuisine_type**: "italian", "asian", "korean", "mexican", "mediterranean", "american", "french", "other"
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
 
-### Ingredient Breakdown (English only):
+### Ingredient Breakdown (English values only):
 - **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "beans", "nuts"]
-- **vegetables**: ["tomato", "onion", "garlic", "courgettes", "spinach", "broccoli", "carrot", "bell_pepper"]
+- **vegetables**: ["tomato", "onion", "garlic", "zucchini", "spinach", "broccoli", "carrot", "bell pepper"]
 - **grains_starches**: ["pasta", "rice", "bread", "potato", "quinoa", "couscous", "noodles"]
-- **herbs_spices**: ["basil", "oregano", "thyme", "paprika", "cumin", "black_pepper", "red_pepper"]
+- **herbs_spices**: ["basil", "oregano", "thyme", "paprika", "cumin", "black pepper", "red pepper", "chili pepper"]
 
-### Cooking Details:
+### Cooking Details (English values only):
 - **cooking_methods**: ["baking", "frying", "grilling", "boiling", "roasting", "steaming"]
 - **equipment**: ["oven", "stovetop", "pan", "pot", "grill", "blender", "processor", "air_fryer", "slow_cooker"]
 
@@ -48,29 +47,33 @@ Caption: "{caption}"
 - **total_time**: "25 minutes", "1.5 hours", "unknown"
 - **servings**: "1-2", "3-4", "6-8", "unknown"
 
-### Experience Tags:
+### Experience Tags (English values only):
 - **temperature**: "hot", "cold", "room_temperature", "both"
 - **texture**: ["crispy", "creamy", "crunchy", "smooth", "chewy", "tender", "flaky", "juicy"]
 - **flavor_profile**: ["savory", "sweet", "spicy", "tangy", "umami", "bitter", "mild", "rich"]
 
-### Dietary & Health:
+### Dietary & Health (English values only):
 - **dietary_tags**: ["vegetarian", "vegan", "gluten_free", "dairy_free", "keto", "paleo", "low_carb", "pescatarian"]
 - **health_tags**: ["low_calorie", "high_protein", "low_sodium", "heart_healthy", "diabetic_friendly", "anti_inflammatory"]
 
-### Context & Occasion:
+### Context & Occasion (English values only):
 - **season**: ["spring", "summer", "fall", "winter", "year_round"]
 - **occasion**: ["weeknight", "weekend", "party", "holiday", "date_night", "meal_prep", "picnic", "brunch"]
 - **skill_level**: "beginner", "intermediate", "advanced"
 
-### Style & Prep:
+### Style & Prep (English values only):
 - **style_tags**: ["comfort_food", "gourmet", "rustic", "modern", "traditional", "fusion", "street_food", "home_cooking"]
 - **prep_style**: ["make_ahead", "quick", "one_pot", "no_cook", "batch_cook", "freezer_friendly", "leftover_friendly"]
+
+### Recipe confidence:
+- **is_recipe**: true if the caption clearly describes a recipe (ingredients and/or instructions present); false if it is just food inspiration, a restaurant visit, or a photo with no cooking detail.
+- **confidence**: a float 0.0–1.0 reflecting how complete and actionable the recipe information is (1.0 = full ingredients + instructions, 0.0 = no cooking content at all).
+  - If the caption does not contain explicit ingredients with quantities, set is_recipe=false and confidence below 0.4. Leave ingredients=[] in that case — never invent a vague descriptive phrase (e.g. "crusty golden crust") as an ingredient. Only extract ingredients that are actually named with an amount or clear reference in the caption.
 
 ## DEFAULTS for missing information:
 - If unclear: use "unknown" for single values, empty lists [] for arrays
 - If no clear cuisine: "other"
 - If no clear difficulty: "medium"
-- If ingredients unclear: infer from image context or cooking method
 - Use "year_round" for season if not seasonal-specific
 - Use "home_cooking" for style if unclear
 
