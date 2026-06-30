@@ -33,22 +33,27 @@ def _load_batch_id(batch_id: str | None) -> str:
     return LAST_BATCH_ID_PATH.read_text(encoding="utf-8").strip()
 
 
-def _needs_extraction(recipe: Recipe) -> bool:
-    """Return True if recipe is eligible for batch extraction."""
-    return (
-        recipe.caption is not None
-        and len(recipe.caption.strip()) >= MIN_CAPTION_LENGTH
-        and not recipe.instructions
-        and not recipe.edited_by_user
-    )
+def _needs_extraction(recipe: Recipe, *, force: bool = False) -> bool:
+    """Return True if recipe is eligible for batch extraction.
+
+    With force=True, re-submit all non-edited recipes with a long enough
+    caption, including those already extracted — use after a prompt change.
+    """
+    if recipe.edited_by_user:
+        return False
+    if recipe.caption is None or len(recipe.caption.strip()) < MIN_CAPTION_LENGTH:
+        return False
+    if force:
+        return True
+    return not recipe.instructions
 
 
-def cmd_submit(settings: Settings) -> None:
+def cmd_submit(settings: Settings, *, force: bool = False) -> None:
     """Load recipes, build batch_input.jsonl, upload to OpenAI, and create a batch."""
     repo = RecipeRepository(settings.data_dir)
     all_recipes = repo.list_all()
 
-    to_submit = [r for r in all_recipes if _needs_extraction(r)]
+    to_submit = [r for r in all_recipes if _needs_extraction(r, force=force)]
     already_extracted = [r for r in all_recipes if r.instructions]
     no_caption = [
         r
@@ -59,7 +64,7 @@ def cmd_submit(settings: Settings) -> None:
     logger.info("Total recipes: %d", len(all_recipes))
     logger.info("Already extracted: %d (have instructions)", len(already_extracted))
     logger.info("No caption: %d", len(no_caption))
-    logger.info("Will submit: %d", len(to_submit))
+    logger.info("Will submit: %d%s", len(to_submit), " (force=True)" if force else "")
 
     if not to_submit:
         logger.info("Nothing to submit.")
@@ -214,7 +219,12 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("submit", help="Build and submit a batch job")
+    submit_parser = subparsers.add_parser("submit", help="Build and submit a batch job")
+    submit_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-submit all eligible recipes, including those already extracted",
+    )
 
     status_parser = subparsers.add_parser("status", help="Check batch status")
     status_parser.add_argument("batch_id", nargs="?", default=None)
@@ -229,7 +239,7 @@ def main() -> None:
     settings = Settings()
 
     if args.command == "submit":
-        cmd_submit(settings)
+        cmd_submit(settings, force=args.force)
     elif args.command == "status":
         cmd_status(settings, args.batch_id)
     elif args.command == "apply":
