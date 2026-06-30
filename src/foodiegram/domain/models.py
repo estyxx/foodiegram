@@ -59,6 +59,10 @@ class ExtractedRecipe(BaseModel):
     style_tags: list[str]
     prep_style: list[str]
 
+    # Recipe confidence
+    is_recipe: bool
+    confidence: float
+
 
 class Recipe(BaseModel):
     """A structured, richly tagged recipe extracted from an Instagram post."""
@@ -194,6 +198,8 @@ class Recipe(BaseModel):
             skill_level=extracted.skill_level or None,
             style_tags=extracted.style_tags,
             prep_style=extracted.prep_style,
+            is_recipe=extracted.is_recipe,
+            confidence=extracted.confidence,
             model_used=model_used,
         )
 

@@ -6,8 +6,10 @@ from foodiegram.domain.errors import (
     StorageError,
 )
 from foodiegram.domain.models import Collection, ExtractedRecipe, Recipe
+from foodiegram.domain.synonyms import SYNONYM_GROUPS, expand_term
 
 __all__ = [
+    "SYNONYM_GROUPS",
     "Collection",
     "CuisineType",
     "Difficulty",
@@ -19,4 +21,5 @@ __all__ = [
     "MealType",
     "Recipe",
     "StorageError",
+    "expand_term",
 ]

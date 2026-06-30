@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
+from foodiegram.domain.synonyms import expand_term
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +111,10 @@ class RecipeRepository:
         """Return recipes matching all non-None criteria.
 
         dietary_tags and proteins use ANY-match: a recipe passes if it contains
-        at least one of the requested values (case-insensitive).
-        q is a case-insensitive substring match on title and ingredients.
+        at least one of the requested values (case-insensitive), with synonym
+        expansion so e.g. "courgette" matches recipes tagged "zucchini".
+        q is a case-insensitive substring match on title, caption, and
+        ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
         """
         results = self.list_all()
 
@@ -124,22 +127,28 @@ class RecipeRepository:
         if difficulty is not None:
             results = [r for r in results if r.difficulty == difficulty]
         if dietary_tags is not None:
-            tags_lower = {t.lower() for t in dietary_tags}
+            expanded_tags = {s.lower() for t in dietary_tags for s in expand_term(t)}
             results = [
-                r for r in results if tags_lower & {t.lower() for t in r.dietary_tags}
+                r for r in results if expanded_tags & {t.lower() for t in r.dietary_tags}
             ]
         if proteins is not None:
-            proteins_lower = {p.lower() for p in proteins}
+            expanded_proteins = {s.lower() for p in proteins for s in expand_term(p)}
             results = [
-                r for r in results if proteins_lower & {p.lower() for p in r.proteins}
+                r for r in results if expanded_proteins & {p.lower() for p in r.proteins}
             ]
         if q is not None:
-            needle = q.lower()
+            needles = {s.lower() for s in expand_term(q)}
             results = [
                 r
                 for r in results
-                if needle in r.title.lower()
-                or any(needle in ing.lower() for ing in r.ingredients)
+                if any(needle in r.title.lower() for needle in needles)
+                or any(
+                    needle in ing.lower() for needle in needles for ing in r.ingredients
+                )
+                or (
+                    r.caption is not None
+                    and any(needle in r.caption.lower() for needle in needles)
+                )
             ]
         if is_favorite is not None:
             results = [r for r in results if r.is_favorite == is_favorite]
