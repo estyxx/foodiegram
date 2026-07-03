@@ -2,14 +2,16 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from instagrapi.types import Media
 from openai import OpenAI
-from openai.types import Batch
 from pydantic import ValidationError
 
 from foodiegram.domain import ExtractedRecipe, Recipe
+
+if TYPE_CHECKING:
+    from instagrapi.types import Media
+    from openai.types import Batch
 
 logger = logging.getLogger(__name__)
 

@@ -137,7 +137,7 @@ class Recipe(BaseModel):
         extracted: ExtractedRecipe,
         *,
         model_used: str | None = None,
-    ) -> "Recipe":
+    ) -> Recipe:
         """Construct a Recipe from an ExtractedRecipe."""
         base_servings: int | None = None
         if extracted.servings:
@@ -214,7 +214,7 @@ class Collection(BaseModel):
     type: str = ""
     media_count: int | None = None
 
-    def append_posts(self, posts: "list[Media]") -> None:
+    def append_posts(self, posts: list[Media]) -> None:
         """Append new posts to the collection."""
         self.post_pks.extend(str(post.pk) for post in posts)
         if posts:

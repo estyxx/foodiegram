@@ -2,11 +2,13 @@
 
 import logging
 import os
+from typing import TYPE_CHECKING
 
 from instagrapi import Client
 from instagrapi.exceptions import ChallengeRequired, LoginRequired
 
-from foodiegram.settings import Settings
+if TYPE_CHECKING:
+    from foodiegram.settings import Settings
 
 logger = logging.getLogger(__name__)
 

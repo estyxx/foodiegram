@@ -22,7 +22,7 @@ class RecipeSummary(BaseModel):
     has_instructions: bool
 
     @classmethod
-    def from_recipe(cls, recipe: Recipe) -> "RecipeSummary":
+    def from_recipe(cls, recipe: Recipe) -> RecipeSummary:
         """Build a RecipeSummary from a Recipe."""
         return cls(
             code=recipe.code,

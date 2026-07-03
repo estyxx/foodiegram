@@ -1,4 +1,4 @@
-.PHONY: ingest submit submit-force status apply serve-api lint test
+.PHONY: ingest submit submit-force status apply serve-api lint test check
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
@@ -34,3 +34,7 @@ lint:
 
 test:
 	uv run pytest tests/
+
+# Full gate: ruff + mypy + pytest + import-linter.
+check:
+	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && uv run lint-imports

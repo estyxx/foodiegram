@@ -1,12 +1,16 @@
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
 from foodiegram.domain.synonyms import expand_term
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 
 logger = logging.getLogger(__name__)
 

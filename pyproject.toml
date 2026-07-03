@@ -7,7 +7,7 @@ authors = [
     { name = "Ester Beltrami", email = "beltrami.ester@gmail.com" }
 ]
 keywords = ["instagram", "recipes", "ocr", "nlp", "data-extraction"]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
@@ -29,7 +29,7 @@ requires = ["uv_build>=0.8.3,<0.9.0"]
 build-backend = "uv_build"
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 89
 fix = true
 # Standalone reference artifacts that are not part of the package.
@@ -43,7 +43,13 @@ ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module
 "D203", # https://docs.astral.sh/ruff/rules/incorrect-blank-line-before-class/
 "D213", # https://docs.astral.sh/ruff/rules/multi-line-summary-second-line/
 "PLR0913", # query/filter methods legitimately take many keyword-only args
+"COM812", # conflicts with ruff formatter (trailing comma enforcement)
 ]
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic evaluates model field types at class-definition time via model_rebuild();
+# moving those imports into TYPE_CHECKING would break validation.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [tool.ruff.lint.per-file-ignores]
 # Standalone migration/utility scripts are not an importable package.
 # T201: print() is the intended output mechanism for CLI scripts.
@@ -74,8 +80,41 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.3",
     "mypy>=1.17.1",
     "pre-commit>=4.3.0",
     "pytest>=8.4.1",
     "ruff>=0.12.9",
+]
+
+# ── import-linter ─────────────────────────────────────────────────────────────
+# Two contracts from CLAUDE.md rule 22.
+# Contract 1 ("domain-is-pure") is fully active from Phase 0.
+# Contract 2 ("layers") covers the api→domain boundary now and will be expanded
+# to the full hierarchy (api/scripts→app→storage|ai|instagram|images→domain) in
+# Phase 0.3 once those packages are created.
+[tool.importlinter]
+root_packages = ["foodiegram"]
+
+[[tool.importlinter.contracts]]
+name = "domain-is-pure"
+type = "forbidden"
+source_modules = ["foodiegram.domain"]
+forbidden_modules = [
+    "foodiegram.storage",
+    "foodiegram.ai",
+    "foodiegram.instagram",
+    "foodiegram.images",
+    "foodiegram.app",
+    "foodiegram.api",
+]
+
+[[tool.importlinter.contracts]]
+name = "layers"
+type = "layers"
+# Target hierarchy: api/scripts → app → storage|ai|instagram|images → domain.
+# Expanded to the full chain in 0.3 once those packages exist.
+layers = [
+    "foodiegram.api",
+    "foodiegram.domain",
 ]

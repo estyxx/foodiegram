@@ -208,3 +208,68 @@ don't write the abstraction — write the function.
 - Be direct and technical: state what the issue *is*, not what "might" be a
   problem. No softening filler.
 - Always end by running `ruff`, `mypy`, and `pytest` and reporting the result.
+-
+## Conventions addendum
+
+We follow Kraken-flavoured Python conventions where applicable to a solo FastAPI
+project. These extend (never replace) the existing rules in this file.
+
+### Runtime
+19. Target **Python 3.14** (latest patch). `.python-version`, `requires-python
+    ">=3.14"`, ruff `target-version = "py314"`, and mypy/ruff/pytest bumped to their
+    latest versions. If any dependency lacks 3.14 support at `uv sync`, STOP and
+    report — do not pin workarounds silently.
+20. Rule 9 is retired: PEP 649 lazy annotations are the default in 3.14, so
+    `from __future__ import annotations` is never needed. Never add it.
+21. t-strings (PEP 750) and other 3.14 features: use only where they make code
+    plainly clearer. No novelty for its own sake.
+
+### Architecture (Kraken layering)
+22. Layered monolith, dependencies point inward ONLY:
+    `api / scripts → app → storage | ai | instagram | images → domain`.
+    Enforced by **import-linter** (dev dependency, approved) with two contracts:
+    a "layers" contract for the chain above, and a "forbidden" contract: `domain`
+    may not import from any sibling package. `lint-imports` runs in `make check`
+    alongside ruff/mypy/pytest. (This replaces the hand-rolled
+    tests/test_architecture.py once green.)
+23. Use-cases are **module-level functions, one concern per module** in `app/`
+    (`plan_week.py`, `promotion.py`) — never service classes, never managers.
+24. The API layer only translates: parse request → call one app function → shape
+    response. Zero business logic in routers, zero domain logic in api_models.
+25. SQLModel rows never cross the `storage/` boundary — repositories accept and
+    return domain models. The ORM is an implementation detail.
+
+### Functions (Kraken style)
+26. **Keyword-only arguments** (`*,`) for every function with more than one
+    parameter, except where positional reads naturally (e.g. `diff_payloads(a, b)`).
+27. Prefer pure functions and immutable values (frozen Pydantic models, tuples,
+    frozensets). Side effects live at the edges (app/storage/scripts), never in
+    domain.
+28. No inheritance for code reuse — composition only. No mixins, no abstract base
+    ceremony; a `Protocol` where a second implementation actually exists.
+29. Narrow, typed exceptions from the FoodiegramError hierarchy; raise early,
+    catch at the edge that can act on it.
+
+### Tests (Kraken style)
+30. Domain: pure unit tests, no mocks, no fixtures beyond plain constructors.
+31. App/storage: test through the public use-case function against a tmp SQLite
+    engine — do not mock internal collaborators.
+32. Never mock what you own except at true external boundaries (OpenAI, Cloudinary,
+    Instagram) — and there, fake the adapter, not the SDK internals.
+
+### Frontend
+33. JS rules live in docs/PLAN.md Part VI §15 and are equally binding
+    (`// @ts-check`, pure function components, `textContent` only, a11y as a
+    review gate, `tsc --noEmit` in make check).
+
+### Workflow
+34. Work from docs/PLAN.md Part VIII **one checklist item at a time**, strictly in
+    order. Before coding, restate the item's acceptance criteria in one sentence.
+    After coding, run the full gate: `ruff check --fix . && ruff format . && mypy .
+    && pytest && lint-imports` (+ `tsc --noEmit` once frontend/ exists). Red = not
+    done.
+35. If an MCP tool for the Notion board is available in this workspace, mark the
+    matching task complete when a checklist item lands; otherwise end the session
+    with a one-line status I can paste into Notion.
+36. When a decision is not covered by docs/PLAN.md or this file: STOP and ask.
+    Do not invent scope. Deferred list = D16.

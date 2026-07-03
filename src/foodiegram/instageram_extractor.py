@@ -1,6 +1,4 @@
 # extract.py - Improved version with proper caching
-from __future__ import annotations
-
 import logging
 import time
 from pathlib import Path
