@@ -169,6 +169,12 @@
       background: #fff7ed; color: #9a3412;
       border: 1px solid #fed7aa; font-style: italic;
     }
+    .badge-edited {
+      background: #eff6ff; color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .detail-badges-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .25rem; }
+    .provenance-text { font-size: .8rem; color: #9ca3af; line-height: 1.8; padding-top: .5rem; }
 
     .card-icons { margin-left: auto; display: flex; align-items: center; gap: .1rem; }
     .fav-btn, .card-copy-btn {
@@ -773,7 +779,13 @@ function renderRecipeDetail(recipe) {
     recipe.difficulty    !== 'unknown' && recipe.difficulty    ? `<span class="badge badge-difficulty">${esc(recipe.difficulty)}</span>` : '',
     recipe.meal_type     !== 'unknown' && recipe.meal_type     ? `<span class="badge badge-meal">${esc(recipe.meal_type.replace(/_/g,' '))}</span>` : '',
     recipe.dish_type     !== 'unknown' && recipe.dish_type     ? `<span class="badge" style="background:#f0fdf4;color:#166534">${esc(recipe.dish_type.replace(/_/g,' '))}</span>` : '',
+    recipe.temperature   && recipe.temperature !== 'None'      ? `<span class="badge">${esc(recipe.temperature)}</span>` : '',
   ].filter(Boolean).join('');
+
+  /* --- "✎ edited" marker --- */
+  const editedBadge = recipe.edited_by_user
+    ? `<span class="badge badge-edited" title="You have edited this recipe">✎ edited</span>`
+    : '';
 
   /* --- inspiration-only guard --- */
   const isInspirationOnly = recipe.is_recipe === false || (recipe.confidence != null && recipe.confidence < 0.4);
@@ -828,6 +840,7 @@ function renderRecipeDetail(recipe) {
     { label: 'Vegetables',     items: recipe.vegetables       || [], cls: 'tag-vegetable' },
     { label: 'Grains',         items: recipe.grains_starches  || [], cls: 'tag-method'    },
     { label: 'Herbs & Spices', items: recipe.herbs_spices     || [], cls: 'tag-method'    },
+    { label: 'Equipment',      items: recipe.equipment        || [], cls: 'tag-method'    },
   ].filter(g => g.items.length > 0);
 
   const ingGroupsSection = ingGroups.length > 0
@@ -858,11 +871,13 @@ function renderRecipeDetail(recipe) {
   const cookingTags = [...(recipe.style_tags || []), ...(recipe.cooking_methods || [])];
 
   const tagsBody = [
-    tagGroup('Dietary',   recipe.dietary_tags,   'tag-dietary'),
-    tagGroup('Flavour',   recipe.flavor_profile, 'tag-method'),
-    tagGroup('Best for',  bestForTags,            'tag-occasion'),
-    tagGroup('Health',    recipe.health_tags,     'tag-vegetable'),
-    tagGroup('Cooking',   cookingTags,            'tag-method'),
+    tagGroup('Dietary',    recipe.dietary_tags,   'tag-dietary'),
+    tagGroup('Flavour',    recipe.flavor_profile, 'tag-method'),
+    tagGroup('Texture',    recipe.texture,         'tag-method'),
+    tagGroup('Prep style', recipe.prep_style,      'tag-method'),
+    tagGroup('Best for',   bestForTags,            'tag-occasion'),
+    tagGroup('Health',     recipe.health_tags,     'tag-vegetable'),
+    tagGroup('Cooking',    cookingTags,            'tag-method'),
   ].filter(Boolean).join('');
 
   const tagsSection = tagsBody
@@ -877,7 +892,7 @@ function renderRecipeDetail(recipe) {
       ${heroImg}
       <div class="detail-hero-body">
         <h1 class="detail-title">${esc(titleDisplay)}</h1>
-        ${inspirationBadge}
+        <div class="detail-badges-row">${inspirationBadge}${editedBadge}</div>
         <div class="detail-meta">${metaBadges}</div>
         <div class="detail-actions">
           <button class="btn btn-fav ${recipe.is_favorite ? 'active' : ''}"
@@ -965,6 +980,17 @@ function renderRecipeDetail(recipe) {
                     data-code="${esc(recipe.code)}">${esc(recipe.user_notes ?? '')}</textarea>
           <div class="notes-status" id="notes-status"></div>
         </div>
+
+        ${(recipe.extracted_at || recipe.model_used) ? `
+        <div class="detail-section">
+          <details class="caption-details">
+            <summary>Provenance</summary>
+            <div class="provenance-text">
+              ${recipe.extracted_at ? `<div>Extracted: ${esc(new Date(recipe.extracted_at).toLocaleDateString())}</div>` : ''}
+              ${recipe.model_used   ? `<div>Model: ${esc(recipe.model_used)}</div>` : ''}
+            </div>
+          </details>
+        </div>` : ''}
       </div>
     </div>`;
 
