@@ -1,126 +1,44 @@
-# Foodiegram
+# Dispensa 🫙
 
-Extracts saved Instagram posts from a collection, uses an LLM to turn captions
-into structured recipes, and serves a browsable site with search and filtering.
+A personal recipe library and Mediterranean-diet weekly meal planner.
+~800 recipes extracted from saved Instagram posts (mostly Italian) plus, eventually,
+manually added recipes. The signature feature: a **live, colour-coded weekly balance
+panel** tracking 7 protein categories against Mediterranean targets — adding or
+removing a recipe from the week moves the bars in real time and suggests gap-fillers.
 
----
+ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever.
 
-## Full pipeline: Instagram saved collection → extracted recipes
-
-### Step 0a — Collect post links (browser, one-time per collection)
-
-Install **[IGbulkCollector](https://github.com/doncezart/IGbulkCollector)** as a
-Tampermonkey userscript.
-
-1. Go to your Instagram saved collection
-   (`instagram.com/<you>/saved/all-posts/` or a specific named collection)
-2. The IGbulkCollector panel appears — click **▶ Start** and let it auto-scroll
-3. Click **⤓ Export .txt** — saves a file with one URL per line:
-   ```
-   https://www.instagram.com/p/DZXr3-aMxqg/
-   https://www.instagram.com/p/DZIT2TGtRus/
-   ```
-4. Save it somewhere you can point IGbulkDL at (e.g. `data/collection.txt`)
+> Repo name is `cookstagram` (historical); package rename to `dispensa` is deferred to
+> Phase 5. See [docs/PLAN.md](docs/PLAN.md) for the full roadmap.
 
 ---
 
-### Step 0b — Download captions + metadata (IGbulkDL)
+## Pipeline overview
 
-Install **[IGbulkDL](https://github.com/doncezart/IGbulkDL)**.
+Instagram extraction is **one ingestion source**, not the product. The pipeline runs
+locally (~monthly) and pushes structured recipes into the database.
 
-```bash
-# GUI (easiest):
-python ig_gui.py
-# fill in: URL file = data/collection.txt, collection name = food, cookies file = cookies.txt
-# click Start
-
-# or CLI:
-python ig_download.py data/collection.txt food --cookies cookies.txt
 ```
+Instagram app (browse & save — keeps the account warm)
+  ↓ IGbulkCollector (browser ext) → export post list
+  ↓ IGbulkDL --dry-run → food.json (captions + CDN URLs)
+  ↓ scripts/ingest_igbulkdl.py food.json   → recipe stubs + thumbnails → Cloudinary
+  ↓ scripts/extract_recipes.py submit       → OpenAI Batch API (≈50% cheaper)
+  ↓ scripts/extract_recipes.py status / apply → structured recipes
+  ↓ (Phase 2+) scripts/promote.py → canonical recipe rows in DB
+  ↓ (Phase 2+) scripts/export.py  → data/ backup in private repo
 
-This produces `food.json` — one entry per post with `shortcode`, `caption`,
-`title`, `status`, etc. Move it to `data/food.json` (or keep the name — you
-pass it explicitly in the next step).
-
-> **Cookies:** export your Instagram browser cookies via a cookie-export extension
-> (e.g. "Get cookies.txt LOCALLY") and save as `cookies.txt`.
-
----
-
-### Step 1 — Ingest into the recipe repository
-
-Creates `data/recipes/{shortcode}.json` stubs with caption + thumbnail.
-Already-present recipes are only updated if `caption` or `thumbnail_url` is
-currently missing — AI-extracted fields are never touched.
-
-```bash
-uv run python scripts/ingest_igbulkdl.py data/food.json
-```
-
-Pass multiple files if you have more than one collection:
-```bash
-uv run python scripts/ingest_igbulkdl.py data/food.json data/desserts.json
+Web app: browse · search · plan weeks · (Phase 6) edit · add manual recipes
 ```
 
 ---
 
-### Step 2 — Submit to OpenAI Batch API
-
-Sends all stubs that have a caption but no instructions to `gpt-4.1-mini`.
-~50% cheaper than real-time calls. Saves the batch ID to `data/last_batch_id.txt`.
+## Quick start (dev)
 
 ```bash
-uv run python scripts/extract_recipes.py submit
-
-# Re-run everything after a prompt change:
-uv run python scripts/extract_recipes.py submit --force
-```
-
----
-
-### Step 3 — Check batch status
-
-```bash
-uv run python scripts/extract_recipes.py status
-```
-
-Usually completes within minutes; guaranteed within 24 hours.
-
----
-
-### Step 4 — Apply results
-
-Downloads the completed batch output and writes structured fields (title,
-ingredients, instructions, tags, confidence…) into each recipe JSON.
-Preserves `is_favorite`, `user_notes`, `cloudinary_url`, and anything
-`edited_by_user`.
-
-```bash
-uv run python scripts/extract_recipes.py apply
-```
-
----
-
-### Done — browse the recipes
-
-```bash
-make serve-api
-# → http://localhost:8000
-```
-
----
-
-## Makefile quick reference
-
-```bash
-make ingest FILE=data/food.json   # Step 1 — ingest one IGbulkDL file
-make submit                       # Step 2 — submit AI batch
-make submit-force                 # Step 2 — force re-submit everything
-make status                       # Step 3 — check batch status
-make apply                        # Step 4 — apply batch results
-make serve-api                    # Start the API + frontend
-make lint                         # ruff + mypy
-make test                         # pytest
+cp .env.example .env   # fill in OPENAI_API_KEY + CLOUDINARY_*
+uv sync
+make serve-api         # → http://localhost:8000
 ```
 
 ---
@@ -128,29 +46,62 @@ make test                         # pytest
 ## Project layout
 
 ```
-public/            SPA frontend (single index.html)
-scripts/           CLI scripts for the pipeline
 src/foodiegram/
-  domain/          Pure models, enums, errors — no I/O
-  prompts/         LLM prompt templates (.txt)
-  api.py           FastAPI: /recipes CRUD + /scale
-  repository.py    JSON-backed recipe store
-  settings.py      pydantic-settings (reads .env)
-data/
-  recipes/         One {code}.json per recipe (git-ignored)
+  domain/        Pure models, enums, errors — no I/O, no SDKs
+  storage/       JSON-backed RecipeRepository (SQLite in Phase 2)
+  ai/            OpenAI Batch submit/status/apply; prompts/
+  instagram/     instagrapi adapter, cache, auth
+  images/        Cloudinary adapter (placeholder)
+  app/           Use-case layer (placeholder)
+  api.py         FastAPI: GET/PATCH /recipes + /scale
+  api_models.py  API response models (RecipeSummary, RecipeDetail)
+  settings.py    pydantic-settings (reads .env)
+public/          SPA frontend (single index.html — split in Phase 4)
+scripts/         Thin CLI wrappers over foodiegram.ai / foodiegram.instagram
+tests/
+docs/PLAN.md     Full roadmap, architecture decisions, all specs
 ```
 
-## Environment (.env)
+---
 
+## Runbook
+
+> **Full runbook lives in [docs/PLAN.md §13](docs/PLAN.md).** It covers:
+> syncing new saved posts, changing the extraction prompt, promoting to DB,
+> exporting a backup, and running against Neon Postgres in prod.
+
+Short form — ingesting new posts locally:
+
+```bash
+# 1. Export post list with IGbulkCollector (browser) → run IGbulkDL → food.json
+make ingest FILE=data/food.json    # create recipe stubs
+
+# 2. Extract with OpenAI Batch API
+make submit                        # submit (or submit-force after a prompt change)
+make status                        # check progress
+make apply                         # write structured fields into recipes
+
+# 3. Browse
+make serve-api
 ```
-OPENAI_API_KEY=sk-...
-CLOUDINARY_CLOUD_NAME=...
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
-CLOUDINARY_URL=cloudinary://...
-# Instagram fields not required if using IGbulkDL
-INSTAGRAM_USERNAME=
-INSTAGRAM_PASSWORD=
-INSTAGRAM_COLLECTION_ID=
-INSTAGRAM_SESSION_FILE=data/session.json
-```
+
+---
+
+## Makefile targets
+
+| Target | What it does |
+|---|---|
+| `make check` | Full gate: ruff + mypy + pytest + lint-imports |
+| `make serve-api` | Start FastAPI dev server on :8000 |
+| `make ingest FILE=…` | Ingest an IGbulkDL JSON file |
+| `make submit` | Submit OpenAI batch job |
+| `make submit-force` | Re-submit all eligible recipes |
+| `make status` | Check batch progress |
+| `make apply` | Apply completed batch results |
+
+---
+
+## Environment
+
+Copy `.env.example` and fill in the required variables. See the file for
+descriptions of each group (OpenAI, Cloudinary, Database, Auth, Instagram).
