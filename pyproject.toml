@@ -57,8 +57,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "scripts/*" = ["INP001", "T201", "PLR2004"]
 # `assert` and hardcoded test credentials are the expected idiom in tests.
 "tests/*" = ["S101", "S105", "S106"]
-# instageram_extractor: Client and Settings used at runtime, not annotation-only.
-"src/foodiegram/instageram_extractor.py" = ["TC001", "TC002"]
+# extractor: Client and Settings used at runtime (class attrs + property body).
+"src/foodiegram/instagram/extractor.py" = ["TC001", "TC002"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
 "src/foodiegram/settings.py" = ["S104"]
 
@@ -112,9 +112,16 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "layers"
 type = "layers"
-# Target hierarchy: api/scripts → app → storage|ai|instagram|images → domain.
-# Expanded to the full chain in 0.3 once those packages exist.
+# api sits at the top; domain is pure at the bottom.
+# Adapter ordering (ai above storage) reflects that ai/batch currently imports
+# from storage; peer adapters at the same conceptual level may import from each
+# other and from anything below them.
 layers = [
     "foodiegram.api",
+    "foodiegram.app",
+    "foodiegram.ai",
+    "foodiegram.storage",
+    "foodiegram.instagram",
+    "foodiegram.images",
     "foodiegram.domain",
 ]

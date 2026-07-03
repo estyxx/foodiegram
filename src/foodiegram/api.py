@@ -18,8 +18,8 @@ from foodiegram.api_models import (
 )
 from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 from foodiegram.domain.errors import StorageError
-from foodiegram.repository import RecipeRepository
 from foodiegram.settings import Settings
+from foodiegram.storage.recipes_json import RecipeRepository
 
 logger = logging.getLogger(__name__)
 

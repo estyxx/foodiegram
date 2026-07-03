@@ -19,7 +19,7 @@ from pathlib import Path
 
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
-from foodiegram.repository import RecipeRepository
+from foodiegram.storage.recipes_json import RecipeRepository
 
 DATA_DIR = Path("data/recipes")
 

@@ -13,7 +13,7 @@ from typing import Any
 from foodiegram.domain.enums import CuisineType, Difficulty
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import ExtractedRecipe, Recipe
-from foodiegram.repository import RecipeRepository
+from foodiegram.storage.recipes_json import RecipeRepository
 
 INDEX_DEFAULT = Path("cookstagram-data/data/index.json")
 RICH_DEFAULT = Path("cookstagram-data/data/extracted_recipes.json")

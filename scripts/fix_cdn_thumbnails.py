@@ -4,8 +4,8 @@ import time
 import cloudinary
 import cloudinary.uploader
 
-from foodiegram.repository import RecipeRepository
 from foodiegram.settings import Settings
+from foodiegram.storage.recipes_json import RecipeRepository
 
 # --- Inputs / constants ---
 CDN_PREFIX = "https://scontent-man2-1.cdninstagram."

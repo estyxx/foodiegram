@@ -1,8 +1,8 @@
 import logging
 import re
 
-from foodiegram.repository import RecipeRepository
 from foodiegram.settings import Settings
+from foodiegram.storage.recipes_json import RecipeRepository
 
 # --- Inputs / constants ---
 SERVINGS_DIGITS = re.compile(r"\d+")

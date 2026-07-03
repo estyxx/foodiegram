@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from instagrapi import Client
 from instagrapi.exceptions import ClientError
 
-from foodiegram._auth import login_client
-from foodiegram.cache_manager import CacheManager
 from foodiegram.domain import Collection
 from foodiegram.domain.errors import InstagramFetchError
+from foodiegram.instagram._auth import login_client
+from foodiegram.instagram.cache_manager import CacheManager
 from foodiegram.settings import Settings
 
 if TYPE_CHECKING:
