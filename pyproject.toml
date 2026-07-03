@@ -57,7 +57,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "scripts/*" = ["INP001", "T201", "PLR2004"]
 # `assert` and hardcoded test credentials are the expected idiom in tests.
 "tests/*" = ["S101", "S105", "S106"]
-# Client and Settings are used at runtime (class attrs + property body), not just annotations.
+# instageram_extractor: Client and Settings used at runtime, not annotation-only.
 "src/foodiegram/instageram_extractor.py" = ["TC001", "TC002"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
 "src/foodiegram/settings.py" = ["S104"]
