@@ -16,7 +16,8 @@ All of the following fields use English canonical values regardless of caption l
   proteins, vegetables, grains_starches, herbs_spices,
   cooking_methods, equipment, dietary_tags, health_tags,
   season, occasion, skill_level, temperature, texture,
-  flavor_profile, style_tags, prep_style
+  flavor_profile, style_tags, prep_style,
+  mediterranean_categories, course
 
 ## EXTRACTION GUIDELINES:
 
@@ -26,7 +27,7 @@ All of the following fields use English canonical values regardless of caption l
 - **instructions**: Step-by-step cooking process — verbatim, in the original language (if available)
 
 ### Classifications (English values only):
-- **dish_type**: "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread", "sauce", "snack"
+- **dish_type**: "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread", "sauce", "snack", "pasta", "risotto", "pizza", "sandwich", "pastry"
 - **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
 - **cuisine_type**: "italian", "asian", "korean", "mexican", "mediterranean", "american", "french", "other"
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
@@ -76,5 +77,37 @@ All of the following fields use English canonical values regardless of caption l
 - If no clear difficulty: "medium"
 - Use "year_round" for season if not seasonal-specific
 - Use "home_cooking" for style if unclear
+
+### Mediterranean categories (English values only):
+- **mediterranean_categories**: list of {category, servings, is_oily_fish} objects.
+  Categories: "fish", "legumes", "poultry", "eggs", "dairy", "red_meat", "processed_meat".
+  Rules:
+  - A recipe may count toward MULTIPLE categories (lentil-parmesan soup = legumes + dairy;
+    carbonara = eggs + processed_meat + dairy).
+  - Count a category only when it is a SUBSTANTIAL component (roughly ≥30g per portion or
+    central to the dish) — NOT a garnish. Grated parmigiano to finish a pasta: do not
+    count dairy. A parmigiana or cacio e pepe: count dairy.
+  - servings: 1.0 when the category is a main component of a portion; 0.5 when
+    substantial but secondary.
+  - Cured and processed meats ALWAYS map to "processed_meat", never "red_meat", and count
+    at full weight when they are the backbone of the dish (carbonara, amatriciana, gricia).
+  - Italian mappings — be precise:
+    * guanciale, pancetta, salsiccia, salame, prosciutto (crudo/cotto), speck, mortadella,
+      'nduja, wurstel → "processed_meat"
+    * manzo, vitello, maiale (fresh cuts), agnello → "red_meat"
+    * pollo, tacchino, coniglio → "poultry"
+    * ceci, lenticchie, fagioli, fave, piselli, cicerchie, lupini → "legumes"
+    * pesce, frutti di mare, molluschi, crostacei → "fish";
+      is_oily_fish=true for: salmone, sgombro, sardine, alici/acciughe, tonno, aringa, trota
+    * formaggi, latte, yogurt, ricotta, burrata, mozzarella → "dairy"
+    * uova as a main component (frittata, carbonara, shakshuka) → "eggs";
+      one egg to bind polpette: do not count.
+  - Vegetarian/vegan dishes with no tracked component: empty list [] (daily base).
+
+### Course (Italian meal structure, English field name):
+- **course**: one of "antipasto", "primo", "secondo", "contorno", "dolce",
+  "lievitati" (bread/pizza/focaccia doughs), "colazione", "other".
+  primo = pasta, risotto, zuppe, gnocchi; secondo = meat/fish/egg mains;
+  lievitati = anything whose point is the dough.
 
 Extract practical, searchable information that helps users find and filter recipes effectively.

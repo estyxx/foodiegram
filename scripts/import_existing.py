@@ -87,12 +87,19 @@ def _build_rich(post_pk: str, code: str, raw: dict[str, Any]) -> Recipe:
     thumbnail_url: str | None = raw.get("thumbnail_url") or None
     extracted_data = {k: v for k, v in raw.items() if k not in _RICH_EXTRA_KEYS}
     extracted = ExtractedRecipe.model_validate(extracted_data)
-    recipe = Recipe.from_extracted(
+    mapped = Recipe.from_extracted(
         code=code,
         pk=post_pk,
         caption=caption,
         extracted=extracted,
     )
+    if mapped.dropped_categories:
+        logger.warning(
+            "Dropped unknown categories for %s: %s",
+            code,
+            mapped.dropped_categories,
+        )
+    recipe = mapped.recipe
     if thumbnail_url:
         recipe = recipe.model_copy(update={"thumbnail_url": thumbnail_url})
     return recipe

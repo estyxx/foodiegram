@@ -3,12 +3,13 @@ import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from openai import OpenAI
 from pydantic import ValidationError
 
-from foodiegram.domain.models import ExtractedRecipe, Recipe
+from foodiegram.domain.enums import Course, MedCategory
+from foodiegram.domain.models import ExtractedRecipe, MappedRecipe, Recipe
 from foodiegram.storage.recipes_json import RecipeRepository
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 # --- Inputs / constants ---
 MODEL = "gpt-4.1-mini"
+PROMPT_VERSION = "2"
 PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 BATCH_INPUT_PATH = Path("data/batch_input.jsonl")
 BATCH_OUTPUT_PATH = Path("data/batch_output.jsonl")
@@ -23,6 +25,72 @@ LAST_BATCH_ID_PATH = Path("data/last_batch_id.txt")
 MIN_CAPTION_LENGTH = 80
 
 logger = logging.getLogger(__name__)
+
+
+def _make_strict(node: dict[str, Any]) -> None:
+    """Force every object node into OpenAI strict structured-output shape.
+
+    Strict mode requires additionalProperties=false and every property listed in
+    `required`; it also rejects `default`, which Pydantic emits for fields that
+    have one. Recurse through properties, array items, and $defs.
+    """
+    node.pop("default", None)
+    properties = node.get("properties")
+    if isinstance(properties, dict):
+        node["required"] = list(properties)
+        node["additionalProperties"] = False
+        for child in properties.values():
+            if isinstance(child, dict):
+                _make_strict(child)
+    items = node.get("items")
+    if isinstance(items, dict):
+        _make_strict(items)
+
+
+def _extraction_schema() -> dict[str, Any]:
+    """Build the strict ExtractedRecipe JSON schema with enum-constrained fields."""
+    schema: dict[str, Any] = ExtractedRecipe.model_json_schema()
+    schema["properties"]["course"]["enum"] = [c.value for c in Course]
+
+    defs: dict[str, Any] = schema.get("$defs", {})
+    category_serving = defs.get("ExtractedCategoryServing")
+    if category_serving is not None:
+        category_serving["properties"]["category"]["enum"] = [
+            c.value for c in MedCategory
+        ]
+
+    _make_strict(schema)
+    for definition in defs.values():
+        _make_strict(definition)
+    return schema
+
+
+def apply_extracted(
+    existing: Recipe,
+    extracted: ExtractedRecipe,
+    *,
+    extracted_at: datetime,
+) -> MappedRecipe:
+    """Merge an extraction into an existing recipe, preserving user-owned fields."""
+    mapped = Recipe.from_extracted(
+        code=existing.code,
+        pk=existing.pk,
+        caption=existing.caption,
+        extracted=extracted,
+        model_used=MODEL,
+    )
+    merged = mapped.recipe.model_copy(
+        update={
+            "thumbnail_url": existing.thumbnail_url,
+            "cloudinary_url": existing.cloudinary_url,
+            "user_notes": existing.user_notes,
+            "is_favorite": existing.is_favorite,
+            "edited_by_user": existing.edited_by_user,
+            "prompt_version": PROMPT_VERSION,
+            "extracted_at": extracted_at,
+        },
+    )
+    return MappedRecipe(recipe=merged, dropped_categories=mapped.dropped_categories)
 
 
 def _load_batch_id(batch_id: str | None) -> str:
@@ -50,8 +118,17 @@ def _needs_extraction(recipe: Recipe, *, force: bool = False) -> bool:
     return not recipe.instructions
 
 
-def cmd_submit(settings: Settings, *, force: bool = False) -> None:
-    """Load recipes, build batch_input.jsonl, upload to OpenAI, and create a batch."""
+def cmd_submit(
+    settings: Settings,
+    *,
+    force: bool = False,
+    limit: int | None = None,
+) -> None:
+    """Load recipes, build batch_input.jsonl, upload to OpenAI, and create a batch.
+
+    With limit set, submit only the first `limit` eligible recipes — useful for a
+    small, cheap test run before submitting the whole backlog.
+    """
     repo = RecipeRepository(settings.data_dir)
     all_recipes = repo.list_all()
 
@@ -63,17 +140,34 @@ def cmd_submit(settings: Settings, *, force: bool = False) -> None:
         if r.caption is None or len(r.caption.strip()) < MIN_CAPTION_LENGTH
     ]
 
+    eligible = len(to_submit)
+    if limit is not None:
+        to_submit = to_submit[:limit]
+
     logger.info("Total recipes: %d", len(all_recipes))
     logger.info("Already extracted: %d (have instructions)", len(already_extracted))
     logger.info("No caption: %d", len(no_caption))
-    logger.info("Will submit: %d%s", len(to_submit), " (force=True)" if force else "")
+    if limit is not None:
+        logger.info(
+            "Will submit: %d of %d eligible (limit=%d)%s",
+            len(to_submit),
+            eligible,
+            limit,
+            " (force=True)" if force else "",
+        )
+    else:
+        logger.info(
+            "Will submit: %d%s",
+            len(to_submit),
+            " (force=True)" if force else "",
+        )
 
     if not to_submit:
         logger.info("Nothing to submit.")
         return
 
     prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
-    schema = ExtractedRecipe.model_json_schema()
+    schema = _extraction_schema()
 
     BATCH_INPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with BATCH_INPUT_PATH.open("w", encoding="utf-8") as fh:
@@ -182,24 +276,15 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
             output_text: str = response_body["output"][0]["content"][0]["text"]  # type: ignore[index]
             extracted = ExtractedRecipe.model_validate(json.loads(output_text))
 
-            updated = Recipe.from_extracted(
-                code=existing.code,
-                pk=existing.pk,
-                caption=existing.caption,
-                extracted=extracted,
-                model_used=MODEL,
-            ).model_copy(
-                update={
-                    "thumbnail_url": existing.thumbnail_url,
-                    "cloudinary_url": existing.cloudinary_url,
-                    "user_notes": existing.user_notes,
-                    "is_favorite": existing.is_favorite,
-                    "edited_by_user": existing.edited_by_user,
-                    "extracted_at": now,
-                },
-            )
+            mapped = apply_extracted(existing, extracted, extracted_at=now)
+            if mapped.dropped_categories:
+                logger.warning(
+                    "Dropped unknown categories for %s: %s",
+                    code,
+                    mapped.dropped_categories,
+                )
 
-            repo.save(updated)
+            repo.save(mapped.recipe)
             applied += 1
 
         except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError):

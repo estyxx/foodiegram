@@ -25,6 +25,37 @@ class DishType(StrEnum):
     BREAD = "bread"
     SAUCE = "sauce"
     SNACK = "snack"
+    PASTA = "pasta"
+    RISOTTO = "risotto"
+    PIZZA = "pizza"
+    SANDWICH = "sandwich"
+    PASTRY = "pastry"
+    UNKNOWN = "unknown"
+
+
+class MedCategory(StrEnum):
+    """Mediterranean-diet tracked category (the 7-colour key)."""
+
+    FISH = "fish"
+    LEGUMES = "legumes"
+    POULTRY = "poultry"
+    EGGS = "eggs"
+    DAIRY = "dairy"
+    RED_MEAT = "red_meat"
+    PROCESSED_MEAT = "processed_meat"
+
+
+class Course(StrEnum):
+    """Italian meal-structure grouping — Browse shelf order."""
+
+    ANTIPASTO = "antipasto"
+    PRIMO = "primo"
+    SECONDO = "secondo"
+    CONTORNO = "contorno"
+    DOLCE = "dolce"
+    LIEVITATI = "lievitati"
+    COLAZIONE = "colazione"
+    OTHER = "other"
     UNKNOWN = "unknown"
 
 

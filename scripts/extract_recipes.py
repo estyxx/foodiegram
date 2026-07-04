@@ -13,6 +13,15 @@ from foodiegram.ai.batch import cmd_apply, cmd_status, cmd_submit
 from foodiegram.settings import Settings
 
 
+def _positive_int(raw: str) -> int:
+    """Parse a strictly positive integer for the --limit argument."""
+    value = int(raw)
+    if value < 1:
+        msg = f"must be a positive integer, got {value}"
+        raise argparse.ArgumentTypeError(msg)
+    return value
+
+
 def main() -> None:
     """Entry point for the batch recipe extraction CLI."""
     logging.basicConfig(
@@ -31,6 +40,12 @@ def main() -> None:
         action="store_true",
         help="Re-submit all eligible recipes, including those already extracted",
     )
+    submit_parser.add_argument(
+        "--limit",
+        type=_positive_int,
+        default=None,
+        help="Submit only the first N eligible recipes (for a small test run)",
+    )
 
     status_parser = subparsers.add_parser("status", help="Check batch status")
     status_parser.add_argument("batch_id", nargs="?", default=None)
@@ -45,7 +60,7 @@ def main() -> None:
     settings = Settings()
 
     if args.command == "submit":
-        cmd_submit(settings, force=args.force)
+        cmd_submit(settings, force=args.force, limit=args.limit)
     elif args.command == "status":
         cmd_status(settings, args.batch_id)
     elif args.command == "apply":

@@ -1,13 +1,41 @@
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
+from foodiegram.domain.enums import (
+    Course,
+    CuisineType,
+    Difficulty,
+    DishType,
+    MealType,
+    MedCategory,
+)
 
 if TYPE_CHECKING:
     from instagrapi.types import Media
+
+
+class CategoryServing(BaseModel):
+    """How much a recipe counts toward one Mediterranean category."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category: MedCategory
+    servings: float = 1.0
+    is_oily_fish: bool = False
+    source: Literal["llm", "derived", "manual"] = "llm"
+
+
+class ExtractedCategoryServing(BaseModel):
+    """A Mediterranean-category count as produced by the LLM (raw category str)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category: str
+    servings: float = 1.0
+    is_oily_fish: bool = False
 
 
 class ExtractedRecipe(BaseModel):
@@ -24,6 +52,12 @@ class ExtractedRecipe(BaseModel):
     meal_type: str
     cuisine_type: str
     difficulty: str
+    course: str = "unknown"
+
+    # Mediterranean-diet categories
+    mediterranean_categories: list[ExtractedCategoryServing] = Field(
+        default_factory=list,
+    )
 
     # Ingredient breakdown
     proteins: list[str]
@@ -85,6 +119,10 @@ class Recipe(BaseModel):
     dish_type: DishType = DishType.UNKNOWN
     cuisine_type: CuisineType = CuisineType.UNKNOWN
     difficulty: Difficulty = Difficulty.UNKNOWN
+    course: Course = Course.UNKNOWN
+
+    # Mediterranean-diet categories (the 7-colour balance key)
+    mediterranean_categories: list[CategoryServing] = Field(default_factory=list)
 
     # Ingredient breakdown tags (open lists, not enums — they grow)
     proteins: list[str] = Field(default_factory=list)
@@ -126,6 +164,7 @@ class Recipe(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     extracted_at: datetime | None = None
     model_used: str | None = None
+    prompt_version: str | None = None
     edited_by_user: bool = False
 
     @classmethod
@@ -137,8 +176,8 @@ class Recipe(BaseModel):
         extracted: ExtractedRecipe,
         *,
         model_used: str | None = None,
-    ) -> Recipe:
-        """Construct a Recipe from an ExtractedRecipe."""
+    ) -> MappedRecipe:
+        """Map an ExtractedRecipe to a Recipe, reporting dropped categories."""
         base_servings: int | None = None
         if extracted.servings:
             match = re.search(r"\d+", extracted.servings)
@@ -165,7 +204,28 @@ class Recipe(BaseModel):
         except ValueError:
             difficulty = Difficulty.UNKNOWN
 
-        return cls(
+        try:
+            course = Course(extracted.course)
+        except ValueError:
+            course = Course.UNKNOWN
+
+        categories: list[CategoryServing] = []
+        dropped: list[str] = []
+        for raw in extracted.mediterranean_categories:
+            try:
+                category = MedCategory(raw.category)
+            except ValueError:
+                dropped.append(raw.category)
+                continue
+            categories.append(
+                CategoryServing(
+                    category=category,
+                    servings=raw.servings,
+                    is_oily_fish=raw.is_oily_fish,
+                ),
+            )
+
+        recipe = cls(
             code=code,
             pk=pk,
             post_url=f"https://instagram.com/p/{code}/",
@@ -177,6 +237,8 @@ class Recipe(BaseModel):
             dish_type=dish_type,
             cuisine_type=cuisine_type,
             difficulty=difficulty,
+            course=course,
+            mediterranean_categories=categories,
             proteins=extracted.proteins,
             vegetables=extracted.vegetables,
             grains_starches=extracted.grains_starches,
@@ -202,6 +264,16 @@ class Recipe(BaseModel):
             confidence=extracted.confidence,
             model_used=model_used,
         )
+        return MappedRecipe(recipe=recipe, dropped_categories=tuple(dropped))
+
+
+class MappedRecipe(BaseModel):
+    """Result of Recipe.from_extracted: the recipe plus dropped category strings."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    recipe: Recipe
+    dropped_categories: tuple[str, ...] = ()
 
 
 class Collection(BaseModel):
