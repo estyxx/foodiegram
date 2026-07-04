@@ -11,6 +11,7 @@ from foodiegram.domain.enums import (
     DishType,
     MealType,
     MedCategory,
+    RecipeSource,
 )
 
 if TYPE_CHECKING:
@@ -105,8 +106,9 @@ class Recipe(BaseModel):
 
     # Identity
     code: str
-    pk: str
-    post_url: str
+    source: RecipeSource = RecipeSource.INSTAGRAM
+    pk: str | None
+    post_url: str | None
     caption: str | None
 
     # Core content
@@ -155,9 +157,11 @@ class Recipe(BaseModel):
     cloudinary_url: str | None = None
     thumbnail_url: str | None = None
 
-    # User edits (Phase 3)
-    user_notes: str | None = None
-    is_favorite: bool = False
+    # Editing state (favourites / notes now live in user_state)
+    edited_fields: frozenset[str] = frozenset()
+    archived: bool = False
+    # Retired by edited_fields; the user_state migration still reads it (dies Session 4).
+    edited_by_user: bool = False
 
     # Provenance
     is_recipe: bool = True
@@ -165,13 +169,12 @@ class Recipe(BaseModel):
     extracted_at: datetime | None = None
     model_used: str | None = None
     prompt_version: str | None = None
-    edited_by_user: bool = False
 
     @classmethod
     def from_extracted(
         cls,
         code: str,
-        pk: str,
+        pk: str | None,
         caption: str | None,
         extracted: ExtractedRecipe,
         *,
@@ -274,6 +277,21 @@ class MappedRecipe(BaseModel):
 
     recipe: Recipe
     dropped_categories: tuple[str, ...] = ()
+
+
+class Extraction(BaseModel):
+    """One immutable LLM extraction run for one post. Append-only."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: int | None
+    recipe_code: str
+    prompt_version: str
+    model: str
+    batch_id: str | None
+    kind: Literal["batch", "repair", "categories", "paste"]
+    extracted_at: datetime
+    payload: ExtractedRecipe
 
 
 class Collection(BaseModel):

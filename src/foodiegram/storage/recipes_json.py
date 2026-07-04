@@ -42,9 +42,9 @@ class RecipeRepository:
         """Persist recipe to {code}.json, preserving user edits on re-extraction.
 
         Writes atomically via a sibling .tmp file and Path.replace.
-        If the stored copy has edited_by_user=True, user_notes, is_favorite,
-        and edited_by_user are kept from the stored version — AI re-extraction
-        must never overwrite user edits.
+        If the stored copy has edited_by_user=True, its editing bookkeeping
+        (edited_by_user, edited_fields) is kept from the stored version — AI
+        re-extraction must never overwrite user edits.
         """
         path = self._path(recipe.code)
 
@@ -54,9 +54,8 @@ class RecipeRepository:
                 if existing.edited_by_user:
                     recipe = recipe.model_copy(
                         update={
-                            "user_notes": existing.user_notes,
-                            "is_favorite": existing.is_favorite,
                             "edited_by_user": existing.edited_by_user,
+                            "edited_fields": existing.edited_fields,
                         },
                     )
             except (ValidationError, ValueError):
@@ -110,7 +109,6 @@ class RecipeRepository:
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
         q: str | None = None,
-        is_favorite: bool | None = None,
     ) -> list[Recipe]:
         """Return recipes matching all non-None criteria.
 
@@ -154,7 +152,5 @@ class RecipeRepository:
                     and any(needle in r.caption.lower() for needle in needles)
                 )
             ]
-        if is_favorite is not None:
-            results = [r for r in results if r.is_favorite == is_favorite]
 
         return results

@@ -45,6 +45,13 @@ class MedCategory(StrEnum):
     PROCESSED_MEAT = "processed_meat"
 
 
+class RecipeSource(StrEnum):
+    """Where a recipe originated."""
+
+    INSTAGRAM = "instagram"
+    MANUAL = "manual"
+
+
 class Course(StrEnum):
     """Italian meal-structure grouping — Browse shelf order."""
 

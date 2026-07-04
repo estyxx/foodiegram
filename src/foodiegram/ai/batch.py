@@ -150,11 +150,12 @@ def apply_extracted(
     )
     merged = mapped.recipe.model_copy(
         update={
+            "source": existing.source,
             "thumbnail_url": existing.thumbnail_url,
             "cloudinary_url": existing.cloudinary_url,
-            "user_notes": existing.user_notes,
-            "is_favorite": existing.is_favorite,
+            "archived": existing.archived,
             "edited_by_user": existing.edited_by_user,
+            "edited_fields": existing.edited_fields,
             "prompt_version": PROMPT_VERSION,
             "extracted_at": extracted_at,
         },

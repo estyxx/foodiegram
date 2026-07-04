@@ -1,4 +1,4 @@
-from foodiegram.domain.enums import Course, MedCategory
+from foodiegram.domain.enums import Course, MedCategory, RecipeSource
 from foodiegram.domain.models import (
     CategoryServing,
     ExtractedCategoryServing,
@@ -164,6 +164,27 @@ def test_legacy_recipe_json_without_new_fields_validates() -> None:
     assert recipe.course is Course.UNKNOWN
     assert recipe.mediterranean_categories == []
     assert recipe.prompt_version is None
+
+
+def test_manual_recipe_without_instagram_fields_validates() -> None:
+    """A manual recipe with pk/post_url/caption all None validates."""
+    recipe = Recipe(
+        code="m-torta-abcd",
+        source=RecipeSource.MANUAL,
+        pk=None,
+        post_url=None,
+        caption=None,
+        title="Torta della nonna",
+        ingredients=["farina", "uova"],
+        instructions=["mescola", "inforna"],
+    )
+
+    assert recipe.source is RecipeSource.MANUAL
+    assert recipe.pk is None
+    assert recipe.post_url is None
+    assert recipe.caption is None
+    assert recipe.edited_fields == frozenset()
+    assert recipe.archived is False
 
 
 def test_extracted_recipe_without_new_fields_validates() -> None:

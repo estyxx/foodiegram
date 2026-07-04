@@ -35,7 +35,8 @@ class RecipeSummary(BaseModel):
             proteins=recipe.proteins,
             thumbnail_url=recipe.thumbnail_url,
             cloudinary_url=recipe.cloudinary_url,
-            is_favorite=recipe.is_favorite,
+            # Favourites now live in user_state; the API layer wires this in Session 3.
+            is_favorite=False,
             has_instructions=bool(recipe.instructions),
         )
 

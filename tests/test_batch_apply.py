@@ -24,9 +24,8 @@ def _existing() -> Recipe:
         title="Old Title",
         ingredients=["old ingredient"],
         instructions=["old step"],
-        user_notes="keep this note",
-        is_favorite=True,
         edited_by_user=True,
+        edited_fields=frozenset({"ingredients"}),
         thumbnail_url="https://cdn/thumb.jpg",
         cloudinary_url="https://cdn/cloud.jpg",
     )
@@ -84,9 +83,8 @@ def test_apply_preserves_user_owned_fields() -> None:
     )
     recipe = result.recipe
 
-    assert recipe.user_notes == "keep this note"
-    assert recipe.is_favorite is True
     assert recipe.edited_by_user is True
+    assert recipe.edited_fields == frozenset({"ingredients"})
     assert recipe.thumbnail_url == "https://cdn/thumb.jpg"
     assert recipe.cloudinary_url == "https://cdn/cloud.jpg"
 

@@ -18,6 +18,7 @@ from foodiegram.api_models import (
 )
 from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 from foodiegram.domain.errors import StorageError
+from foodiegram.domain.models import Recipe
 from foodiegram.settings import Settings
 from foodiegram.storage.recipes_json import RecipeRepository
 
@@ -75,7 +76,6 @@ async def list_recipes(
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
-    is_favorite: Annotated[bool | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[RecipeSummary]:
@@ -88,7 +88,6 @@ async def list_recipes(
         dietary_tags=[dietary_tag] if dietary_tag else None,
         proteins=[protein] if protein else None,
         q=q,
-        is_favorite=is_favorite,
     )
     page = recipes[offset : offset + limit]
     return [RecipeSummary.from_recipe(r) for r in page]
@@ -108,8 +107,9 @@ async def get_recipe(code: str) -> RecipeDetail:
 async def update_recipe(code: str, body: RecipeUpdate) -> RecipeDetail:
     """Apply partial user edits to a recipe and persist them.
 
-    Only user_notes, is_favorite, and base_servings are editable.
-    Sets edited_by_user=True automatically.
+    Of the editable body, only base_servings maps to a Recipe field today;
+    user_notes/is_favorite are routed to user_state in Session 3. Sets
+    edited_by_user=True automatically.
     """
     recipe = _repo.get(code)
     if recipe is None:
@@ -117,7 +117,9 @@ async def update_recipe(code: str, body: RecipeUpdate) -> RecipeDetail:
         raise HTTPException(status_code=404, detail=msg)
 
     changes: dict[str, Any] = {
-        k: v for k, v in body.model_dump().items() if k in body.model_fields_set
+        k: v
+        for k, v in body.model_dump().items()
+        if k in body.model_fields_set and k in Recipe.model_fields
     }
     changes["edited_by_user"] = True
 
