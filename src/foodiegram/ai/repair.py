@@ -1,15 +1,17 @@
 import logging
 import re
 from pathlib import Path
+from typing import Final
 
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.settings import ModelSettings
 
 from foodiegram.domain.models import ExtractedCategoryServing
 
-MODEL = "gpt-4.1-mini"
+# Pin the same snapshot the batch path uses so interactive repairs match it.
+MODEL = "gpt-5.4-mini-2026-03-17"
+REASONING_EFFORT: Final = "low"
 PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 _CATEGORY_HEADING = "### Mediterranean categories (English values only):"
 _COURSE_HEADING = "### Course (Italian meal structure, English field name):"
@@ -57,13 +59,15 @@ def load_processed_meat_keywords() -> frozenset[str]:
 
 
 def build_category_agent(*, api_key: str) -> Agent[None, list[ExtractedCategoryServing]]:
-    """Build the categories-only pydantic-ai agent (temperature 0)."""
-    model = OpenAIModel(MODEL, provider=OpenAIProvider(api_key=api_key))
+    """Build the categories-only pydantic-ai agent (reasoning effort low)."""
+    model = OpenAIResponsesModel(MODEL, provider=OpenAIProvider(api_key=api_key))
     return Agent(
         model,
         output_type=list[ExtractedCategoryServing],
         system_prompt=_SYSTEM_PROMPT.format(rules=load_category_rules()),
-        model_settings=ModelSettings(temperature=0.0),
+        model_settings=OpenAIResponsesModelSettings(
+            openai_reasoning_effort=REASONING_EFFORT,
+        ),
     )
 
 

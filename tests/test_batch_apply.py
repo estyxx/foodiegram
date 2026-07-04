@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from foodiegram.ai.batch import MODEL, PROMPT_VERSION, apply_extracted
+from foodiegram.ai.batch import PROMPT_VERSION, apply_extracted
 from foodiegram.domain.enums import Course, MedCategory
 from foodiegram.domain.models import (
     ExtractedCategoryServing,
@@ -9,6 +9,9 @@ from foodiegram.domain.models import (
 )
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
+# A snapshot distinct from the module constant, proving the stamp comes from the
+# response's `model` field rather than the MODEL constant.
+_MODEL_SNAPSHOT = "gpt-5.4-mini-2026-03-17"
 
 
 def _existing() -> Recipe:
@@ -77,6 +80,7 @@ def test_apply_preserves_user_owned_fields() -> None:
         existing,
         _fresh_extraction(),
         extracted_at=_EXTRACTED_AT,
+        model_used=_MODEL_SNAPSHOT,
     )
     recipe = result.recipe
 
@@ -93,6 +97,7 @@ def test_apply_updates_extracted_fields() -> None:
         _existing(),
         _fresh_extraction(),
         extracted_at=_EXTRACTED_AT,
+        model_used=_MODEL_SNAPSHOT,
     )
     recipe = result.recipe
 
@@ -112,9 +117,10 @@ def test_apply_stamps_provenance() -> None:
         _existing(),
         _fresh_extraction(),
         extracted_at=_EXTRACTED_AT,
+        model_used=_MODEL_SNAPSHOT,
     )
     recipe = result.recipe
 
     assert recipe.prompt_version == PROMPT_VERSION
-    assert recipe.model_used == MODEL
+    assert recipe.model_used == _MODEL_SNAPSHOT
     assert recipe.extracted_at == _EXTRACTED_AT

@@ -5,10 +5,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from pydantic import ValidationError
 
 from foodiegram.domain.enums import Course, MedCategory
+from foodiegram.domain.errors import ExtractionError, PromptTemplateError
 from foodiegram.domain.models import ExtractedRecipe, MappedRecipe, Recipe
 from foodiegram.storage.recipes_json import RecipeRepository
 
@@ -16,8 +17,14 @@ if TYPE_CHECKING:
     from foodiegram.settings import Settings
 
 # --- Inputs / constants ---
-MODEL = "gpt-4.1-mini"
+# Pin the exact snapshot, never the alias: extraction provenance depends on the
+# model string being stable across runs.
+MODEL = "gpt-5.4-mini-2026-03-17"
+# gpt-5.4-mini is a reasoning model; its default effort "none" disables reasoning,
+# so request "low" for the category-judgment calls.
+REASONING_EFFORT = "low"
 PROMPT_VERSION = "2"
+CAPTION_MARKER = "{caption}"
 PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 BATCH_INPUT_PATH = Path("data/batch_input.jsonl")
 BATCH_OUTPUT_PATH = Path("data/batch_output.jsonl")
@@ -65,11 +72,73 @@ def _extraction_schema() -> dict[str, Any]:
     return schema
 
 
+def render_prompt(*, template: str, caption: str) -> str:
+    """Insert caption into template at its single caption marker, verbatim.
+
+    Uses str.replace, never str.format/f-strings/string.Template: prompt v2 and
+    captions both contain literal braces and dollars that those would choke on.
+    Raise PromptTemplateError unless the marker appears exactly once.
+    """
+    marker_count = template.count(CAPTION_MARKER)
+    if marker_count != 1:
+        msg = (
+            f"Prompt template must contain {CAPTION_MARKER!r} exactly once, "
+            f"found {marker_count}"
+        )
+        raise PromptTemplateError(msg)
+    return template.replace(CAPTION_MARKER, caption)
+
+
+def build_extraction_body(
+    *,
+    caption: str,
+    prompt_template: str,
+    schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the /v1/responses request body shared by the batch and smoke paths.
+
+    Reasoning models reject `temperature`; effort is set via `reasoning` instead.
+    No token cap is set — reasoning tokens count against the output budget, so we
+    leave `max_output_tokens` unset to give the model full headroom.
+    """
+    return {
+        "model": MODEL,
+        "input": render_prompt(template=prompt_template, caption=caption),
+        "reasoning": {"effort": REASONING_EFFORT},
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "ExtractedRecipe",
+                "schema": schema,
+                "strict": True,
+            },
+        },
+    }
+
+
+def _output_text(output: list[dict[str, Any]]) -> str:
+    """Return the assistant message text from a Responses API `output` list.
+
+    Reasoning models prepend a `type="reasoning"` item, so the message is not at
+    a fixed index: scan for the message item and its first output_text content.
+    """
+    for item in output:
+        if item.get("type") != "message":
+            continue
+        for content in item.get("content", []):
+            text = content.get("text")
+            if isinstance(text, str):
+                return text
+    msg = "No output_text found in Responses API output"
+    raise ExtractionError(msg)
+
+
 def apply_extracted(
     existing: Recipe,
     extracted: ExtractedRecipe,
     *,
     extracted_at: datetime,
+    model_used: str,
 ) -> MappedRecipe:
     """Merge an extraction into an existing recipe, preserving user-owned fields."""
     mapped = Recipe.from_extracted(
@@ -77,7 +146,7 @@ def apply_extracted(
         pk=existing.pk,
         caption=existing.caption,
         extracted=extracted,
-        model_used=MODEL,
+        model_used=model_used,
     )
     merged = mapped.recipe.model_copy(
         update={
@@ -172,23 +241,15 @@ def cmd_submit(
     BATCH_INPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with BATCH_INPUT_PATH.open("w", encoding="utf-8") as fh:
         for recipe in to_submit:
-            caption = recipe.caption or ""
             line: dict[str, object] = {
                 "custom_id": recipe.code,
                 "method": "POST",
                 "url": "/v1/responses",
-                "body": {
-                    "model": MODEL,
-                    "input": prompt_template.format(caption=caption),
-                    "text": {
-                        "format": {
-                            "type": "json_schema",
-                            "name": "ExtractedRecipe",
-                            "schema": schema,
-                            "strict": True,
-                        },
-                    },
-                },
+                "body": build_extraction_body(
+                    caption=recipe.caption or "",
+                    prompt_template=prompt_template,
+                    schema=schema,
+                ),
             }
             fh.write(json.dumps(line, ensure_ascii=False) + "\n")
 
@@ -272,11 +333,17 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
                 skipped += 1
                 continue
 
-            response_body: dict[str, object] = result["response"]["body"]  # type: ignore[index]
-            output_text: str = response_body["output"][0]["content"][0]["text"]  # type: ignore[index]
+            response_body: dict[str, Any] = result["response"]["body"]  # type: ignore[index]
+            model_used = str(response_body["model"])
+            output_text = _output_text(response_body["output"])
             extracted = ExtractedRecipe.model_validate(json.loads(output_text))
 
-            mapped = apply_extracted(existing, extracted, extracted_at=now)
+            mapped = apply_extracted(
+                existing,
+                extracted,
+                extracted_at=now,
+                model_used=model_used,
+            )
             if mapped.dropped_categories:
                 logger.warning(
                     "Dropped unknown categories for %s: %s",
@@ -287,8 +354,68 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
             repo.save(mapped.recipe)
             applied += 1
 
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError):
+        except (
+            KeyError,
+            IndexError,
+            TypeError,
+            json.JSONDecodeError,
+            ValidationError,
+            ExtractionError,
+        ):
             logger.exception("Failed to parse result for code %s", code)
             errors += 1
 
     logger.info("Applied: %d  Skipped: %d  Errors: %d", applied, skipped, errors)
+
+
+def cmd_smoke(settings: Settings, *, limit: int) -> None:
+    """Extract a few captions synchronously to validate model + schema wiring.
+
+    Uses the same request-body builder as the batch path, calls the Responses API
+    directly, validates each result into ExtractedRecipe, and logs a one-line
+    pass/fail plus token usage per caption. Does not write anything to the repo.
+    """
+    repo = RecipeRepository(settings.data_dir)
+    eligible = [r for r in repo.list_all() if _needs_extraction(r)][:limit]
+    if not eligible:
+        logger.info("No eligible captions to smoke-test.")
+        return
+
+    prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
+    schema = _extraction_schema()
+    client = OpenAI(api_key=settings.openai_api_key)
+
+    passed = 0
+    for recipe in eligible:
+        body = build_extraction_body(
+            caption=recipe.caption or "",
+            prompt_template=prompt_template,
+            schema=schema,
+        )
+        try:
+            response = client.responses.create(**body)
+            ExtractedRecipe.model_validate_json(response.output_text)
+        except (OpenAIError, ValidationError, ValueError):
+            logger.exception("FAIL %s", recipe.code)
+            continue
+
+        passed += 1
+        usage = response.usage
+        if usage is None:
+            logger.info(
+                "PASS %s — model=%s (no usage reported)",
+                recipe.code,
+                response.model,
+            )
+        else:
+            logger.info(
+                "PASS %s — model=%s in=%d out=%d (reasoning=%d) total=%d",
+                recipe.code,
+                response.model,
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.output_tokens_details.reasoning_tokens,
+                usage.total_tokens,
+            )
+
+    logger.info("Smoke: %d/%d validated", passed, len(eligible))

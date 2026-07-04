@@ -1,7 +1,5 @@
 You are an expert culinary analyst. Extract comprehensive recipe information from this Instagram caption.
 
-Caption: "{caption}"
-
 ## LANGUAGE RULES — READ CAREFULLY
 
 ### Title, ingredients, and instructions: VERBATIM language
@@ -111,3 +109,5 @@ All of the following fields use English canonical values regardless of caption l
   lievitati = anything whose point is the dough.
 
 Extract practical, searchable information that helps users find and filter recipes effectively.
+
+Caption: "{caption}"

@@ -4,12 +4,13 @@ Commands:
   submit [--force]   Build and submit an OpenAI batch job.
   status [BATCH_ID]  Check batch progress.
   apply  [BATCH_ID]  Download and apply completed batch results.
+  smoke  [--limit N] Synchronously validate a few extractions (default 5).
 """
 
 import argparse
 import logging
 
-from foodiegram.ai.batch import cmd_apply, cmd_status, cmd_submit
+from foodiegram.ai.batch import cmd_apply, cmd_smoke, cmd_status, cmd_submit
 from foodiegram.settings import Settings
 
 
@@ -56,6 +57,17 @@ def main() -> None:
     )
     apply_parser.add_argument("batch_id", nargs="?", default=None)
 
+    smoke_parser = subparsers.add_parser(
+        "smoke",
+        help="Synchronously extract a few captions and validate the responses",
+    )
+    smoke_parser.add_argument(
+        "--limit",
+        type=_positive_int,
+        default=5,
+        help="Number of eligible captions to test (default 5)",
+    )
+
     args = parser.parse_args()
     settings = Settings()
 
@@ -65,6 +77,8 @@ def main() -> None:
         cmd_status(settings, args.batch_id)
     elif args.command == "apply":
         cmd_apply(settings, args.batch_id)
+    elif args.command == "smoke":
+        cmd_smoke(settings, limit=args.limit)
 
 
 if __name__ == "__main__":
