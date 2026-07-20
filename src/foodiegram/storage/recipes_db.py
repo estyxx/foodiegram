@@ -5,7 +5,7 @@ from sqlmodel import select
 
 from foodiegram.domain.models import Recipe
 from foodiegram.storage._tables import RecipeRow
-from foodiegram.storage.db import get_session
+from foodiegram.storage.db import ensure_utc, get_session
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -111,7 +111,7 @@ def _to_domain(row: RecipeRow) -> Recipe:
             "edited_by_user": row.edited_by_user,
             "is_recipe": row.is_recipe,
             "confidence": row.confidence,
-            "extracted_at": row.extracted_at,
+            "extracted_at": ensure_utc(row.extracted_at),
             "model_used": row.model_used,
             "prompt_version": row.prompt_version,
         },

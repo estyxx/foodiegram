@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,17 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
 
 _SQLITE_PREFIX = "sqlite:///"
+
+
+def ensure_utc(value: datetime | None) -> datetime | None:
+    """Re-attach UTC to a naive datetime read from storage.
+
+    SQLite cannot persist tzinfo; every datetime we store is UTC, so we restore
+    the marker at the read boundary rather than leak a naive value to the domain.
+    """
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=UTC)
 
 
 def _ensure_sqlite_parent(database_url: str) -> None:

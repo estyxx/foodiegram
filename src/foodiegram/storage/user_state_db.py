@@ -5,7 +5,7 @@ from sqlmodel import col, select
 
 from foodiegram.domain.models import UserState
 from foodiegram.storage._tables import UserStateRow
-from foodiegram.storage.db import get_session
+from foodiegram.storage.db import ensure_utc, get_session
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -18,7 +18,7 @@ def _to_user_state(row: UserStateRow) -> UserState:
             "recipe_code": row.recipe_code,
             "is_favorite": row.is_favorite,
             "user_notes": row.user_notes,
-            "updated_at": row.updated_at,
+            "updated_at": ensure_utc(row.updated_at),
         },
     )
 

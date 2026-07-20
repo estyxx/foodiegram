@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -25,7 +25,7 @@ from foodiegram.storage.extractions_db import ExtractionRepository
 from foodiegram.storage.recipes_db import RecipeRepository
 from foodiegram.storage.user_state_db import UserStateRepository
 
-_EXTRACTED_AT = datetime(2026, 7, 4, 12, 0)  # noqa: DTZ001  # SQLite drops tzinfo
+_EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5
 
 

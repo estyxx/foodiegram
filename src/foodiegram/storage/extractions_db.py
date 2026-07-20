@@ -4,7 +4,7 @@ from sqlmodel import col, select
 
 from foodiegram.domain.models import Extraction
 from foodiegram.storage._tables import ExtractionRow
-from foodiegram.storage.db import get_session
+from foodiegram.storage.db import ensure_utc, get_session
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -20,7 +20,7 @@ def _to_extraction(row: ExtractionRow) -> Extraction:
             "model": row.model,
             "batch_id": row.batch_id,
             "kind": row.kind,
-            "extracted_at": row.extracted_at,
+            "extracted_at": ensure_utc(row.extracted_at),
             "payload": row.payload,
         },
     )
