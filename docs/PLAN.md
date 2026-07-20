@@ -571,15 +571,17 @@ WCAG AA (darken until it passes):
   with a clear protein have ≥1 category; zero user edits clobbered.
 
 ### Phase 2 — Storage: DB as source of truth (~5–6 evenings) — HIGH-RISK PHASE, see §19
-- [ ] 2.1 `sqlmodel` dependency; `storage/db.py`; all tables (§10); targets seeding
-- [ ] 2.2 `Extraction`, `edited_fields`, `RecipeSource`, nullable IG fields;
+- [x] 2.1 `sqlmodel` dependency; `storage/db.py`; all tables (§10); targets seeding
+- [x] 2.2 `Extraction`, `edited_fields`, `RecipeSource`, nullable IG fields;
       `domain/editing.py` + `domain/diffing.py` with exhaustive tests
       (**promote-respects-edits is the anchor deliverable of this phase**)
 - [ ] 2.3 DB-backed `RecipeRepository`; `recipes_json.py` demoted to import/export
-- [ ] 2.4 Scripts per §12: `ingest`, `extract` (extractions-only apply), `diff_batch`,
-      `promote`, `export`, `import_json` (+ user_state migration inside it)
-- [ ] 2.5 Load local DB: `import_json data/recipes/` + backfill `extractions` from the
-      kept v2 `batch_output.jsonl`; run `export.py` and initialise the private data repo
+      (repos built; app cutover pending — see note below)
+- [~] 2.4 Scripts per §12: `ingest`, `extract` (extractions-only apply), `diff_batch`,
+      `promote`, `export` ✔, `import_json` ✔ (+ user_state migration inside it)
+- [~] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven
+      identical) + backfill `extractions` from the kept v2 `batch_output.jsonl`; run
+      `export.py` ✔ and initialise the private data repo
 - [ ] 2.6 README runbook (§13) finalised
 - **Done when:** app serves from the DB; JSON is import/export only; extraction history
   is populated; a re-promote run changes nothing (idempotence proof).
