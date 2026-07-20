@@ -294,6 +294,17 @@ class Extraction(BaseModel):
     payload: ExtractedRecipe
 
 
+class UserState(BaseModel):
+    """Per-recipe app state (favourite, notes) kept outside the recipe itself."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    recipe_code: str
+    is_favorite: bool = False
+    user_notes: str | None = None
+    updated_at: datetime
+
+
 class Collection(BaseModel):
     """Data model for an Instagram collection."""
 

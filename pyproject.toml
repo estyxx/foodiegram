@@ -47,9 +47,10 @@ ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module
 "COM812", # conflicts with ruff formatter (trailing comma enforcement)
 ]
 [tool.ruff.lint.flake8-type-checking]
-# Pydantic evaluates model field types at class-definition time via model_rebuild();
-# moving those imports into TYPE_CHECKING would break validation.
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+# Pydantic (and SQLModel, which builds columns from annotations at class-definition
+# time) evaluate model field types at runtime; moving those imports into
+# TYPE_CHECKING would break validation and table mapping.
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 
 [tool.ruff.lint.per-file-ignores]
 # Standalone migration/utility scripts are not an importable package.
@@ -57,7 +58,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # PLR2004: small literal constants are clear enough in script context.
 "scripts/*" = ["INP001", "T201", "PLR2004"]
 # `assert` and hardcoded test credentials are the expected idiom in tests.
-"tests/*" = ["S101", "S105", "S106"]
+# TC001-003: pytest evaluates fixture/param annotations at runtime on 3.14, so
+# typing-only imports used in annotations must stay importable at runtime.
+"tests/*" = ["S101", "S105", "S106", "TC001", "TC002", "TC003"]
 # extractor: Client and Settings used at runtime (class attrs + property body).
 "src/foodiegram/instagram/extractor.py" = ["TC001", "TC002"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.

@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     cloudinary_url: str
 
     data_dir: Path = Path("data/recipes")
+    database_url: str = "sqlite:///data/dispensa.db"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 

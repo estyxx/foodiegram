@@ -31,14 +31,18 @@ from foodiegram.domain.models import (
     Extraction,
     MappedRecipe,
     Recipe,
+    UserState,
 )
+from foodiegram.domain.planning import DEFAULT_TARGETS, CategoryTarget
 from foodiegram.domain.synonyms import SYNONYM_GROUPS, expand_term
 
 __all__ = [
+    "DEFAULT_TARGETS",
     "EXTRACTION_FIELDS",
     "PROTECTED_FIELDS",
     "SYNONYM_GROUPS",
     "CategoryServing",
+    "CategoryTarget",
     "Collection",
     "Course",
     "CuisineType",
@@ -57,6 +61,7 @@ __all__ = [
     "Recipe",
     "RecipeSource",
     "StorageError",
+    "UserState",
     "diff_against_recipe",
     "diff_payloads",
     "expand_term",
