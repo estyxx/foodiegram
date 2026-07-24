@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # HTTP Basic auth over the whole app (D13). Empty username disables auth (dev).
+    basic_auth_username: str = ""
+    basic_auth_password: str = ""
+
     def __repr__(self) -> str:
         """Return a repr with secret-bearing fields masked."""
         parts: list[str] = []

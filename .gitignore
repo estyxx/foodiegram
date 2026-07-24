@@ -27,6 +27,8 @@ htmlcov/
 .uv/
 .env
 .env.
+# Track the template even though a global gitignore matches *.env*.
+!.env.example
 .cache/
 
 macOS

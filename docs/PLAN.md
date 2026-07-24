@@ -601,7 +601,7 @@ WCAG AA (darken until it passes):
       favourite ranking, filters archived/non-recipe/planned)
 - [x] 3.2 `domain/pantry.py` + `domain/shopping.py` (§9) tested (synonym matching,
       dedupe, aisle grouping, unknown→altro)
-- [ ] 3.3 Plan/pantry/targets endpoints (§11) + Basic-auth middleware (D13)
+- [x] 3.3 Plan/pantry/targets endpoints (§11) + Basic-auth middleware (D13)
 - **Done when:** `GET /api/plans/{week}` returns plan+balance+suggestions in one payload,
   covered by API tests against sqlite-tmp.
 

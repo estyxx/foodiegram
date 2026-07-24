@@ -15,6 +15,8 @@ class PantryItem(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    # Storage identity; None until persisted. Matching never uses it.
+    id: int | None = None
     name: str
     kind: Literal["staple", "fresh"]
     expires: date | None = None

@@ -46,6 +46,8 @@ class PlannedMeal(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    # Storage identity; None until persisted. Balance math never uses it.
+    id: int | None = None
     day: date
     meal: Literal["lunch", "dinner"]
     recipe_code: str

@@ -63,6 +63,11 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 "tests/*" = ["S101", "S105", "S106", "TC001", "TC002", "TC003"]
 # extractor: Client and Settings used at runtime (class attrs + property body).
 "src/foodiegram/instagram/extractor.py" = ["TC001", "TC002"]
+# routers: FastAPI evaluates path/query/body annotations at runtime, so typing
+# imports used only in route signatures (e.g. datetime.date) must stay importable.
+"src/foodiegram/routers/*" = ["TC001", "TC002", "TC003"]
+# deps: Request is a FastAPI dependency marker resolved at runtime by identity.
+"src/foodiegram/deps.py" = ["TC002"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
 "src/foodiegram/settings.py" = ["S104"]
 
