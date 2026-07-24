@@ -1,7 +1,7 @@
 # Dispensa 🫙
 
 A personal recipe library and Mediterranean-diet weekly meal planner.
-~800 recipes extracted from saved Instagram posts (mostly Italian) plus, eventually,
+~1,150 recipes extracted from saved Instagram posts (mostly Italian) plus, eventually,
 manually added recipes. The signature feature: a **live, colour-coded weekly balance
 panel** tracking 7 protein categories against Mediterranean targets — adding or
 removing a recipe from the week moves the bars in real time and suggests gap-fillers.
@@ -16,17 +16,23 @@ ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever
 ## Pipeline overview
 
 Instagram extraction is **one ingestion source**, not the product. The pipeline runs
-locally (~monthly) and pushes structured recipes into the database.
+locally (~monthly) and pushes structured recipes into the database. The **database is
+the source of truth**; the JSON files under `data/recipes/` are an import/export backup
+kept in a separate private repo.
+
+Extraction is **append-only**: `apply` records each LLM result as an immutable
+`extractions` row and never mutates recipes. A separate `promote` step merges the latest
+extraction into each recipe and **always preserves fields the user has edited**.
 
 ```
 Instagram app (browse & save — keeps the account warm)
   ↓ IGbulkCollector (browser ext) → export post list
   ↓ IGbulkDL --dry-run → food.json (captions + CDN URLs)
-  ↓ scripts/ingest_igbulkdl.py food.json   → recipe stubs + thumbnails → Cloudinary
-  ↓ scripts/extract_recipes.py submit       → OpenAI Batch API (≈50% cheaper)
-  ↓ scripts/extract_recipes.py status / apply → structured recipes
-  ↓ (Phase 2+) scripts/promote.py → canonical recipe rows in DB
-  ↓ (Phase 2+) scripts/export.py  → data/ backup in private repo
+  ↓ make ingest      → recipe stubs + thumbnails
+  ↓ make submit      → OpenAI Batch API (≈50% cheaper)
+  ↓ make status / apply → extractions rows (immutable history)
+  ↓ make promote     → dry-run diff; make promote-apply → merge into recipes
+  ↓ make export      → data/recipes/ backup, committed to the private data repo
 
 Web app: browse · search · plan weeks · (Phase 6) edit · add manual recipes
 ```
@@ -38,8 +44,12 @@ Web app: browse · search · plan weeks · (Phase 6) edit · add manual recipes
 ```bash
 cp .env.example .env   # fill in OPENAI_API_KEY + CLOUDINARY_*
 uv sync
+make import            # load data/recipes/ into data/dispensa.db (first run only)
 make serve-api         # → http://localhost:8000
 ```
+
+The database defaults to `sqlite:///data/dispensa.db` (auto-created). Point at another
+database — e.g. Neon Postgres in prod — by setting `DATABASE_URL`.
 
 ---
 
@@ -47,43 +57,64 @@ make serve-api         # → http://localhost:8000
 
 ```
 src/foodiegram/
-  domain/        Pure models, enums, errors — no I/O, no SDKs
-  storage/       JSON-backed RecipeRepository (SQLite in Phase 2)
-  ai/            OpenAI Batch submit/status/apply; prompts/
+  domain/        Pure models, enums, errors, promote()/diff — no I/O, no SDKs
+  storage/       DB-backed repositories (SQLModel); recipes_json.py = import/export
+                 db.py · _tables.py · recipes_db.py · extractions_db.py · user_state_db.py
+  ai/            OpenAI Batch build/submit/status/apply; prompts/; pydantic-ai repair
   instagram/     instagrapi adapter, cache, auth
-  images/        Cloudinary adapter (placeholder)
-  app/           Use-case layer (placeholder)
-  api.py         FastAPI: GET/PATCH /recipes + /scale
+  images/        Cloudinary adapter
+  app/           Use-cases: import_json, export, promotion, diff_batch, review_categories
+  api.py         FastAPI: GET/PATCH /recipes + /scale (serves from the DB)
   api_models.py  API response models (RecipeSummary, RecipeDetail)
-  settings.py    pydantic-settings (reads .env)
+  settings.py    pydantic-settings (reads .env); DATABASE_URL, OpenAI, Cloudinary
 public/          SPA frontend (single index.html — split in Phase 4)
-scripts/         Thin CLI wrappers over foodiegram.ai / foodiegram.instagram
+scripts/         Thin CLI wrappers over foodiegram.app / foodiegram.ai
 tests/
 docs/PLAN.md     Full roadmap, architecture decisions, all specs
 ```
+
+Dependencies point inward only (`api / scripts → app → storage | ai → domain`),
+enforced by import-linter. The ORM (SQLModel/SQLAlchemy) never leaks outside `storage/`.
 
 ---
 
 ## Runbook
 
-> **Full runbook lives in [docs/PLAN.md §13](docs/PLAN.md).** It covers:
-> syncing new saved posts, changing the extraction prompt, promoting to DB,
-> exporting a backup, and running against Neon Postgres in prod.
-
-Short form — ingesting new posts locally:
+**Syncing new saved posts (~monthly, local):**
 
 ```bash
-# 1. Export post list with IGbulkCollector (browser) → run IGbulkDL → food.json
-make ingest FILE=data/food.json    # create recipe stubs
-
-# 2. Extract with OpenAI Batch API
-make submit                        # submit (or submit-force after a prompt change)
-make status                        # check progress
-make apply                         # write structured fields into recipes
-
-# 3. Browse
-make serve-api
+# 1. Browse/save on the phone as normal (keeps the account warm).
+# 2. Run IGbulkCollector in the browser → export the post list.
+# 3. IGbulkDL --dry-run → food.json (captions + CDN URLs; no media downloads).
+make ingest FILE=data/food.json    # thumbnails upload NOW — CDN URLs expire
+make submit                        # only recipes missing an extraction at v2
+make status                        # wait for completed
+make apply                         # download → extractions rows (history only)
+make promote                       # dry-run: see what would change per recipe
+make promote-apply                 # merge into recipes (user edits preserved)
+make export                        # DB → data/recipes/; commit in the private data repo
 ```
+
+**Changing the prompt or model:**
+
+```bash
+# Bump PROMPT_VERSION in src/foodiegram/ai/batch.py first (e.g. 2 → 3).
+make submit-all                    # re-submit every captioned recipe
+make apply
+make diff FROM=2 TO=3              # aggregate: "what actually changed?"
+make promote VERSION=3            # dry-run review
+make promote-apply VERSION=3      # merge; user edits are never at risk
+make export
+```
+
+**Against prod:** prefix any command with `DATABASE_URL=<neon-pooled-url>`, e.g.
+`DATABASE_URL=… make promote-apply VERSION=3`.
+
+**Disaster recovery / fresh clone:** `make import` loads `data/recipes/` back into the
+DB; `make backfill` reconstructs `extractions` history from kept `batch_output.jsonl`.
+
+**Instagram account note:** instagrapi login is currently flagged; nothing here depends
+on it. Never run Instagram-facing code on the server.
 
 ---
 
@@ -93,11 +124,17 @@ make serve-api
 |---|---|
 | `make check` | Full gate: ruff + mypy + pytest + lint-imports |
 | `make serve-api` | Start FastAPI dev server on :8000 |
-| `make ingest FILE=…` | Ingest an IGbulkDL JSON file |
-| `make submit` | Submit OpenAI batch job |
-| `make submit-force` | Re-submit all eligible recipes |
+| `make import` | Load `data/recipes/` JSON into the DB |
+| `make export` | Export the DB to `data/recipes/` (sorted-key JSON) |
+| `make ingest FILE=…` | Ingest IGbulkDL JSON file(s) into the DB |
+| `make submit` / `make submit-all` | Submit an OpenAI batch (only-missing / everything) |
 | `make status` | Check batch progress |
-| `make apply` | Apply completed batch results |
+| `make apply` | Download results into the `extractions` table |
+| `make promote` / `make promote-apply` | Merge latest extractions into recipes (dry-run / write) |
+| `make diff FROM=1 TO=2` | Aggregate diff between two prompt versions |
+| `make backfill` | Rebuild extraction history from `batch_output.jsonl` |
+
+Promote/diff default to `VERSION=2`; override per invocation (`make promote VERSION=3`).
 
 ---
 

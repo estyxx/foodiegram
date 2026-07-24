@@ -587,10 +587,12 @@ WCAG AA (darken until it passes):
       batch_output.jsonl, real created_at timestamps); **idempotence proven** — a v2
       dry-run promote reports 899 considered, 0 would change. `export.py` ✔.
       Remaining manual step: init/push the private data repo.
-- [ ] 2.6 README runbook (§13) finalised
+- [x] 2.6 README runbook (§13) finalised — DB-source-of-truth pipeline, extract→apply→
+      promote→export flow, prompt/model-change flow, DATABASE_URL prod note; Makefile
+      updated (submit-all/promote/diff/export/import/backfill).
 - **Done when:** app serves from the DB ✔; JSON is import/export only ✔; extraction
   history is populated ✔; a re-promote run changes nothing (idempotence proof) ✔.
-  (Only 2.6 README remains.)
+  **Phase 2 complete.**
 
 ### Phase 3 — Planner backend (~3 evenings)
 - [ ] 3.1 `domain/planning.py` (§8) fully tested: multi-category recipe, slot-not-portion
