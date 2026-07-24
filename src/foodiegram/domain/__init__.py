@@ -33,7 +33,16 @@ from foodiegram.domain.models import (
     Recipe,
     UserState,
 )
-from foodiegram.domain.planning import DEFAULT_TARGETS, CategoryTarget
+from foodiegram.domain.planning import (
+    DEFAULT_TARGETS,
+    CategoryStatus,
+    CategoryTarget,
+    PlannedMeal,
+    WeekPlan,
+    gap_suggestions,
+    oily_fish_count,
+    week_balance,
+)
 from foodiegram.domain.synonyms import SYNONYM_GROUPS, expand_term
 
 __all__ = [
@@ -42,6 +51,7 @@ __all__ = [
     "PROTECTED_FIELDS",
     "SYNONYM_GROUPS",
     "CategoryServing",
+    "CategoryStatus",
     "CategoryTarget",
     "Collection",
     "Course",
@@ -58,12 +68,17 @@ __all__ = [
     "MappedRecipe",
     "MealType",
     "MedCategory",
+    "PlannedMeal",
     "Recipe",
     "RecipeSource",
     "StorageError",
     "UserState",
+    "WeekPlan",
     "diff_against_recipe",
     "diff_payloads",
     "expand_term",
+    "gap_suggestions",
+    "oily_fish_count",
     "promote",
+    "week_balance",
 ]
