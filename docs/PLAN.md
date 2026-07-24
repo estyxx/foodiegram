@@ -599,7 +599,7 @@ WCAG AA (darken until it passes):
       CategoryStatus, week_balance (multi-category, slot-not-portion, under/ok/over
       boundaries, unknown-code skip), oily_fish_count, gap_suggestions (confidence→
       favourite ranking, filters archived/non-recipe/planned)
-- [ ] 3.2 `domain/pantry.py` + `domain/shopping.py` (§9) tested (synonym matching,
+- [x] 3.2 `domain/pantry.py` + `domain/shopping.py` (§9) tested (synonym matching,
       dedupe, aisle grouping, unknown→altro)
 - [ ] 3.3 Plan/pantry/targets endpoints (§11) + Basic-auth middleware (D13)
 - **Done when:** `GET /api/plans/{week}` returns plan+balance+suggestions in one payload,

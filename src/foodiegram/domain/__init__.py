@@ -33,6 +33,7 @@ from foodiegram.domain.models import (
     Recipe,
     UserState,
 )
+from foodiegram.domain.pantry import KitchenMatch, PantryItem, kitchen_match
 from foodiegram.domain.planning import (
     DEFAULT_TARGETS,
     CategoryStatus,
@@ -43,13 +44,19 @@ from foodiegram.domain.planning import (
     oily_fish_count,
     week_balance,
 )
-from foodiegram.domain.synonyms import SYNONYM_GROUPS, expand_term
+from foodiegram.domain.shopping import AisleGroup, ShoppingItem, shopping_list
+from foodiegram.domain.synonyms import (
+    SYNONYM_GROUPS,
+    canonical_term,
+    expand_term,
+)
 
 __all__ = [
     "DEFAULT_TARGETS",
     "EXTRACTION_FIELDS",
     "PROTECTED_FIELDS",
     "SYNONYM_GROUPS",
+    "AisleGroup",
     "CategoryServing",
     "CategoryStatus",
     "CategoryTarget",
@@ -65,20 +72,26 @@ __all__ = [
     "FieldDiff",
     "FoodiegramError",
     "InstagramFetchError",
+    "KitchenMatch",
     "MappedRecipe",
     "MealType",
     "MedCategory",
+    "PantryItem",
     "PlannedMeal",
     "Recipe",
     "RecipeSource",
+    "ShoppingItem",
     "StorageError",
     "UserState",
     "WeekPlan",
+    "canonical_term",
     "diff_against_recipe",
     "diff_payloads",
     "expand_term",
     "gap_suggestions",
+    "kitchen_match",
     "oily_fish_count",
     "promote",
+    "shopping_list",
     "week_balance",
 ]

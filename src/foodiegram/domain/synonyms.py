@@ -36,7 +36,18 @@ _LOOKUP: dict[str, frozenset[str]] = {
     term.lower(): group for group in SYNONYM_GROUPS for term in group
 }
 
+# Case-insensitive lookup: normalised term -> a stable canonical representative
+# (the alphabetically-first member of its group) so synonyms dedupe to one key.
+_CANONICAL: dict[str, str] = {
+    term.lower(): min(group) for group in SYNONYM_GROUPS for term in group
+}
+
 
 def expand_term(term: str) -> set[str]:
     """Return term plus all known synonyms, case-insensitive."""
     return set(_LOOKUP.get(term.lower(), frozenset({term})))
+
+
+def canonical_term(term: str) -> str:
+    """Return a stable canonical name for term's synonym group, else term itself."""
+    return _CANONICAL.get(term.lower(), term.lower())
