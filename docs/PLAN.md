@@ -606,7 +606,7 @@ WCAG AA (darken until it passes):
   covered by API tests against sqlite-tmp.
 
 ### Phase 4 — Frontend: the wow moment (~5–6 evenings)
-- [ ] 4.1 `tokens.css` from Dispensa v3 + AA verification (blocks everything else)
+- [x] 4.1 `tokens.css` from Dispensa v3 + AA verification (blocks everything else)
 - [ ] 4.2 Scaffold §14; port existing browse/detail/favourites — **feature-parity
       checkpoint** against the old index.html before adding anything new
 - [ ] 4.3 Slim `/api/recipes` index + client-side search cache (D12)

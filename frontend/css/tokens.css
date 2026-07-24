@@ -1,0 +1,153 @@
+/* Dispensa design tokens — the "Maiolica" palette lifted from Dispensa v3.
+ *
+ * Design tokens ONLY (PLAN §14/§16): no selectors beyond :root, no component
+ * rules. Fonts are loaded via <link> in index.html; this file only names them.
+ *
+ * WCAG AA (§16): every text/ground pair below was verified ≥ 4.5:1 for normal
+ * text. Four v3 values were too light for small text and were darkened until
+ * they passed (originals kept in comments):
+ *   --ink-muted   #8A8170 → #6B6353   (3.14 → 4.85 on --paper)
+ *   --accent-ochre#A07C3C → #856021   (3.15 → 4.64 on --paper)
+ *   --badge-plant #5E7A4E → #526B44   (3.96 → 4.88 on --badge-plant-bg)
+ *   --state-over  #B8492F → #A83C22   (4.25 → 5.14 on --paper)
+ * Category swatch dots (--cat-*) are decorative and always paired with a text
+ * label, so they are not held to the text threshold.
+ */
+
+:root {
+  /* ---- Type: three jobs (display serif / body sans / functional mono) ---- */
+  --font-display: "Spectral", Georgia, "Times New Roman", serif;
+  --font-body: "Manrope", system-ui, -apple-system, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ---- Type scale ---- */
+  --text-hero: clamp(2.4rem, 4vw + 1rem, 3.125rem); /* 50px cap */
+  --text-h1: 2.5rem;      /* 40px */
+  --text-h2: 1.5rem;      /* 24px */
+  --text-display-sm: 2.0625rem; /* 33px "cook tonight" */
+  --text-lg: 1.0625rem;   /* 17px */
+  --text-body: 0.9375rem; /* 15px */
+  --text-sm: 0.8125rem;   /* 13px */
+  --text-meta: 0.75rem;   /* 12px mono */
+  --text-eyebrow: 0.6875rem; /* 11px mono */
+
+  --lh-tight: 1.04;
+  --lh-snug: 1.15;
+  --lh-body: 1.6;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --tracking-tight: -0.015em;
+  --tracking-eyebrow: 0.12em;
+  --tracking-mono: 0.04em;
+
+  /* ---- Neutral grounds (warm paper) ---- */
+  --paper: #ECE8DC;        /* app background */
+  --surface: #F6F3EA;      /* cards / panels */
+  --surface-raised: #FBFAF5; /* inputs / raised */
+  --surface-tint: #F1EFE4; /* quiet inset panels */
+
+  /* ---- Ink (text) ---- */
+  --ink: #2C2820;          /* primary text */
+  --ink-muted: #6B6353;    /* secondary text (was #8A8170, darkened for AA) */
+  --ink-faint: #8A8170;    /* decorative / large text only — NOT for small copy */
+  --on-dark: #F6F3EA;      /* text on teal / dark grounds */
+
+  /* ---- Brand teal ---- */
+  --teal: #1E5E59;
+  --teal-hover: #174D49;
+  --teal-deep: #16443F;
+  --teal-tint: #E6EEEB;    /* step circles, soft teal fills */
+  --on-teal-muted: #AFD0CB;
+
+  /* ---- Warm accent (eyebrows / editorial labels) ---- */
+  --accent-ochre: #856021; /* was #A07C3C, darkened for AA */
+
+  /* ---- Borders ---- */
+  --border: #DCD5C4;       /* default hairline */
+  --border-strong: #CDC4AF; /* dashed / emphasised */
+  --border-light: #E3DCCB;
+
+  /* ---- The 7-category key (dot = swatch, bg/fg = chip, tint = empty track) ---- */
+  --cat-fish: #3E9D94;
+  --cat-fish-bg: #DCEAE7;
+  --cat-fish-fg: #1E5E59;
+  --cat-fish-tint: #CFE3DF;
+
+  --cat-legumes: #3F6B38;
+  --cat-legumes-bg: #DCE7D5;
+  --cat-legumes-fg: #345A2E;
+  --cat-legumes-tint: #D6DECB;
+
+  --cat-poultry: #C28A1E;
+  --cat-poultry-bg: #F4E7C9;
+  --cat-poultry-fg: #7A5A12;
+  --cat-poultry-tint: #ECE0C4;
+
+  --cat-eggs: #C28A1E;         /* outlined variant of poultry hue */
+  --cat-eggs-bg: #F4E7C9;
+  --cat-eggs-fg: #7A5A12;
+  --cat-eggs-tint: #ECE0C4;
+  --cat-eggs-ring: #C28A1E;
+
+  --cat-dairy: #1E5E59;
+  --cat-dairy-bg: #CBD9D6;
+  --cat-dairy-fg: #16443F;
+  --cat-dairy-tint: #CBD9D6;
+
+  --cat-red-meat: #C0533A;
+  --cat-red-meat-bg: #F0D9D2;
+  --cat-red-meat-fg: #8A3A26;
+  --cat-red-meat-tint: #EAD3CC;
+
+  --cat-processed: #C0533A;    /* outlined variant of red-meat hue */
+  --cat-processed-bg: #F0D9D2;
+  --cat-processed-fg: #8A3A26;
+  --cat-processed-tint: #EAD3CC;
+  --cat-processed-ring: #C0533A;
+
+  /* ---- Plant-based badge — MUST NOT equal --cat-legumes ---- */
+  --badge-plant: #526B44;   /* was #5E7A4E, darkened for AA */
+  --badge-plant-bg: #E7EBDB;
+
+  /* ---- Balance / status states ---- */
+  --state-good: #3F6B38;    /* on track / clear */
+  --state-over: #A83C22;    /* over target (was #B8492F, darkened for AA) */
+  --state-neutral: #6B6353; /* room left / none yet */
+
+  /* ---- Focus (high-contrast; coral alternative available) ---- */
+  --focus-ring: #3F6B38;
+  --focus-ring-alt: #A83C22;
+
+  /* ---- Radii ---- */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 20px;
+  --radius-round: 50%;
+
+  /* ---- Spacing (4px base) ---- */
+  --space-1: 0.25rem;  /* 4 */
+  --space-2: 0.5rem;   /* 8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.25rem;  /* 20 */
+  --space-6: 1.5rem;   /* 24 */
+  --space-8: 2rem;     /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+
+  /* ---- Elevation (kept subtle; v3 leans on borders) ---- */
+  --shadow-sm: 0 1px 2px rgba(44, 40, 32, 0.06);
+  --shadow-card: 0 6px 24px rgba(44, 40, 32, 0.08);
+
+  /* ---- Motion (respect prefers-reduced-motion at the component layer) ---- */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+
+  /* ---- Layout ---- */
+  --measure: 68ch;        /* readable prose width */
+  --container-max: 1240px;
+}
