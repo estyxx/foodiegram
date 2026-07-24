@@ -143,8 +143,9 @@ def result_to_extraction(
 ) -> Extraction:
     """Parse one batch-output JSONL line into an append-only Extraction.
 
-    Pure: no I/O, no recipe access. The caller persists the returned row and
-    later `promote()` merges it into the recipe, honouring user edits.
+    Pure: no I/O, no recipe access. Uses the response's own created_at when
+    present (accurate for backfilling old batches), falling back to extracted_at.
+    The caller persists the row; later `promote()` merges it into the recipe.
     """
     result: dict[str, Any] = json.loads(line)
     code = str(result["custom_id"])
@@ -152,6 +153,12 @@ def result_to_extraction(
     model_used = str(response_body["model"])
     output_text = _output_text(response_body["output"])
     extracted = ExtractedRecipe.model_validate(json.loads(output_text))
+    created_at = response_body.get("created_at")
+    when = (
+        datetime.fromtimestamp(created_at, tz=UTC)
+        if isinstance(created_at, int | float)
+        else extracted_at
+    )
     return Extraction(
         id=None,
         recipe_code=code,
@@ -159,7 +166,7 @@ def result_to_extraction(
         model=model_used,
         batch_id=batch_id,
         kind="batch",
-        extracted_at=extracted_at,
+        extracted_at=when,
         payload=extracted,
     )
 

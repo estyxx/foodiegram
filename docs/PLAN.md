@@ -582,12 +582,15 @@ WCAG AA (darken until it passes):
       `diff_batch` ✔, `promote` (dry-run/apply, skips user edits) ✔, `export` ✔,
       `import_json` ✔; all write scripts (ingest/upload/fix/backfill/review) on the DB ✔.
       Deferred: `ingest.py` posts-staging + on-ingest Cloudinary (D14); `repair_recipe.py`
-- [~] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven
-      identical) + backfill `extractions` from the kept v2 `batch_output.jsonl`; run
-      `export.py` ✔ and initialise the private data repo
+- [x] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven
+      identical); `backfill_extractions.py` ✔ (899 rows at v2 from the kept
+      batch_output.jsonl, real created_at timestamps); **idempotence proven** — a v2
+      dry-run promote reports 899 considered, 0 would change. `export.py` ✔.
+      Remaining manual step: init/push the private data repo.
 - [ ] 2.6 README runbook (§13) finalised
-- **Done when:** app serves from the DB; JSON is import/export only; extraction history
-  is populated; a re-promote run changes nothing (idempotence proof).
+- **Done when:** app serves from the DB ✔; JSON is import/export only ✔; extraction
+  history is populated ✔; a re-promote run changes nothing (idempotence proof) ✔.
+  (Only 2.6 README remains.)
 
 ### Phase 3 — Planner backend (~3 evenings)
 - [ ] 3.1 `domain/planning.py` (§8) fully tested: multi-category recipe, slot-not-portion
