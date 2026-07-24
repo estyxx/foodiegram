@@ -19,9 +19,9 @@ from pathlib import Path
 
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
-from foodiegram.storage.recipes_json import RecipeRepository
-
-DATA_DIR = Path("data/recipes")
+from foodiegram.settings import Settings
+from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.storage.recipes_db import RecipeRepository
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,8 @@ def _process_item(item: _Item, repo: RecipeRepository, stats: _Stats) -> None:
         logger.info("Updated %s (fields: %s)", item.shortcode, list(updates))
         return
 
-    # Recipe.title is required; fall back to the IGbulkDL title field.
+    # Recipe.title is required; fall back to the IGbulkDL title field. source
+    # defaults to RecipeSource.INSTAGRAM; model_used records the import provenance.
     recipe = Recipe(
         code=item.shortcode,
         pk=item.pk,
@@ -111,7 +112,6 @@ def _process_item(item: _Item, repo: RecipeRepository, stats: _Stats) -> None:
         ingredients=[],
         instructions=[],
         thumbnail_url=item.thumbnail_url,
-        # Recipe has no "source" field; model_used carries provenance.
         model_used="imported",
     )
     try:
@@ -127,7 +127,7 @@ def _process_item(item: _Item, repo: RecipeRepository, stats: _Stats) -> None:
 def main() -> None:
     """Run the ingestion."""
     parser = argparse.ArgumentParser(
-        description="Ingest IGbulkDL JSON log files into RecipeRepository.",
+        description="Ingest IGbulkDL JSON log files into the recipe database.",
     )
     parser.add_argument(
         "log_files",
@@ -136,18 +136,14 @@ def main() -> None:
         metavar="FILE",
         help="One or more IGbulkDL JSON log files (each with an 'items' array)",
     )
-    parser.add_argument(
-        "--out",
-        type=Path,
-        default=DATA_DIR,
-        metavar="DIR",
-        help=f"Recipe output directory (default: {DATA_DIR})",
-    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    repo = RecipeRepository(args.out)
+    settings = Settings()
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    repo = RecipeRepository(engine)
     stats = _Stats()
 
     for log_path in args.log_files:

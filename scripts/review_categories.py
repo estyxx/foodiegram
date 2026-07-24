@@ -19,7 +19,8 @@ from foodiegram.app.review_categories import (
     select_for_review,
 )
 from foodiegram.settings import Settings
-from foodiegram.storage.recipes_json import RecipeRepository
+from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -67,7 +68,9 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
-    repo = RecipeRepository(settings.data_dir)
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    repo = RecipeRepository(engine)
     keywords = load_processed_meat_keywords()
     agent = build_category_agent(api_key=settings.openai_api_key)
 

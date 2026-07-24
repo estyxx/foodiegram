@@ -88,3 +88,21 @@ class ExtractionRepository:
                 .order_by(col(ExtractionRow.id))
             )
             return [_to_extraction(row) for row in session.exec(statement).all()]
+
+    def latest_by_code(
+        self,
+        prompt_version: str,
+        *,
+        batch_id: str | None = None,
+    ) -> dict[str, Extraction]:
+        """Return the latest extraction per recipe at prompt_version.
+
+        Optionally restrict to a single batch_id. for_version is oldest-first,
+        so later rows overwrite earlier ones and the newest survives.
+        """
+        latest: dict[str, Extraction] = {}
+        for extraction in self.for_version(prompt_version):
+            if batch_id is not None and extraction.batch_id != batch_id:
+                continue
+            latest[extraction.recipe_code] = extraction
+        return latest

@@ -2,7 +2,8 @@ import logging
 import re
 
 from foodiegram.settings import Settings
-from foodiegram.storage.recipes_json import RecipeRepository
+from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.storage.recipes_db import RecipeRepository
 
 # --- Inputs / constants ---
 SERVINGS_DIGITS = re.compile(r"\d+")
@@ -21,7 +22,9 @@ def main() -> None:
     """Backfill base_servings for recipes where it is None but servings is set."""
     settings = Settings()
 
-    repo = RecipeRepository(settings.data_dir)
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    repo = RecipeRepository(engine)
     recipes = repo.list_all()
 
     updated = 0

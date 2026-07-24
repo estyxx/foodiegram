@@ -578,8 +578,10 @@ WCAG AA (darken until it passes):
 - [x] 2.3 DB-backed `RecipeRepository` (get/exists/list_all/save/delete/find); API now
       serves from the DB; `storage/__init__` exports the DB repo. `recipes_json.py`
       stays only for the not-yet-migrated write scripts (2.4) + import/export
-- [~] 2.4 Scripts per §12: `ingest`, `extract` (extractions-only apply), `diff_batch`,
-      `promote`, `export` ✔, `import_json` ✔ (+ user_state migration inside it)
+- [~] 2.4 Scripts per §12: `extract apply` writes **extractions rows only** ✔,
+      `diff_batch` ✔, `promote` (dry-run/apply, skips user edits) ✔, `export` ✔,
+      `import_json` ✔; all write scripts (ingest/upload/fix/backfill/review) on the DB ✔.
+      Deferred: `ingest.py` posts-staging + on-ingest Cloudinary (D14); `repair_recipe.py`
 - [~] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven
       identical) + backfill `extractions` from the kept v2 `batch_output.jsonl`; run
       `export.py` ✔ and initialise the private data repo

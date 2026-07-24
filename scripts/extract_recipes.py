@@ -1,9 +1,9 @@
 """Thin CLI wrapper around foodiegram.ai.batch.
 
 Commands:
-  submit [--force]   Build and submit an OpenAI batch job.
+  submit [--all]     Build and submit an OpenAI batch job (default: only-missing).
   status [BATCH_ID]  Check batch progress.
-  apply  [BATCH_ID]  Download and apply completed batch results.
+  apply  [BATCH_ID]  Download completed results into the extractions table.
   smoke  [--limit N] Synchronously validate a few extractions (default 5).
 """
 
@@ -12,6 +12,9 @@ import logging
 
 from foodiegram.ai.batch import cmd_apply, cmd_smoke, cmd_status, cmd_submit
 from foodiegram.settings import Settings
+from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.storage.extractions_db import ExtractionRepository
+from foodiegram.storage.recipes_db import RecipeRepository
 
 
 def _positive_int(raw: str) -> int:
@@ -37,9 +40,10 @@ def main() -> None:
 
     submit_parser = subparsers.add_parser("submit", help="Build and submit a batch job")
     submit_parser.add_argument(
-        "--force",
+        "--all",
         action="store_true",
-        help="Re-submit all eligible recipes, including those already extracted",
+        help="Re-submit every captioned recipe, including those already extracted "
+        "at the current prompt version (default: only-missing)",
     )
     submit_parser.add_argument(
         "--limit",
@@ -71,14 +75,27 @@ def main() -> None:
     args = parser.parse_args()
     settings = Settings()
 
-    if args.command == "submit":
-        cmd_submit(settings, force=args.force, limit=args.limit)
-    elif args.command == "status":
+    if args.command == "status":
         cmd_status(settings, args.batch_id)
+        return
+
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    recipes = RecipeRepository(engine)
+    extractions = ExtractionRepository(engine)
+
+    if args.command == "submit":
+        cmd_submit(
+            settings,
+            recipes=recipes,
+            extractions=extractions,
+            only_missing=not args.all,
+            limit=args.limit,
+        )
     elif args.command == "apply":
-        cmd_apply(settings, args.batch_id)
+        cmd_apply(settings, args.batch_id, extractions=extractions)
     elif args.command == "smoke":
-        cmd_smoke(settings, limit=args.limit)
+        cmd_smoke(settings, recipes=recipes, extractions=extractions, limit=args.limit)
 
 
 if __name__ == "__main__":

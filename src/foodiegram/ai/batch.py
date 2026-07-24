@@ -10,11 +10,13 @@ from pydantic import ValidationError
 
 from foodiegram.domain.enums import Course, MedCategory
 from foodiegram.domain.errors import ExtractionError, PromptTemplateError
-from foodiegram.domain.models import ExtractedRecipe, MappedRecipe, Recipe
-from foodiegram.storage.recipes_json import RecipeRepository
+from foodiegram.domain.models import ExtractedRecipe, Extraction
 
 if TYPE_CHECKING:
+    from foodiegram.domain.models import Recipe
     from foodiegram.settings import Settings
+    from foodiegram.storage.extractions_db import ExtractionRepository
+    from foodiegram.storage.recipes_db import RecipeRepository
 
 # --- Inputs / constants ---
 # Pin the exact snapshot, never the alias: extraction provenance depends on the
@@ -133,34 +135,33 @@ def _output_text(output: list[dict[str, Any]]) -> str:
     raise ExtractionError(msg)
 
 
-def apply_extracted(
-    existing: Recipe,
-    extracted: ExtractedRecipe,
+def result_to_extraction(
     *,
+    line: str,
+    batch_id: str | None,
     extracted_at: datetime,
-    model_used: str,
-) -> MappedRecipe:
-    """Merge an extraction into an existing recipe, preserving user-owned fields."""
-    mapped = Recipe.from_extracted(
-        code=existing.code,
-        pk=existing.pk,
-        caption=existing.caption,
-        extracted=extracted,
-        model_used=model_used,
+) -> Extraction:
+    """Parse one batch-output JSONL line into an append-only Extraction.
+
+    Pure: no I/O, no recipe access. The caller persists the returned row and
+    later `promote()` merges it into the recipe, honouring user edits.
+    """
+    result: dict[str, Any] = json.loads(line)
+    code = str(result["custom_id"])
+    response_body: dict[str, Any] = result["response"]["body"]
+    model_used = str(response_body["model"])
+    output_text = _output_text(response_body["output"])
+    extracted = ExtractedRecipe.model_validate(json.loads(output_text))
+    return Extraction(
+        id=None,
+        recipe_code=code,
+        prompt_version=PROMPT_VERSION,
+        model=model_used,
+        batch_id=batch_id,
+        kind="batch",
+        extracted_at=extracted_at,
+        payload=extracted,
     )
-    merged = mapped.recipe.model_copy(
-        update={
-            "source": existing.source,
-            "thumbnail_url": existing.thumbnail_url,
-            "cloudinary_url": existing.cloudinary_url,
-            "archived": existing.archived,
-            "edited_by_user": existing.edited_by_user,
-            "edited_fields": existing.edited_fields,
-            "prompt_version": PROMPT_VERSION,
-            "extracted_at": extracted_at,
-        },
-    )
-    return MappedRecipe(recipe=merged, dropped_categories=mapped.dropped_categories)
 
 
 def _load_batch_id(batch_id: str | None) -> str:
@@ -173,25 +174,38 @@ def _load_batch_id(batch_id: str | None) -> str:
     return LAST_BATCH_ID_PATH.read_text(encoding="utf-8").strip()
 
 
-def _needs_extraction(recipe: Recipe, *, force: bool = False) -> bool:
-    """Return True if recipe is eligible for batch extraction.
+def _has_usable_caption(recipe: Recipe) -> bool:
+    """Return True if the caption is long enough to be worth extracting."""
+    return (
+        recipe.caption is not None and len(recipe.caption.strip()) >= MIN_CAPTION_LENGTH
+    )
 
-    With force=True, re-submit all non-edited recipes with a long enough
-    caption, including those already extracted — use after a prompt change.
+
+def _eligible_for_submit(
+    recipe: Recipe,
+    *,
+    extracted_codes: set[str],
+    only_missing: bool,
+) -> bool:
+    """Return True if recipe should be submitted for extraction.
+
+    only_missing skips recipes that already have an extraction at the current
+    PROMPT_VERSION; only_missing=False (--all) re-submits every captioned,
+    non-edited recipe — use after a prompt or model change.
     """
     if recipe.edited_by_user:
         return False
-    if recipe.caption is None or len(recipe.caption.strip()) < MIN_CAPTION_LENGTH:
+    if not _has_usable_caption(recipe):
         return False
-    if force:
-        return True
-    return not recipe.instructions
+    return not (only_missing and recipe.code in extracted_codes)
 
 
 def cmd_submit(
     settings: Settings,
     *,
-    force: bool = False,
+    recipes: RecipeRepository,
+    extractions: ExtractionRepository,
+    only_missing: bool = True,
     limit: int | None = None,
 ) -> None:
     """Load recipes, build batch_input.jsonl, upload to OpenAI, and create a batch.
@@ -199,38 +213,38 @@ def cmd_submit(
     With limit set, submit only the first `limit` eligible recipes — useful for a
     small, cheap test run before submitting the whole backlog.
     """
-    repo = RecipeRepository(settings.data_dir)
-    all_recipes = repo.list_all()
+    all_recipes = recipes.list_all()
+    extracted_codes = {e.recipe_code for e in extractions.for_version(PROMPT_VERSION)}
 
-    to_submit = [r for r in all_recipes if _needs_extraction(r, force=force)]
-    already_extracted = [r for r in all_recipes if r.instructions]
-    no_caption = [
+    to_submit = [
         r
         for r in all_recipes
-        if r.caption is None or len(r.caption.strip()) < MIN_CAPTION_LENGTH
+        if _eligible_for_submit(
+            r,
+            extracted_codes=extracted_codes,
+            only_missing=only_missing,
+        )
     ]
+    no_caption = [r for r in all_recipes if not _has_usable_caption(r)]
 
     eligible = len(to_submit)
     if limit is not None:
         to_submit = to_submit[:limit]
 
+    mode = "only-missing" if only_missing else "all"
     logger.info("Total recipes: %d", len(all_recipes))
-    logger.info("Already extracted: %d (have instructions)", len(already_extracted))
+    logger.info("Already extracted at v%s: %d", PROMPT_VERSION, len(extracted_codes))
     logger.info("No caption: %d", len(no_caption))
     if limit is not None:
         logger.info(
-            "Will submit: %d of %d eligible (limit=%d)%s",
+            "Will submit: %d of %d eligible (limit=%d, mode=%s)",
             len(to_submit),
             eligible,
             limit,
-            " (force=True)" if force else "",
+            mode,
         )
     else:
-        logger.info(
-            "Will submit: %d%s",
-            len(to_submit),
-            " (force=True)" if force else "",
-        )
+        logger.info("Will submit: %d (mode=%s)", len(to_submit), mode)
 
     if not to_submit:
         logger.info("Nothing to submit.")
@@ -293,8 +307,18 @@ def cmd_status(settings: Settings, batch_id: str | None) -> None:
         logger.info("Batch %s: status=%s", bid, batch.status)
 
 
-def cmd_apply(settings: Settings, batch_id: str | None) -> None:
-    """Download a completed batch output and update recipes in the repository."""
+def cmd_apply(
+    settings: Settings,
+    batch_id: str | None,
+    *,
+    extractions: ExtractionRepository,
+) -> None:
+    """Download a completed batch and append its results as extraction rows.
+
+    Writes extraction history only — never touches recipes. Run promote.py to
+    merge these extractions into recipes (honouring user edits). The downloaded
+    batch_output.jsonl is kept so history can be backfilled later.
+    """
     bid = _load_batch_id(batch_id)
     client = OpenAI(api_key=settings.openai_api_key)
     batch = client.batches.retrieve(bid)
@@ -312,9 +336,7 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
     BATCH_OUTPUT_PATH.write_text(content, encoding="utf-8")
     logger.info("Downloaded output to %s", BATCH_OUTPUT_PATH)
 
-    repo = RecipeRepository(settings.data_dir)
-    applied = 0
-    skipped = 0
+    added = 0
     errors = 0
     now = datetime.now(tz=UTC)
 
@@ -322,39 +344,10 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
         line = raw_line.strip()
         if not line:
             continue
-
-        code = "<unknown>"
         try:
-            result: dict[str, object] = json.loads(line)
-            code = str(result["custom_id"])
-
-            existing = repo.get(code)
-            if existing is None:
-                logger.warning("Recipe not found for code %s — skipping", code)
-                skipped += 1
-                continue
-
-            response_body: dict[str, Any] = result["response"]["body"]  # type: ignore[index]
-            model_used = str(response_body["model"])
-            output_text = _output_text(response_body["output"])
-            extracted = ExtractedRecipe.model_validate(json.loads(output_text))
-
-            mapped = apply_extracted(
-                existing,
-                extracted,
-                extracted_at=now,
-                model_used=model_used,
-            )
-            if mapped.dropped_categories:
-                logger.warning(
-                    "Dropped unknown categories for %s: %s",
-                    code,
-                    mapped.dropped_categories,
-                )
-
-            repo.save(mapped.recipe)
-            applied += 1
-
+            extraction = result_to_extraction(line=line, batch_id=bid, extracted_at=now)
+            extractions.add(extraction)
+            added += 1
         except (
             KeyError,
             IndexError,
@@ -363,21 +356,32 @@ def cmd_apply(settings: Settings, batch_id: str | None) -> None:
             ValidationError,
             ExtractionError,
         ):
-            logger.exception("Failed to parse result for code %s", code)
+            logger.exception("Failed to parse batch result line")
             errors += 1
 
-    logger.info("Applied: %d  Skipped: %d  Errors: %d", applied, skipped, errors)
+    logger.info("Extractions added: %d  Errors: %d", added, errors)
 
 
-def cmd_smoke(settings: Settings, *, limit: int) -> None:
+def cmd_smoke(
+    settings: Settings,
+    *,
+    recipes: RecipeRepository,
+    extractions: ExtractionRepository,
+    limit: int,
+) -> None:
     """Extract a few captions synchronously to validate model + schema wiring.
 
     Uses the same request-body builder as the batch path, calls the Responses API
     directly, validates each result into ExtractedRecipe, and logs a one-line
     pass/fail plus token usage per caption. Does not write anything to the repo.
     """
-    repo = RecipeRepository(settings.data_dir)
-    eligible = [r for r in repo.list_all() if _needs_extraction(r)][:limit]
+    all_recipes = recipes.list_all()
+    extracted_codes = {e.recipe_code for e in extractions.for_version(PROMPT_VERSION)}
+    eligible = [
+        r
+        for r in all_recipes
+        if _eligible_for_submit(r, extracted_codes=extracted_codes, only_missing=True)
+    ][:limit]
     if not eligible:
         logger.info("No eligible captions to smoke-test.")
         return
