@@ -575,8 +575,9 @@ WCAG AA (darken until it passes):
 - [x] 2.2 `Extraction`, `edited_fields`, `RecipeSource`, nullable IG fields;
       `domain/editing.py` + `domain/diffing.py` with exhaustive tests
       (**promote-respects-edits is the anchor deliverable of this phase**)
-- [ ] 2.3 DB-backed `RecipeRepository`; `recipes_json.py` demoted to import/export
-      (repos built; app cutover pending — see note below)
+- [x] 2.3 DB-backed `RecipeRepository` (get/exists/list_all/save/delete/find); API now
+      serves from the DB; `storage/__init__` exports the DB repo. `recipes_json.py`
+      stays only for the not-yet-migrated write scripts (2.4) + import/export
 - [~] 2.4 Scripts per §12: `ingest`, `extract` (extractions-only apply), `diff_batch`,
       `promote`, `export` ✔, `import_json` ✔ (+ user_state migration inside it)
 - [~] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven

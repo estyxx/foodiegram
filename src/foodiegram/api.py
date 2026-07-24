@@ -20,12 +20,15 @@ from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
 from foodiegram.settings import Settings
-from foodiegram.storage.recipes_json import RecipeRepository
+from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.storage.recipes_db import RecipeRepository
 
 logger = logging.getLogger(__name__)
 
 _settings = Settings()
-_repo = RecipeRepository(_settings.data_dir)
+_engine = create_db_engine(_settings.database_url)
+init_db(_engine)
+_repo = RecipeRepository(_engine)
 
 app = FastAPI(title="Foodiegram API")
 app.add_middleware(

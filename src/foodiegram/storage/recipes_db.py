@@ -4,11 +4,14 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from foodiegram.domain.models import Recipe
+from foodiegram.domain.synonyms import expand_term
 from foodiegram.storage._tables import RecipeRow
 from foodiegram.storage.db import ensure_utc, get_session
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
+
+    from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
 
 
 def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> RecipeRow:
@@ -143,10 +146,87 @@ class RecipeRepository:
             return [_to_domain(row) for row in rows]
 
     def save(self, recipe: Recipe) -> None:
-        """Insert or update recipe, preserving created_at on update."""
+        """Insert or update recipe, preserving created_at and user edits.
+
+        If the stored copy has edited_by_user=True, its editing bookkeeping is
+        kept — AI re-extraction must never overwrite a user's edits.
+        """
         now = datetime.now(tz=UTC)
         with get_session(self._engine) as session:
             existing = session.get(RecipeRow, recipe.code)
+            if existing is not None and existing.edited_by_user:
+                recipe = recipe.model_copy(
+                    update={
+                        "edited_by_user": existing.edited_by_user,
+                        "edited_fields": frozenset(existing.edited_fields),
+                    },
+                )
             created_at = existing.created_at if existing is not None else now
             session.merge(_to_row(recipe, created_at=created_at, updated_at=now))
             session.commit()
+
+    def delete(self, code: str) -> bool:
+        """Delete the recipe for code; return True if deleted, False if absent."""
+        with get_session(self._engine) as session:
+            row = session.get(RecipeRow, code)
+            if row is None:
+                return False
+            session.delete(row)
+            session.commit()
+            return True
+
+    def find(
+        self,
+        *,
+        cuisine: CuisineType | None = None,
+        meal_type: MealType | None = None,
+        dish_type: DishType | None = None,
+        difficulty: Difficulty | None = None,
+        dietary_tags: list[str] | None = None,
+        proteins: list[str] | None = None,
+        q: str | None = None,
+    ) -> list[Recipe]:
+        """Return recipes matching all non-None criteria.
+
+        dietary_tags and proteins use ANY-match: a recipe passes if it contains
+        at least one of the requested values (case-insensitive), with synonym
+        expansion so e.g. "courgette" matches recipes tagged "zucchini".
+        q is a case-insensitive substring match on title, caption, and
+        ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
+        """
+        results = self.list_all()
+
+        if cuisine is not None:
+            results = [r for r in results if r.cuisine_type == cuisine]
+        if meal_type is not None:
+            results = [r for r in results if r.meal_type == meal_type]
+        if dish_type is not None:
+            results = [r for r in results if r.dish_type == dish_type]
+        if difficulty is not None:
+            results = [r for r in results if r.difficulty == difficulty]
+        if dietary_tags is not None:
+            expanded_tags = {s.lower() for t in dietary_tags for s in expand_term(t)}
+            results = [
+                r for r in results if expanded_tags & {t.lower() for t in r.dietary_tags}
+            ]
+        if proteins is not None:
+            expanded_proteins = {s.lower() for p in proteins for s in expand_term(p)}
+            results = [
+                r for r in results if expanded_proteins & {p.lower() for p in r.proteins}
+            ]
+        if q is not None:
+            needles = {s.lower() for s in expand_term(q)}
+            results = [
+                r
+                for r in results
+                if any(needle in r.title.lower() for needle in needles)
+                or any(
+                    needle in ing.lower() for needle in needles for ing in r.ingredients
+                )
+                or (
+                    r.caption is not None
+                    and any(needle in r.caption.lower() for needle in needles)
+                )
+            ]
+
+        return results

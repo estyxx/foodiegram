@@ -1,3 +1,3 @@
-from foodiegram.storage.recipes_json import RecipeRepository
+from foodiegram.storage.recipes_db import RecipeRepository
 
 __all__ = ["RecipeRepository"]
