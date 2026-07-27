@@ -1,5 +1,5 @@
 .PHONY: ingest submit submit-all status apply promote promote-apply diff \
-        export import backfill serve-api lint test check
+        export import backfill serve-api lint test typecheck check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
 VERSION ?= 2
@@ -63,6 +63,10 @@ lint:
 test:
 	uv run pytest tests/
 
-# Full gate: ruff + mypy + pytest + import-linter.
+# Type-check the frontend (checkJs). The single JS devDependency is typescript.
+typecheck:
+	npx tsc --noEmit -p frontend/jsconfig.json
+
+# Full gate: ruff + mypy + pytest + import-linter + frontend types.
 check:
-	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && uv run lint-imports
+	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && uv run lint-imports && $(MAKE) typecheck

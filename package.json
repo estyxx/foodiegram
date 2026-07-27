@@ -5,13 +5,22 @@
   "main": "ui/index.html",
   "scripts": {
     "build": "echo 'No build step required for static site'",
-    "start": "npx serve public",
-    "dev": "npx http-server public -p 3000"
+    "start": "npx serve frontend",
+    "dev": "npx http-server frontend -p 3000",
+    "typecheck": "tsc --noEmit -p frontend/jsconfig.json"
   },
   "dependencies": {
     "serve": "^14.2.1"
   },
-  "keywords": ["instagram", "recipes", "frontend", "browser"],
+  "keywords": [
+    "instagram",
+    "recipes",
+    "frontend",
+    "browser"
+  ],
   "author": "Ester Beltrami",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
 }

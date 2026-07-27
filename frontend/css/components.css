@@ -1,0 +1,455 @@
+/* Component layer: one section per component. Selectors are BEM-ish
+ * (.block__element--modifier). Colours/spacing/type come from tokens.css.
+ */
+
+/* ---- App shell ---------------------------------------------------------- */
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app-header__brand {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+}
+
+.app-header__tagline {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--accent-ochre);
+}
+
+.app-nav {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.app-nav__link {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  color: var(--ink-muted);
+}
+
+.app-nav__link--active {
+  background: var(--teal);
+  color: var(--on-dark);
+}
+
+.app-main {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+/* ---- Browse toolbar ----------------------------------------------------- */
+.browse__header {
+  margin-bottom: var(--space-5);
+}
+
+.browse__title {
+  font-size: var(--text-h1);
+  margin-bottom: var(--space-2);
+}
+
+.search {
+  width: 100%;
+  max-width: var(--measure);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-group__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  min-width: 5.5rem;
+}
+
+.pill {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.pill--active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--on-dark);
+}
+
+.filters__clear {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--teal);
+  text-decoration: underline;
+  padding: 0;
+}
+
+.browse__summary {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  margin: var(--space-4) 0;
+}
+
+/* ---- Results grid ------------------------------------------------------- */
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+
+/* ---- Recipe card -------------------------------------------------------- */
+.recipe-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base);
+}
+
+.recipe-card:hover,
+.recipe-card:focus-within {
+  box-shadow: var(--shadow-card);
+}
+
+.recipe-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-tint);
+}
+
+.recipe-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipe-card__fav {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-round);
+  background: rgba(246, 243, 234, 0.9);
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--ink-muted);
+}
+
+.recipe-card__fav--active {
+  color: var(--accent-ochre);
+}
+
+.recipe-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.recipe-card__link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.recipe-card__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--ink);
+}
+
+.recipe-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---- Category chip / badge ---------------------------------------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  background: var(--surface-tint);
+  color: var(--ink-muted);
+}
+
+.chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-round);
+  background: var(--ink-faint);
+}
+
+.badge-plant {
+  background: var(--badge-plant-bg);
+  color: var(--badge-plant);
+}
+
+/* ---- State messages ----------------------------------------------------- */
+.state-msg {
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  color: var(--ink-muted);
+}
+
+.state-msg--error {
+  color: var(--state-over);
+}
+
+/* ---- Recipe detail ------------------------------------------------------ */
+.detail {
+  max-width: var(--container-max);
+}
+
+.detail__hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.detail__img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+}
+
+.detail__title {
+  font-size: var(--text-hero);
+}
+
+.detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.detail__times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.detail__times dt {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+}
+
+.detail__times dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.detail__fav,
+.detail__copy,
+.notes__save,
+.scaler__reset {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  min-height: 44px;
+}
+
+.detail__fav--active {
+  background: var(--teal-tint);
+  border-color: var(--teal);
+  color: var(--teal-deep);
+}
+
+/* ---- Scaler ------------------------------------------------------------- */
+.scaler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  background: var(--surface-tint);
+  border-radius: var(--radius-md);
+}
+
+.scaler__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scaler__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.scaler__input,
+.scaler__select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  min-height: 44px;
+}
+
+.scaler__input {
+  width: 6rem;
+}
+
+.scaler__factor {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--teal-deep);
+}
+
+.scaler__note {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* ---- Ingredients / method ---------------------------------------------- */
+.detail__columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+}
+
+@media (min-width: 768px) {
+  .detail__columns {
+    grid-template-columns: 1fr 1.3fr;
+  }
+}
+
+.detail__section-title {
+  font-size: var(--text-h2);
+  margin-bottom: var(--space-3);
+}
+
+.ingredient-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ingredient {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border);
+}
+
+.ingredient--scaled {
+  color: var(--teal-deep);
+  font-weight: var(--fw-medium);
+}
+
+.instruction-list {
+  list-style: decimal;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---- Tag groups --------------------------------------------------------- */
+.detail__tags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tag-group__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  min-width: 8rem;
+}
+
+/* ---- Notes -------------------------------------------------------------- */
+.detail__notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  max-width: var(--measure);
+}
+
+.notes__input {
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  resize: vertical;
+}
+
+.notes__status {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--state-good);
+}
