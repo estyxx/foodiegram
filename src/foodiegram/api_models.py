@@ -25,8 +25,8 @@ class RecipeSummary(BaseModel):
     has_instructions: bool
 
     @classmethod
-    def from_recipe(cls, recipe: Recipe) -> RecipeSummary:
-        """Build a RecipeSummary from a Recipe."""
+    def from_recipe(cls, recipe: Recipe, *, is_favorite: bool = False) -> RecipeSummary:
+        """Build a RecipeSummary from a Recipe, with favourite state applied."""
         return cls(
             code=recipe.code,
             title=recipe.title,
@@ -38,14 +38,20 @@ class RecipeSummary(BaseModel):
             proteins=recipe.proteins,
             thumbnail_url=recipe.thumbnail_url,
             cloudinary_url=recipe.cloudinary_url,
-            # Favourites now live in user_state; the API layer wires this in Session 3.
-            is_favorite=False,
+            is_favorite=is_favorite,
             has_instructions=bool(recipe.instructions),
         )
 
 
 class RecipeDetail(Recipe):
-    """Full recipe response for single-recipe API endpoints."""
+    """Full recipe response for single-recipe API endpoints.
+
+    Carries per-user app state (favourite, notes) resolved from user_state at
+    the API boundary; the domain Recipe stays free of app state.
+    """
+
+    is_favorite: bool = False
+    user_notes: str | None = None
 
 
 class ScaledIngredient(BaseModel):

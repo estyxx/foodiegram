@@ -18,7 +18,7 @@ from foodiegram.domain.models import Recipe
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 _NUMBER_RE = re.compile(r"\d+\.?\d*")
 
@@ -46,6 +46,18 @@ def _to_enum[T](cls: type[T], value: str) -> T | None:
         return None
 
 
+def _detail(recipe: Recipe, *, deps: DepsDep) -> RecipeDetail:
+    """Build a RecipeDetail, resolving favourite/notes from user_state."""
+    state = deps.user_state.get(recipe.code)
+    return RecipeDetail.model_validate(
+        {
+            **recipe.model_dump(),
+            "is_favorite": state.is_favorite if state else False,
+            "user_notes": state.user_notes if state else None,
+        },
+    )
+
+
 @router.get("/recipes")
 async def list_recipes(
     deps: DepsDep,
@@ -56,6 +68,7 @@ async def list_recipes(
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
+    is_favorite: Annotated[bool | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[RecipeSummary]:
@@ -69,8 +82,14 @@ async def list_recipes(
         proteins=[protein] if protein else None,
         q=q,
     )
+    favourites = set(deps.user_state.all_favorites())
+    if is_favorite is not None:
+        recipes = [r for r in recipes if (r.code in favourites) == is_favorite]
     page = recipes[offset : offset + limit]
-    return [RecipeSummary.from_recipe(recipe) for recipe in page]
+    return [
+        RecipeSummary.from_recipe(recipe, is_favorite=recipe.code in favourites)
+        for recipe in page
+    ]
 
 
 @router.get("/recipes/{code}")
@@ -80,38 +99,42 @@ async def get_recipe(code: str, deps: DepsDep) -> RecipeDetail:
     if recipe is None:
         msg = f"Recipe {code!r} not found"
         raise HTTPException(status_code=404, detail=msg)
-    return RecipeDetail.model_validate(recipe.model_dump())
+    return _detail(recipe, deps=deps)
 
 
 @router.patch("/recipes/{code}")
 async def update_recipe(code: str, body: RecipeUpdate, deps: DepsDep) -> RecipeDetail:
-    """Apply partial user edits to a recipe and persist them.
+    """Apply partial user edits: recipe fields to the recipe, app state to user_state.
 
-    Of the editable body, only base_servings maps to a Recipe field today;
-    user_notes/is_favorite are routed to user_state in a later session. Sets
-    edited_by_user=True automatically.
+    base_servings maps to a Recipe field (sets edited_by_user); is_favorite and
+    user_notes are per-user app state and are written to user_state instead.
     """
     recipe = deps.recipes.get(code)
     if recipe is None:
         msg = f"Recipe {code!r} not found"
         raise HTTPException(status_code=404, detail=msg)
 
-    changes: dict[str, Any] = {
+    recipe_changes: dict[str, Any] = {
         key: value
         for key, value in body.model_dump().items()
         if key in body.model_fields_set and key in Recipe.model_fields
     }
-    changes["edited_by_user"] = True
+    if recipe_changes:
+        recipe_changes["edited_by_user"] = True
+        recipe = recipe.model_copy(update=recipe_changes)
+        try:
+            deps.recipes.save(recipe)
+        except StorageError as exc:
+            logger.exception("Failed to save recipe %s", code)
+            msg = f"Could not persist recipe {code!r}"
+            raise HTTPException(status_code=500, detail=msg) from exc
 
-    try:
-        updated = RecipeDetail.model_validate({**recipe.model_dump(), **changes})
-        deps.recipes.save(updated)
-    except StorageError as exc:
-        logger.exception("Failed to save recipe %s", code)
-        msg = f"Could not persist recipe {code!r}"
-        raise HTTPException(status_code=500, detail=msg) from exc
+    if "is_favorite" in body.model_fields_set and body.is_favorite is not None:
+        deps.user_state.set_favorite(code, is_favorite=body.is_favorite)
+    if "user_notes" in body.model_fields_set:
+        deps.user_state.set_notes(code, notes=body.user_notes)
 
-    return updated
+    return _detail(recipe, deps=deps)
 
 
 @router.get("/recipes/{code}/scale")

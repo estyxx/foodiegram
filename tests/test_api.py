@@ -21,6 +21,7 @@ _TUESDAY = "2024-01-02"
 _SEEDED_TARGETS = 7
 _TWO_SERVINGS = 2.0
 _UPDATED_MIN = 3.0
+_UPDATED_SERVINGS = 4
 
 
 def _fish_recipe(code: str, *, confidence: float = 0.8) -> Recipe:
@@ -207,6 +208,45 @@ def test_shopping_list_lists_missing_ingredients(
     groups = client.get(f"/api/plans/{_MONDAY}/shopping-list").json()
     names = {item["name"] for group in groups for item in group["items"]}
     assert "salmon" in names
+
+
+def test_favourite_and_notes_round_trip(client: TestClient, deps: Deps) -> None:
+    """PATCH persists favourite/notes to user_state and reads them back."""
+    deps.recipes.save(_fish_recipe("F1"))
+
+    patched = client.patch(
+        "/api/recipes/F1",
+        json={"is_favorite": True, "user_notes": "weeknight winner"},
+    )
+    assert patched.status_code == HTTPStatus.OK
+    assert patched.json()["is_favorite"] is True
+    assert patched.json()["user_notes"] == "weeknight winner"
+
+    detail = client.get("/api/recipes/F1").json()
+    assert detail["is_favorite"] is True
+    assert detail["user_notes"] == "weeknight winner"
+
+    only_favs = client.get("/api/recipes", params={"is_favorite": "true"}).json()
+    assert [r["code"] for r in only_favs] == ["F1"]
+    assert only_favs[0]["is_favorite"] is True
+
+    client.patch("/api/recipes/F1", json={"is_favorite": False})
+    assert client.get("/api/recipes", params={"is_favorite": "true"}).json() == []
+
+
+def test_patch_base_servings_marks_recipe_edited(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """A recipe-field PATCH persists and flags the recipe as user-edited."""
+    deps.recipes.save(_fish_recipe("F1"))
+
+    patched = client.patch("/api/recipes/F1", json={"base_servings": 4})
+    assert patched.status_code == HTTPStatus.OK
+
+    detail = client.get("/api/recipes/F1").json()
+    assert detail["base_servings"] == _UPDATED_SERVINGS
+    assert detail["edited_by_user"] is True
 
 
 def _credentialed_client(engine: Engine, creds: Sequence[str]) -> TestClient:
