@@ -15,7 +15,7 @@ from foodiegram.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-_PUBLIC = Path(__file__).parent.parent.parent / "public"
+_FRONTEND = Path(__file__).parent.parent.parent / "frontend"
 
 
 def create_app(*, deps: Deps, auth: AuthConfig | None = None) -> FastAPI:
@@ -45,9 +45,9 @@ def create_app(*, deps: Deps, auth: AuthConfig | None = None) -> FastAPI:
     @app.get("/")
     async def serve_index() -> FileResponse:
         """Serve the frontend SPA."""
-        return FileResponse(_PUBLIC / "index.html")
+        return FileResponse(_FRONTEND / "index.html")
 
-    app.mount("/", StaticFiles(directory=_PUBLIC), name="static")
+    app.mount("/", StaticFiles(directory=_FRONTEND), name="static")
     return app
 
 
