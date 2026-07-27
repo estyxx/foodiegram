@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Hanken+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background-color: #F1EADC;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    color: #2A2620;
+    font-family: 'Hanken Grotesque', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: #D8C7A6; }
+  @keyframes dispFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  a { color: inherit; }
+  button { font-family: inherit; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</helmet>
+
+<a href="#main" style="position:absolute;left:-9999px;top:8px;z-index:100;background:#2A2620;color:#FBF7EE;padding:10px 16px;border-radius:6px;text-decoration:none;font-family:'IBM Plex Mono',monospace;font-size:13px" style-focus="left:8px">Skip to content</a>
+
+<div style="min-height:100vh;display:flex;flex-direction:column">
+
+  <header style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:28px;padding:14px 32px;background:rgba(241,234,220,0.86);backdrop-filter:blur(10px);border-bottom:1px solid #E3D9C6">
+    <button onClick="{{ goHome }}" aria-label="Dispensa home" style="display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:0">
+      <span style="display:inline-flex" aria-hidden="true">{{ logoMark }}</span>
+      <span style="font-family:'Newsreader',serif;font-size:25px;font-weight:600;letter-spacing:-0.01em;color:#2A2620">Dispensa</span>
+    </button>
+    <nav aria-label="Primary" style="display:flex;gap:4px;margin-left:8px">
+      <sc-for list="{{ navTabs }}" as="tab" hint-placeholder-count="3">
+        <button onClick="{{ tab.go }}" aria-current="{{ tab.current }}" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:0.02em;text-transform:uppercase;padding:9px 15px;border-radius:7px;border:1px solid {{ tab.border }};background:{{ tab.bg }};color:{{ tab.color }};cursor:pointer;font-weight:500" style-focus="outline:2px solid #4D6A41;outline-offset:2px">{{ tab.label }}</button>
+      </sc-for>
+    </nav>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:14px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6B6157;letter-spacing:0.03em">{{ weekRangeShort }}</span>
+      <div aria-hidden="true" style="width:34px;height:34px;border-radius:50%;background:#D8C7A6;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-size:16px;font-weight:600;color:#5A4A2E">G</div>
+    </div>
+  </header>
+
+  <main id="main" style="flex:1;width:100%;max-width:1180px;margin:0 auto;padding:0 32px 80px">
+
+    <!-- ===================== HOME ===================== -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="Home — This Week">
+
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;padding:40px 0 30px;border-bottom:1px solid #E3D9C6;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#9C7B4A;margin-bottom:12px">This week · {{ weekRange }}</div>
+          <h1 style="font-family:'Newsreader',serif;font-weight:500;font-size:52px;line-height:1.02;letter-spacing:-0.015em;margin:0;max-width:18ch">A week of <em style="font-style:italic;color:#3E6B4A">slow, sunlit</em> Mediterranean cooking</h1>
+        </div>
+        <button onClick="{{ goPlan }}" style="flex:none;display:inline-flex;align-items:center;gap:10px;background:#2A2620;color:#FBF7EE;border:none;border-radius:10px;padding:15px 24px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;letter-spacing:0.02em;cursor:pointer" style-hover="background:#3a352c" style-focus="outline:2px solid #4D6A41;outline-offset:3px">Plan the week →</button>
+      </div>
+
+      <!-- balance panel -->
+      <div style="padding:30px 0;border-bottom:1px solid #E3D9C6">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px">
+          <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:24px;margin:0">Your weekly balance</h2>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6B6157">{{ balanceSummary }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px 40px">
+          <sc-for list="{{ balance }}" as="row" hint-placeholder-count="7">
+            <div role="group" aria-label="{{ row.aria }}" style="display:flex;align-items:center;gap:12px">
+              <span aria-hidden="true" style="width:13px;height:13px;border-radius:3px;flex:none;background:{{ row.dotBg }};border:1.5px solid {{ row.dotBorder }}"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;width:118px;flex:none;color:#2A2620">{{ row.label }}</span>
+              <div style="display:flex;gap:3px;flex:1" aria-hidden="true">
+                <sc-for list="{{ row.segments }}" as="seg" hint-placeholder-count="3">
+                  <span style="flex:1;height:9px;border-radius:2px;background:{{ seg.bg }};border:1px solid {{ seg.border }}"></span>
+                </sc-for>
+              </div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;width:96px;flex:none;text-align:right;color:{{ row.statusColor }};font-weight:500">{{ row.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- cook tonight + week strip -->
+      <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:36px;padding:34px 0;align-items:start" data-stack="cook">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.07em;text-transform:uppercase;color:#9C7B4A;margin-bottom:14px">Cook tonight · {{ todayLabel }}</div>
+          <sc-if value="{{ tonight }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ tonight.open }}" style="text-align:left;width:100%;background:#FBF7EE;border:1px solid #E3D9C6;border-radius:16px;padding:26px;cursor:pointer;display:block" style-hover="border-color:#C9B894;box-shadow:0 6px 24px -14px rgba(60,40,20,0.4)" style-focus="outline:2px solid #4D6A41;outline-offset:3px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <sc-for list="{{ tonight.chips }}" as="c" hint-placeholder-count="2">
+                <span style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 9px;border-radius:20px;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.border }}"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }}"></span>{{ c.label }}</span>
+              </sc-for>
+            </div>
+            <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:34px;line-height:1.05;margin:0 0 8px;letter-spacing:-0.01em">{{ tonight.title }}</h3>
+            <p style="margin:0 0 18px;color:#6B6157;font-size:15px;line-height:1.5;max-width:42ch">{{ tonight.desc }}</p>
+            <div style="display:flex;gap:18px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6B6157">
+              <span>{{ tonight.mins }} min</span><span>·</span><span>{{ tonight.kitchen }} in kitchen</span><span>·</span><span style="color:#3E6B4A;font-weight:500">Open recipe →</span>
+            </div>
+          </button>
+          </sc-if>
+        </div>
+
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.07em;text-transform:uppercase;color:#9C7B4A;margin-bottom:14px">From your kitchen</div>
+          <div style="display:flex;flex-direction:column;gap:1px;background:#E3D9C6;border:1px solid #E3D9C6;border-radius:14px;overflow:hidden">
+            <sc-for list="{{ kitchenStrip }}" as="k" hint-placeholder-count="3">
+              <button onClick="{{ k.open }}" style="display:flex;align-items:center;gap:14px;text-align:left;background:#FBF7EE;border:none;padding:15px 18px;cursor:pointer" style-hover="background:#F6F0E3" style-focus="outline:2px solid #4D6A41;outline-offset:-2px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500;line-height:1.15">{{ k.title }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6B6157;margin-top:3px">{{ k.note }}</div>
+                </div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#3E6B4A;flex:none">{{ k.kitchen }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7 day strip -->
+      <div style="padding-top:14px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.07em;text-transform:uppercase;color:#9C7B4A;margin-bottom:16px">The seven days</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px" data-weekstrip="1">
+          <sc-for list="{{ weekDays }}" as="day" hint-placeholder-count="7">
+            <div style="background:{{ day.cardBg }};border:1px solid {{ day.cardBorder }};border-radius:13px;padding:14px 13px;min-height:138px;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ day.labelColor }};letter-spacing:0.04em">{{ day.label }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39785">{{ day.date }}</span>
+              </div>
+              <sc-if value="{{ day.hasMeals }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <sc-for list="{{ day.meals }}" as="m" hint-placeholder-count="1">
+                    <button onClick="{{ m.open }}" style="text-align:left;background:{{ m.bg }};border:1px solid {{ m.border }};color:{{ m.color }};border-radius:8px;padding:7px 8px;cursor:pointer;display:flex;align-items:flex-start;gap:6px" style-hover="filter:brightness(0.97)" style-focus="outline:2px solid #4D6A41;outline-offset:1px">
+                      <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:{{ m.dot }};margin-top:4px;flex:none"></span>
+                      <span style="font-size:12px;line-height:1.2;font-weight:500;font-family:'Hanken Grotesque',sans-serif">{{ m.title }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ day.empty }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ goPlan }}" aria-label="Plan {{ day.label }}" style="margin-top:auto;width:100%;border:1px dashed #CFC0A6;background:none;border-radius:8px;padding:9px;color:#9C8F79;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer" style-hover="border-color:#4D6A41;color:#4D6A41">+ plan</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+    </section>
+    </sc-if>
+
+    <!-- ===================== PLAN BUILDER (filled next) ===================== -->
+    <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="Plan Builder">
+      <div style="padding:36px 0 26px;border-bottom:1px solid #E3D9C6">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#9C7B4A;margin-bottom:11px">Plan Builder · {{ weekRange }}</div>
+        <h1 style="font-family:'Newsreader',serif;font-weight:500;font-size:42px;line-height:1.04;letter-spacing:-0.015em;margin:0">Build the week, watch it <em style="font-style:italic;color:#3E6B4A">balance</em></h1>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 360px;gap:34px;padding-top:28px;align-items:start" data-plan-grid="1">
+
+        <!-- LEFT: day columns -->
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <sc-for list="{{ planColumns }}" as="col" hint-placeholder-count="7">
+            <div style="background:{{ col.isToday }};background:#FBF7EE;border:1px solid #E3D9C6;border-radius:13px;padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.04em;width:54px;color:#2A2620">{{ col.label }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A39785">{{ col.date }}</span>
+                <button onClick="{{ col.openPicker }}" aria-label="Add a recipe to {{ col.label }}" style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;background:#F2ECDD;border:1px solid #E1D7C4;border-radius:7px;padding:5px 11px;color:#5A5247;cursor:pointer" style-hover="border-color:#4D6A41;color:#4D6A41" style-focus="outline:2px solid #4D6A41;outline-offset:2px">+ add recipe</button>
+              </div>
+
+              <sc-if value="{{ col.hasChips }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ col.chips }}" as="chip" hint-placeholder-count="1">
+                    <div style="display:inline-flex;align-items:center;gap:8px;background:{{ chip.bg }};border:1px solid {{ chip.border }};border-radius:9px;padding:7px 9px 7px 11px">
+                      <span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:{{ chip.dot }};flex:none"></span>
+                      <button onClick="{{ chip.open }}" style="background:none;border:none;padding:0;cursor:pointer;font-family:'Hanken Grotesque',sans-serif;font-size:13.5px;font-weight:500;color:{{ chip.color }}">{{ chip.title }}</button>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:{{ chip.color }};opacity:0.75">{{ chip.kitchen }}</span>
+                      <button onClick="{{ chip.remove }}" aria-label="Remove {{ chip.title }}" style="background:none;border:none;cursor:pointer;color:{{ chip.color }};opacity:0.6;font-size:15px;line-height:1;padding:0 2px" style-hover="opacity:1" style-focus="outline:2px solid #4D6A41;outline-offset:2px;border-radius:3px">×</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ col.pickerOpen }}" hint-placeholder-val="{{ true }}">
+                <div role="menu" aria-label="Choose a recipe" style="margin-top:11px;background:#F4EEE0;border:1px solid #E3D9C6;border-radius:10px;padding:7px;max-height:208px;overflow:auto;display:flex;flex-direction:column;gap:1px">
+                  <sc-for list="{{ col.pickerList }}" as="opt" hint-placeholder-count="4">
+                    <button role="menuitem" onClick="{{ opt.add }}" style="display:flex;align-items:center;gap:10px;text-align:left;background:none;border:none;padding:8px 10px;border-radius:7px;cursor:pointer;width:100%" style-hover="background:#EAE2D0" style-focus="outline:2px solid #4D6A41;outline-offset:-2px">
+                      <span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:{{ opt.dot }};flex:none"></span>
+                      <span style="font-family:'Hanken Grotesque',sans-serif;font-size:14px;font-weight:500;flex:1">{{ opt.title }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9C8F79">{{ opt.cat }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- RIGHT: sticky balance + gap + list -->
+        <div style="position:sticky;top:84px;display:flex;flex-direction:column;gap:18px">
+          <div style="background:#FBF7EE;border:1px solid #E3D9C6;border-radius:15px;padding:20px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+              <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:20px;margin:0">Weekly balance</h2>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6B6157">{{ planSummary }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ planBalance }}" as="row" hint-placeholder-count="7">
+                <div role="group" aria-label="{{ row.aria }}" style="display:flex;align-items:center;gap:9px">
+                  <span aria-hidden="true" style="width:11px;height:11px;border-radius:3px;flex:none;background:{{ row.dotBg }};border:1.5px solid {{ row.dotBorder }}"></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;width:74px;flex:none">{{ row.label }}</span>
+                  <div style="display:flex;gap:2px;flex:1" aria-hidden="true">
+                    <sc-for list="{{ row.segments }}" as="seg" hint-placeholder-count="3">
+                      <span style="flex:1;height:8px;border-radius:2px;background:{{ seg.bg }};border:1px solid {{ seg.border }}"></span>
+                    </sc-for>
+                  </div>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;width:62px;flex:none;text-align:right;color:{{ row.statusColor }};font-weight:500">{{ row.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#FBF7EE;border:1px solid #E3D9C6;border-radius:15px;padding:20px">
+            <sc-if value="{{ hasGap }}" hint-placeholder-val="{{ true }}">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9C7B4A;margin-bottom:7px">Fills a gap</div>
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+                <span aria-hidden="true" style="width:12px;height:12px;border-radius:3px;flex:none;background:{{ gapCat.dot }}"></span>
+                <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:19px;margin:0;line-height:1.1">{{ gapCat.label }}</h3>
+              </div>
+              <p style="margin:0 0 14px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9C8F79;line-height:1.4">{{ gapCat.rule }}</p>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ gapItems }}" as="g" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;background:#F4EEE0;border:1px solid #E8DFCC;border-radius:10px;padding:9px 11px">
+                    <button onClick="{{ g.open }}" style="flex:1;text-align:left;background:none;border:none;cursor:pointer;padding:0" style-focus="outline:2px solid #4D6A41;outline-offset:2px;border-radius:4px">
+                      <div style="font-family:'Newsreader',serif;font-size:15.5px;font-weight:500;line-height:1.1">{{ g.title }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9C8F79;margin-top:2px">{{ g.mins }} min · {{ g.kitchen }}</div>
+                    </button>
+                    <button onClick="{{ g.add }}" aria-label="Add {{ g.title }} to the week" style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:11px;background:#2A2620;color:#FBF7EE;border:none;border-radius:7px;padding:6px 11px;cursor:pointer" style-hover="background:#3a352c" style-focus="outline:2px solid #4D6A41;outline-offset:2px">add</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noGap }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span aria-hidden="true" style="width:11px;height:11px;border-radius:3px;background:#5A7A45"></span>
+                <p style="margin:0;font-family:'Newsreader',serif;font-size:17px;font-style:italic;color:#3E6B4A">Your week looks well balanced.</p>
+              </div>
+            </sc-if>
+          </div>
+
+          <button onClick="{{ toggleList }}" aria-expanded="{{ showList }}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#2A2620;color:#FBF7EE;border:none;border-radius:12px;padding:15px 20px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500;cursor:pointer;width:100%" style-hover="background:#3a352c" style-focus="outline:2px solid #4D6A41;outline-offset:3px">
+            <span>Generate shopping list</span>
+            <span style="background:#4D6A41;border-radius:20px;padding:2px 9px;font-size:11px">{{ shopList.total }} items</span>
+          </button>
+
+          <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#FBF7EE;border:1px solid #E3D9C6;border-radius:15px;padding:20px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9C7B4A;margin-bottom:14px">To buy · grouped by aisle</div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <sc-for list="{{ shopList.groups }}" as="grp" hint-placeholder-count="3">
+                  <div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9C8F79;border-bottom:1px solid #E8DFCC;padding-bottom:5px;margin-bottom:7px">{{ grp.aisle }}</div>
+                    <div style="display:flex;flex-direction:column;gap:5px">
+                      <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="2">
+                        <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+                          <input type="checkbox" style="width:16px;height:16px;accent-color:#4D6A41" />
+                          <span style="flex:1">{{ it.name }}</span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9C8F79">×{{ it.count }}</span>
+                        </label>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===================== RECIPE DETAIL (filled next) ===================== -->
+    <sc-if value="{{ isRecipe }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="Recipe Detail">
+      <sc-if value="{{ recipe }}" hint-placeholder-val="{{ true }}">
+      <div style="padding-top:24px">
+        <button onClick="{{ backFromRecipe }}" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6B6157;padding:6px 0;margin-bottom:18px" style-hover="color:#2A2620" style-focus="outline:2px solid #4D6A41;outline-offset:2px;border-radius:4px">← Back</button>
+
+        <!-- hero -->
+        <div style="border-bottom:1px solid #E3D9C6;padding-bottom:26px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+            <sc-for list="{{ recipe.fitChips }}" as="c" hint-placeholder-count="1">
+              <span style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 11px;border-radius:20px;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.border }}"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }};flex:none"></span>Counts as {{ c.label }}</span>
+            </sc-for>
+            <sc-if value="{{ recipe.plant }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 11px;border-radius:20px;background:{{ recipe.plant.bg }};color:{{ recipe.plant.color }};border:1px solid {{ recipe.plant.border }}"><span aria-hidden="true">{{ leafIcon }}</span>{{ recipe.plant.label }}</span>
+            </sc-if>
+          </div>
+          <h1 style="font-family:'Newsreader',serif;font-weight:500;font-size:54px;line-height:1.02;letter-spacing:-0.02em;margin:0 0 14px;max-width:20ch">{{ recipe.title }}</h1>
+          <p style="font-family:'Newsreader',serif;font-size:21px;font-style:italic;line-height:1.4;color:#5A5247;margin:0 0 20px;max-width:54ch">{{ recipe.desc }}</p>
+          <div style="display:flex;gap:0;flex-wrap:wrap;align-items:center">
+            <sc-for list="{{ recipe.meta }}" as="m" hint-placeholder-count="4">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#6B6157;padding:0 16px 0 0;margin-right:16px;border-right:1px solid #D8CDB8">{{ m }}</span>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- actions -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;padding:22px 0;border-bottom:1px solid #E3D9C6">
+          <button onClick="{{ recipe.toggleSave }}" aria-pressed="{{ recipe.saved }}" style="display:inline-flex;align-items:center;gap:8px;background:#FBF7EE;border:1px solid #D8CDB8;border-radius:10px;padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#2A2620;cursor:pointer" style-hover="border-color:#C9B894" style-focus="outline:2px solid #4D6A41;outline-offset:2px"><span aria-hidden="true">{{ recipe.saveIcon }}</span>{{ recipe.saveLabel }}</button>
+          <button onClick="{{ recipe.addToWeek }}" style="display:inline-flex;align-items:center;gap:8px;background:#2A2620;color:#FBF7EE;border:none;border-radius:10px;padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;cursor:pointer" style-hover="background:#3a352c" style-focus="outline:2px solid #4D6A41;outline-offset:2px">+ Add to a day</button>
+          <button onClick="{{ recipe.addToWeek }}" style="display:inline-flex;align-items:center;gap:8px;background:#FBF7EE;border:1px solid #D8CDB8;border-radius:10px;padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#2A2620;cursor:pointer" style-hover="border-color:#C9B894" style-focus="outline:2px solid #4D6A41;outline-offset:2px">Add missing to list</button>
+        </div>
+
+        <!-- body grid -->
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:48px;padding-top:30px;align-items:start" data-recipe-grid="1">
+
+          <!-- ingredients -->
+          <div style="position:sticky;top:84px">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:24px;margin:0 0 8px">Ingredients</h2>
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9C8F79;margin:0 0 16px">Scale by servings, or by what you have</p>
+
+            <!-- scale mode toggle -->
+            <div role="tablist" aria-label="Scaling mode" style="display:flex;gap:4px;background:#EFE7D6;border-radius:10px;padding:4px;margin-bottom:14px">
+              <button role="tab" aria-selected="{{ recipe.servingsActive }}" onClick="{{ recipe.setServeMode }}" style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11.5px;border:none;border-radius:7px;padding:8px;cursor:pointer;background:{{ recipe.servBg }};color:{{ recipe.servColor }};font-weight:500" style-focus="outline:2px solid #4D6A41;outline-offset:2px">By servings</button>
+              <button role="tab" aria-selected="{{ recipe.ingredientActive }}" onClick="{{ recipe.setIngMode }}" style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11.5px;border:none;border-radius:7px;padding:8px;cursor:pointer;background:{{ recipe.ingBg }};color:{{ recipe.ingColor }};font-weight:500" style-focus="outline:2px solid #4D6A41;outline-offset:2px">By ingredient</button>
+            </div>
+
+            <sc-if value="{{ recipe.servingsActive }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;background:#FBF7EE;border:1px solid #E3D9C6;border-radius:10px;padding:10px 14px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6B6157;flex:1">Servings</span>
+                <button onClick="{{ recipe.decServe }}" aria-label="Fewer servings" style="width:32px;height:32px;border-radius:8px;border:1px solid #D8CDB8;background:#F4EEE0;font-size:18px;cursor:pointer;color:#2A2620" style-focus="outline:2px solid #4D6A41;outline-offset:2px">−</button>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;width:28px;text-align:center">{{ recipe.serveOverride }}</span>
+                <button onClick="{{ recipe.incServe }}" aria-label="More servings" style="width:32px;height:32px;border-radius:8px;border:1px solid #D8CDB8;background:#F4EEE0;font-size:18px;cursor:pointer;color:#2A2620" style-focus="outline:2px solid #4D6A41;outline-offset:2px">+</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ recipe.ingredientActive }}" hint-placeholder-val="{{ true }}">
+              <p style="font-family:'Hanken Grotesque',sans-serif;font-size:12.5px;color:#6B6157;line-height:1.45;margin:0 0 16px;background:#EFE7D6;border-radius:10px;padding:11px 14px">Type the amount you actually have for any ingredient — everything else rescales to match.</p>
+            </sc-if>
+
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+              <sc-for list="{{ recipe.ingredients }}" as="i" hint-placeholder-count="6">
+                <li style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #EBE2D0">
+                  <div style="width:78px;flex:none;display:flex;align-items:baseline;gap:3px">
+                    <sc-if value="{{ i.editable }}" hint-placeholder-val="{{ true }}">
+                      <input type="number" step="any" value="{{ i.qty }}" onChange="{{ i.onAnchor }}" aria-label="Amount of {{ i.name }}" style="width:46px;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#2A2620;background:#FBF7EE;border:1px solid {{ i.anchorBorder }};border-radius:6px;padding:4px 5px" style-focus="outline:2px solid #4D6A41;outline-offset:1px" />
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9C8F79">{{ i.unit }}</span>
+                    </sc-if>
+                    <sc-if value="{{ i.readonly }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#2A2620">{{ i.qty }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9C8F79">{{ i.unit }}</span>
+                    </sc-if>
+                  </div>
+                  <span style="flex:1;font-family:'Hanken Grotesque',sans-serif;font-size:15px;line-height:1.3">{{ i.name }}</span>
+                  <sc-if value="{{ i.have }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#4D6A41;display:inline-flex;align-items:center;gap:4px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:#5A7A45"></span>in kitchen</span>
+                  </sc-if>
+                  <sc-if value="{{ i.need }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B0653F;display:inline-flex;align-items:center;gap:4px"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;border:1.5px solid #BE6A4F"></span>to buy</span>
+                  </sc-if>
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+
+          <!-- method -->
+          <div>
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:24px;margin:0 0 20px">Method</h2>
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:22px">
+              <sc-for list="{{ recipe.steps }}" as="st" hint-placeholder-count="4">
+                <li style="display:flex;gap:20px">
+                  <span aria-hidden="true" style="font-family:'Newsreader',serif;font-style:italic;font-size:30px;color:#C9B894;line-height:1;flex:none;width:34px">{{ st.n }}</span>
+                  <p style="margin:0;font-family:'Hanken Grotesque',sans-serif;font-size:17px;line-height:1.6;color:#332F28;max-width:56ch;padding-top:4px">{{ st.text }}</p>
+                </li>
+              </sc-for>
+            </ol>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </section>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  // ---------- category colour key (7 tracked) ----------
+  CAT = {
+    fish:      { label:'Fish & seafood', solid:'#3E8079', bg:'#DCEAE5', border:'#B6D4CD', ink:'#1F4B45', dir:'more', min:2, max:3, rule:'at least twice a week; aim for ≥1 oily fish' },
+    legumes:   { label:'Legumes',        solid:'#5A7A45', bg:'#E2E8D3', border:'#C5D3AE', ink:'#33471F', dir:'more', min:2, max:3, rule:'≥2–3 a week' },
+    poultry:   { label:'Poultry',        solid:'#C2933B', bg:'#F0E6C8', border:'#DCC78C', ink:'#6E5316', dir:'mod',  min:2, max:2, rule:'moderate', fill:true },
+    eggs:      { label:'Eggs',           solid:'#C2933B', bg:'#FBF7EE', border:'#C2933B', ink:'#6E5316', dir:'mod',  min:2, max:4, rule:'2–4 a week', outline:true },
+    dairy:     { label:'Dairy & cheese', solid:'#2E5B57', bg:'#D5E0DD', border:'#A9C4BF', ink:'#193835', dir:'mod',  min:1, max:4, rule:'small portions; limit hard cheese' },
+    redmeat:   { label:'Red meat',       solid:'#BE6A4F', bg:'#F1DCD2', border:'#E0B6A4', ink:'#7A3320', dir:'less', max:2, ideal:1, rule:'occasional, lean cuts' },
+    processed: { label:'Processed meat', solid:'#BE6A4F', bg:'#FBF7EE', border:'#BE6A4F', ink:'#7A3320', dir:'less', max:1, ideal:0, rule:'rarely', outline:true },
+  };
+  CAT_ORDER = ['fish','legumes','poultry','eggs','dairy','redmeat','processed'];
+
+  DAYS = [
+    { key:'Mon', label:'MON', date:'16' }, { key:'Tue', label:'TUE', date:'17' },
+    { key:'Wed', label:'WED', date:'18' }, { key:'Thu', label:'THU', date:'19' },
+    { key:'Fri', label:'FRI', date:'20' }, { key:'Sat', label:'SAT', date:'21' },
+    { key:'Sun', label:'SUN', date:'22' },
+  ];
+
+  RECIPES = [
+    { id:'r1', title:'Pasta e Ceci', it:true, desc:'A brothy Roman soup of chickpeas and small pasta, scented with rosemary and good oil.', cuisine:'Italian', mins:35, serves:4, diff:'Easy', meal:'Dinner', coll:'Soups', season:'Autumn', diet:'vegan', tracks:[{c:'legumes'}], base:['Whole grains','Olive oil','Herbs'], have:7, total:9, cookable:true,
+      ing:[{q:200,u:'g',n:'ditalini pasta',have:true},{q:400,u:'g',n:'cooked chickpeas',have:true},{q:1,u:'sprig',n:'rosemary',have:true},{q:2,u:'tbsp',n:'extra-virgin olive oil',have:true},{q:2,u:'',n:'garlic cloves',have:false},{q:400,u:'g',n:'passata',have:true},{q:1,u:'l',n:'vegetable stock',have:true}],
+      steps:['Warm the oil and gently soften the garlic and rosemary, about 3 minutes.','Add passata and half the chickpeas; simmer 10 minutes.','Blend a ladleful smooth, return it for body, then add stock and pasta.','Cook until al dente, finish with a thread of raw oil and black pepper.'] },
+    { id:'r2', title:"Orata all'Acqua Pazza", it:true, desc:'Sea bream poached in "crazy water" — tomatoes, garlic, parsley and a splash of white wine.', cuisine:'Italian', mins:30, serves:2, diff:'Medium', meal:'Dinner', coll:'Fish', season:'Summer', diet:null, tracks:[{c:'fish'}], base:['Vegetables','Olive oil','Herbs'], have:5, total:9, cookable:false,
+      ing:[{q:2,u:'',n:'whole sea bream, cleaned',have:false},{q:200,u:'g',n:'cherry tomatoes',have:true},{q:100,u:'ml',n:'white wine',have:false},{q:2,u:'',n:'garlic cloves',have:true},{q:1,u:'handful',n:'parsley',have:true},{q:3,u:'tbsp',n:'extra-virgin olive oil',have:true}],
+      steps:['Sear garlic in oil, add halved tomatoes and let them slump.','Pour in wine, let it steam off, add a splash of water.','Lay in the fish, cover and poach 12–14 minutes, spooning broth over.','Scatter parsley and serve in shallow bowls with the broth.'] },
+    { id:'r3', title:'Sgombro in Saor', it:true, desc:'Venetian mackerel under sweet-sour onions — an oily fish that loves a night in the fridge.', cuisine:'Italian', mins:40, serves:4, diff:'Medium', meal:'Dinner', coll:'Fish', season:'Autumn', diet:null, tracks:[{c:'fish', note:'oily'}], base:['Olive oil'], have:6, total:8, cookable:false,
+      ing:[{q:600,u:'g',n:'mackerel fillets',have:false},{q:3,u:'',n:'white onions',have:true},{q:80,u:'ml',n:'white wine vinegar',have:true},{q:2,u:'tbsp',n:'raisins',have:true},{q:2,u:'tbsp',n:'pine nuts',have:true},{q:4,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Fry the floured mackerel briefly, set aside.','Soften sliced onions slowly until sweet, add vinegar.','Layer fish and onions with raisins and pine nuts.','Rest at least overnight before serving at room temperature.'] },
+    { id:'r4', title:'Zuppa di Lenticchie e Parmigiano', it:true, desc:'Lentil soup finished with a melting rind of parmesan — counts twice toward your week.', cuisine:'Italian', mins:45, serves:4, diff:'Easy', meal:'Dinner', coll:'Soups', season:'Winter', diet:'veg', tracks:[{c:'legumes'},{c:'dairy'}], base:['Vegetables','Olive oil'], have:8, total:9, cookable:true,
+      ing:[{q:250,u:'g',n:'brown lentils',have:true},{q:1,u:'',n:'parmesan rind',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:1,u:'stick',n:'celery',have:true},{q:3,u:'tbsp',n:'olive oil',have:true},{q:30,u:'g',n:'grated parmesan',have:false}],
+      steps:['Sweat the diced soffritto in oil until soft.','Add lentils, the rind and water to cover; simmer 30 minutes.','Fish out the rind, season, and loosen with water if needed.','Serve with grated parmesan and a drizzle of oil.'] },
+    { id:'r5', title:'Pollo alla Cacciatora', it:true, desc:'Hunter\u2019s chicken braised with tomato, rosemary and olives until the meat slips off the bone.', cuisine:'Italian', mins:55, serves:4, diff:'Medium', meal:'Dinner', coll:'Chicken', season:'Autumn', diet:null, tracks:[{c:'poultry'}], base:['Vegetables','Olive oil','Herbs'], have:6, total:10, cookable:false,
+      ing:[{q:8,u:'',n:'chicken thighs',have:false},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:100,u:'g',n:'black olives',have:true},{q:2,u:'',n:'rosemary sprigs',have:true},{q:150,u:'ml',n:'white wine',have:false},{q:3,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Brown the chicken well on all sides; remove.','Deglaze with wine, add tomatoes, olives and rosemary.','Return chicken, cover and braise gently 35 minutes.','Reduce the sauce a little and rest before serving.'] },
+    { id:'r6', title:'Lemon & Herb Roast Chicken', it:false, desc:'A whole bird roasted over lemons and thyme — Sunday lunch that becomes three more meals.', cuisine:'Mediterranean', mins:90, serves:6, diff:'Medium', meal:'Lunch', coll:'Chicken', season:'Any', diet:null, tracks:[{c:'poultry'}], base:['Olive oil','Herbs'], have:7, total:8, cookable:false,
+      ing:[{q:1.6,u:'kg',n:'whole chicken',have:false},{q:2,u:'',n:'lemons',have:true},{q:1,u:'bunch',n:'thyme',have:true},{q:1,u:'head',n:'garlic',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Rub the bird with oil, salt and lemon zest.','Stuff the cavity with halved lemons and thyme.','Roast at 200°C for 75–80 minutes, basting twice.','Rest 15 minutes before carving.'] },
+    { id:'r7', title:'Frittata di Zucchine', it:true, desc:'Soft courgette frittata with mint and a little pecorino — equally good warm or packed for lunch.', cuisine:'Italian', mins:25, serves:4, diff:'Easy', meal:'Lunch', coll:'Courgettes', season:'Summer', diet:'veg', tracks:[{c:'eggs'}], base:['Vegetables','Herbs','Olive oil'], have:8, total:8, cookable:true,
+      ing:[{q:6,u:'',n:'eggs',have:true},{q:3,u:'',n:'courgettes',have:true},{q:30,u:'g',n:'pecorino',have:true},{q:1,u:'handful',n:'mint',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Slice and soften the courgettes in oil until golden.','Beat eggs with pecorino, mint, salt and pepper.','Pour over the courgettes and cook low until almost set.','Finish under the grill and slide out to cool slightly.'] },
+    { id:'r8', title:'Shakshuka', it:false, desc:'Eggs poached in a spiced pepper and tomato sauce, scooped up with bread.', cuisine:'Levantine', mins:30, serves:3, diff:'Easy', meal:'Dinner', coll:'Soups', season:'Any', diet:'veg', tracks:[{c:'eggs'}], base:['Vegetables','Olive oil','Herbs'], have:7, total:9, cookable:false,
+      ing:[{q:5,u:'',n:'eggs',have:true},{q:2,u:'',n:'red peppers',have:false},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:1,u:'tsp',n:'cumin',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Soften onion and peppers with cumin in oil.','Add tomatoes and simmer to a thick sauce.','Make wells, crack in the eggs, cover and cook to taste.','Finish with herbs and serve from the pan.'] },
+    { id:'r9', title:'Ribollita', it:true, desc:'Tuscan "reboiled" bread and bean soup — thrifty, deep, and better the next day.', cuisine:'Italian', mins:60, serves:6, diff:'Medium', meal:'Dinner', coll:'Soups', season:'Winter', diet:'vegan', tracks:[{c:'legumes'}], base:['Vegetables','Whole grains','Olive oil'], have:6, total:10, cookable:false,
+      ing:[{q:400,u:'g',n:'cannellini beans',have:true},{q:200,u:'g',n:'cavolo nero',have:false},{q:200,u:'g',n:'stale bread',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:4,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Build a soffritto, add beans and chopped greens.','Simmer with water until everything is meltingly soft.','Tear in the bread and stir until it collapses into the soup.','Rest, reheat, and finish each bowl with raw oil.'] },
+    { id:'r10', title:'Pumpkin & Sage Risotto', it:false, desc:'Creamy risotto with roasted pumpkin, sage butter and parmesan.', cuisine:'Italian', mins:45, serves:4, diff:'Medium', meal:'Dinner', coll:'Pumpkin', season:'Autumn', diet:'veg', tracks:[{c:'dairy'}], base:['Vegetables','Whole grains','Olive oil'], have:7, total:9, cookable:false,
+      ing:[{q:300,u:'g',n:'arborio rice',have:true},{q:500,u:'g',n:'pumpkin',have:false},{q:50,u:'g',n:'parmesan',have:true},{q:1,u:'handful',n:'sage',have:true},{q:1,u:'l',n:'vegetable stock',have:true},{q:1,u:'',n:'onion',have:true}],
+      steps:['Roast diced pumpkin until caramelised.','Toast the rice with onion, then add stock a ladle at a time.','Fold through the pumpkin near the end.','Beat in parmesan and sage off the heat.'] },
+    { id:'r11', title:'Bruschette ai Fagioli', it:true, desc:'Grilled bread piled with white beans, garlic and rosemary oil — lunch in ten minutes.', cuisine:'Italian', mins:15, serves:2, diff:'Easy', meal:'Lunch', coll:'Panini & Bruschette', season:'Any', diet:'vegan', tracks:[{c:'legumes'}], base:['Whole grains','Olive oil','Herbs'], have:6, total:7, cookable:true,
+      ing:[{q:250,u:'g',n:'cannellini beans',have:true},{q:4,u:'slices',n:'sourdough',have:true},{q:1,u:'',n:'garlic clove',have:true},{q:1,u:'sprig',n:'rosemary',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Warm the beans with rosemary oil and a little of their liquid.','Crush lightly to a rough, spoonable texture.','Grill the bread and rub with the cut garlic.','Pile on the beans, season, and finish with more oil.'] },
+    { id:'r12', title:'Grilled Sardines', it:false, desc:'Whole sardines over fire with lemon and oregano — the cheapest oily fish, and the best.', cuisine:'Mediterranean', mins:20, serves:4, diff:'Easy', meal:'Dinner', coll:'Fish', season:'Summer', diet:null, tracks:[{c:'fish', note:'oily'}], base:['Olive oil','Herbs'], have:5, total:6, cookable:false,
+      ing:[{q:12,u:'',n:'fresh sardines',have:false},{q:2,u:'',n:'lemons',have:true},{q:1,u:'tbsp',n:'dried oregano',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Pat the sardines dry, oil and salt them well.','Grill hot, 2–3 minutes a side, until the skin blisters.','Squeeze over lemon and scatter oregano.','Serve at once with bread and a green salad.'] },
+    { id:'r13', title:'Stufato di Manzo alle Olive', it:true, desc:'Slow beef stew with olives and orange peel — a once-a-week treat, made lean.', cuisine:'Italian', mins:150, serves:6, diff:'Medium', meal:'Dinner', coll:'Soups', season:'Winter', diet:null, tracks:[{c:'redmeat'}], base:['Vegetables','Olive oil'], have:5, total:9, cookable:false,
+      ing:[{q:900,u:'g',n:'lean stewing beef',have:false},{q:120,u:'g',n:'green olives',have:true},{q:2,u:'strips',n:'orange peel',have:true},{q:250,u:'ml',n:'red wine',have:false},{q:2,u:'',n:'onions',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Brown the beef hard in batches.','Soften onions, deglaze with wine, add olives and peel.','Cover and braise low for two hours until tender.','Skim, season, and rest before serving.'] },
+    { id:'r14', title:'Sausage & Lentil Stew', it:false, desc:'A few good sausages stretched over a pot of lentils — comfort with a conscience.', cuisine:'Mediterranean', mins:50, serves:4, diff:'Easy', meal:'Dinner', coll:'Legumes', season:'Winter', diet:null, tracks:[{c:'legumes'},{c:'processed'}], base:['Vegetables','Olive oil'], have:6, total:8, cookable:false,
+      ing:[{q:4,u:'',n:'pork sausages',have:false},{q:250,u:'g',n:'puy lentils',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Brown the sausages and set aside.','Soften the vegetables, add lentils and tomatoes.','Nestle the sausages back in and simmer 30 minutes.','Slice the sausages through and season the lentils well.'] },
+    { id:'r15', title:'Pasta alla Norma', it:true, desc:'Sicilian pasta with fried aubergine, tomato and salted ricotta — summer on a plate.', cuisine:'Italian', mins:40, serves:4, diff:'Easy', meal:'Dinner', coll:'Pasta', season:'Summer', diet:'vegan', tracks:[], base:['Vegetables','Whole grains','Olive oil'], have:7, total:9, cookable:false,
+      ing:[{q:400,u:'g',n:'rigatoni',have:true},{q:2,u:'',n:'aubergines',have:false},{q:500,u:'g',n:'passata',have:true},{q:1,u:'handful',n:'basil',have:true},{q:5,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Fry the cubed aubergine until deep gold; drain.','Simmer passata with garlic and basil to a loose sauce.','Cook the pasta, toss with sauce and most of the aubergine.','Top with the rest and torn basil.'] },
+    { id:'r16', title:'Focaccia alle Olive', it:true, desc:'Dimpled, oil-pooled focaccia studded with olives — the table\u2019s anchor.', cuisine:'Italian', mins:120, serves:8, diff:'Medium', meal:'Side', coll:'Bread & Pizza', season:'Any', diet:'vegan', tracks:[], base:['Whole grains','Olive oil'], have:6, total:7, cookable:false,
+      ing:[{q:500,u:'g',n:'strong flour',have:true},{q:350,u:'ml',n:'water',have:true},{q:7,u:'g',n:'dried yeast',have:true},{q:100,u:'g',n:'green olives',have:true},{q:5,u:'tbsp',n:'olive oil',have:true}],
+      steps:['Mix a wet dough and let it rise until doubled.','Stretch into an oiled tin and dimple deeply.','Press in olives, drizzle with oil and brine.','Bake hot until golden and crisp at the edges.'] },
+  ];
+
+  state = {
+    screen: 'home',
+    activeId: null,
+    week: { Mon:['r5'], Tue:['r1'], Wed:['r2'], Thu:[], Fri:['r7'], Sat:['r13'], Sun:[] },
+    serveOverride: null,
+    scaleRatio: 1,
+    scaleMode: 'servings',
+    anchorIng: null,
+    saved: {},
+  };
+
+  recipe(id){ return this.RECIPES.find(r => r.id === id); }
+
+  // ---------- balance engine ----------
+  counts(){
+    const c = {}; this.CAT_ORDER.forEach(k => c[k] = 0);
+    Object.values(this.state.week).forEach(ids => ids.forEach(id => {
+      const r = this.recipe(id); if (r) r.tracks.forEach(t => { c[t.c] = (c[t.c]||0) + 1; });
+    }));
+    return c;
+  }
+
+  buildBalance(){
+    const counts = this.counts();
+    return this.CAT_ORDER.map(key => {
+      const m = this.CAT[key], n = counts[key];
+      const cap = m.dir === 'less' ? (m.max + 1) : m.max;
+      const segs = [];
+      for (let i=0;i<cap;i++){
+        let bg = '#EFE7D6', border = '#E1D7C4';
+        if (i < n){
+          if (m.dir === 'less' && (i+1) > (m.ideal === 0 ? 0 : m.max)) { bg = '#BE6A4F'; border = '#A85A41'; }
+          else { bg = m.solid; border = m.solid; }
+        }
+        segs.push({ bg, border });
+      }
+      let status, statusColor = '#6B6157';
+      if (m.dir === 'more'){
+        if (n === 0){ status = `0 of ${m.min}–${m.max}`; statusColor = '#B0653F'; }
+        else if (n < m.min){ status = `short by ${m.min-n}`; statusColor = '#B0653F'; }
+        else { status = `${n} · on track`; statusColor = '#4D6A41'; }
+      } else if (m.dir === 'less'){
+        const limit = m.ideal === 0 ? m.max : m.max;
+        if (n > m.max){ status = `over by ${n-m.max}`; statusColor = '#BE6A4F'; }
+        else if (n === 0){ status = `0 · ideal`; statusColor = '#4D6A41'; }
+        else { status = `${n} of ≤${m.max}`; statusColor = '#6B6157'; }
+      } else {
+        if (n < m.min){ status = `${n} of ${m.min}–${m.max}`; statusColor = '#9C8F79'; }
+        else { status = `${n} · good`; statusColor = '#4D6A41'; }
+      }
+      return {
+        key, label: m.label, dotBg: m.outline ? '#FBF7EE' : m.solid, dotBorder: m.solid,
+        segments: segs, status, statusColor,
+        aria: `${m.label}: ${n} this week, ${status.replace('·','')}`,
+      };
+    });
+  }
+
+  balanceSummaryText(){
+    const c = this.counts();
+    const shorts = [];
+    if (c.fish < 2) shorts.push('fish');
+    if (c.legumes < 2) shorts.push('legumes');
+    if (c.redmeat > 2) shorts.push('red meat over');
+    if (!shorts.length) return 'well balanced';
+    return 'needs: ' + shorts.join(', ');
+  }
+
+  // ---------- chips ----------
+  trackChips(r){
+    return r.tracks.map(t => {
+      const m = this.CAT[t.c];
+      return {
+        label: m.label.split(' ')[0] + (t.note ? ' · '+t.note : ''),
+        bg: m.bg, color: m.ink, border: m.border, dot: m.solid,
+      };
+    });
+  }
+  plantBadge(r){
+    if (r.diet === 'vegan') return { label:'Vegan', bg:'#E9EDDC', color:'#46562C', border:'#C7D2A6' };
+    if (r.diet === 'veg') return { label:'Vegetarian', bg:'#E9EDDC', color:'#46562C', border:'#C7D2A6' };
+    return null;
+  }
+
+  // ---------- navigation ----------
+  go(screen){ this.setState({ screen }); window.scrollTo && window.scrollTo(0,0); }
+  openRecipe(id){
+    const r = this.recipe(id);
+    this.setState({ screen:'recipe', activeId:id, serveOverride:r.serves, scaleRatio:1, scaleMode:'servings', anchorIng:null });
+    window.scrollTo && window.scrollTo(0,0);
+  }
+
+  // ---------- plan builder actions ----------
+  addToDay(day, id){ this.setState(s => ({ week: { ...s.week, [day]: [...(s.week[day]||[]), id] }, picker:null })); }
+  removeFromDay(day, id){ this.setState(s => ({ week: { ...s.week, [day]: (s.week[day]||[]).filter(x => x !== id) } })); }
+  openPicker(day){ this.setState(s => ({ picker: s.picker === day ? null : day })); }
+  toggleList(){ this.setState(s => ({ showList: !s.showList })); }
+
+  gapInfo(){
+    const c = this.counts();
+    const order = [['fish',2],['legumes',2],['eggs',2],['poultry',2],['dairy',1]];
+    let target = null;
+    for (const [k,min] of order){ if (c[k] < min){ target = k; break; } }
+    if (!target) return { cat:null, items:[] };
+    const placed = new Set(Object.values(this.state.week).flat());
+    const items = this.RECIPES.filter(r => r.tracks.some(t => t.c === target) && !placed.has(r.id)).slice(0,3);
+    return { cat:target, items };
+  }
+
+  aisleOf(name){
+    const n = name.toLowerCase();
+    if (/sausage|beef|mackerel|sardine|bream|chicken/.test(n)) return 'Fish & meat';
+    if (/pepper|aubergine|cavolo|pumpkin|courgette|onion|carrot|tomato|lemon|garlic|herb|basil|parsley|sage|mint|rosemary|thyme/.test(n)) return 'Fresh produce';
+    return 'Pantry & dry';
+  }
+  shoppingList(){
+    const placed = Object.values(this.state.week).flat().map(id => this.recipe(id)).filter(Boolean);
+    const byName = {};
+    placed.forEach(r => r.ing.filter(i => !i.have).forEach(i => {
+      const key = i.n;
+      if (!byName[key]) byName[key] = { name:i.n, count:0, aisle:this.aisleOf(i.n) };
+      byName[key].count += 1;
+    }));
+    const groups = { 'Fresh produce':[], 'Fish & meat':[], 'Pantry & dry':[] };
+    Object.values(byName).forEach(it => groups[it.aisle].push(it));
+    const order = ['Fresh produce','Fish & meat','Pantry & dry'];
+    const total = Object.values(byName).length;
+    return { groups: order.filter(g => groups[g].length).map(g => ({ aisle:g, items:groups[g] })), total };
+  }
+
+  // ---------- recipe scaling ----------
+  setServings(n){
+    const r = this.recipe(this.state.activeId); if (!r) return;
+    n = Math.max(1, Math.min(24, n));
+    this.setState({ serveOverride:n, scaleRatio:n / r.serves, scaleMode:'servings', anchorIng:null });
+  }
+  setByIngredient(idx, val){
+    const r = this.recipe(this.state.activeId); if (!r) return;
+    const base = r.ing[idx].q; if (!base || !val) return;
+    const ratio = val / base;
+    this.setState({ scaleRatio:ratio, serveOverride:Math.round(r.serves * ratio * 10)/10, scaleMode:'ingredient', anchorIng:idx });
+  }
+
+  logo(){
+    return React.createElement('svg',{width:26,height:30,viewBox:'0 0 26 30',fill:'none'},
+      React.createElement('path',{d:'M13 29 C13 20 13 13 13 7',stroke:'#5A7A45',strokeWidth:1.6,strokeLinecap:'round'}),
+      React.createElement('path',{d:'M13 11 C9 11 6 9 5 5 C10 4.5 13 6.5 13 11 Z',fill:'#5A7A45'}),
+      React.createElement('path',{d:'M13 15 C17 15 20 13 21 9 C16 8.5 13 10.5 13 15 Z',fill:'#7B9A5E'}),
+      React.createElement('path',{d:'M13 19 C9 19 6 17 5 13 C10 12.5 13 14.5 13 19 Z',fill:'#7B9A5E'}),
+      React.createElement('circle',{cx:13,cy:5,r:2.4,fill:'#B8732E'}),
+    );
+  }
+
+  renderVals(){
+    const s = this.state;
+    const screen = s.screen;
+    const tab = (id, label) => {
+      const cur = screen === id;
+      return { label, current: cur ? 'page' : null, go: () => this.go(id),
+        bg: cur ? '#2A2620' : 'transparent', color: cur ? '#FBF7EE' : '#6B6157',
+        border: cur ? '#2A2620' : '#D8CDB8' };
+    };
+
+    // week strip
+    const todayKey = 'Wed';
+    const weekDays = this.DAYS.map(d => {
+      const ids = s.week[d.key] || [];
+      const isToday = d.key === todayKey;
+      const meals = ids.map(id => {
+        const r = this.recipe(id);
+        const tc = r.tracks[0] ? this.CAT[r.tracks[0].c] : null;
+        return { title: r.title, open: () => this.openRecipe(id),
+          bg: tc ? tc.bg : '#F2ECDD', border: tc ? tc.border : '#E1D7C4',
+          color: tc ? tc.ink : '#5A5247', dot: tc ? tc.solid : '#A89B85' };
+      });
+      return { label: d.label, date: d.date, meals, hasMeals: meals.length ? true : null,
+        empty: meals.length ? null : true,
+        cardBg: isToday ? '#FBF7EE' : '#EFE8D9', cardBorder: isToday ? '#C9B894' : '#E3D9C6',
+        labelColor: isToday ? '#B8732E' : '#6B6157' };
+    });
+
+    const tonightR = this.recipe(s.week[todayKey] && s.week[todayKey][0]);
+    const tonight = tonightR ? {
+      title: tonightR.title, desc: tonightR.desc, mins: tonightR.mins,
+      kitchen: `${tonightR.have}/${tonightR.total}`, open: () => this.openRecipe(tonightR.id),
+      chips: [...this.trackChips(tonightR), ...(this.plantBadge(tonightR)?[{...this.plantBadge(tonightR), dot:'#7B9A5E'}]:[])],
+    } : null;
+
+    const kitchenStrip = this.RECIPES.filter(r => r.cookable).slice(0,3).map(r => ({
+      title: r.title, kitchen: `${r.have}/${r.total}`, open: () => this.openRecipe(r.id),
+      note: r.have === r.total ? 'all on hand · basil expiring soon' : `${r.total - r.have} to buy`,
+    }));
+
+    // ----- plan builder -----
+    const placedSet = new Set(Object.values(s.week).flat());
+    const planColumns = this.DAYS.map(d => {
+      const ids = s.week[d.key] || [];
+      const chips = ids.map(id => {
+        const r = this.recipe(id);
+        const tc = r.tracks[0] ? this.CAT[r.tracks[0].c] : null;
+        return { id, title:r.title, kitchen:`${r.have}/${r.total}`,
+          bg: tc ? tc.bg : '#F2ECDD', border: tc ? tc.border : '#E1D7C4', color: tc ? tc.ink : '#5A5247', dot: tc ? tc.solid : '#A89B85',
+          remove: () => this.removeFromDay(d.key, id) };
+      });
+      const pickerOpen = s.picker === d.key;
+      const pickerList = pickerOpen ? this.RECIPES.filter(r => !(s.week[d.key]||[]).includes(r.id)).map(r => {
+        const tc = r.tracks[0] ? this.CAT[r.tracks[0].c] : null;
+        return { title:r.title, dot: tc ? tc.solid : '#A89B85', cat: tc ? tc.label.split(' ')[0] : 'Veg/base',
+          add: () => this.addToDay(d.key, r.id) };
+      }) : [];
+      return { key:d.key, label:d.label, date:d.date, chips, hasChips: chips.length?true:null,
+        pickerOpen: pickerOpen?true:null, pickerList, isToday: d.key==='Wed',
+        openPicker: () => this.openPicker(d.key) };
+    });
+    const gap = this.gapInfo();
+    const gapCat = gap.cat ? this.CAT[gap.cat] : null;
+    const gapItems = gap.items.map(r => ({ title:r.title, mins:r.mins, kitchen:`${r.have}/${r.total}`,
+      open: () => this.openRecipe(r.id),
+      add: () => { const empty = this.DAYS.find(d => !(s.week[d.key]||[]).length); this.addToDay(empty ? empty.key : 'Thu', r.id); } }));
+    const list = this.shoppingList();
+
+    // ----- recipe detail -----
+    const ar = this.recipe(s.activeId);
+    let recipeView = null;
+    if (ar){
+      const ratio = s.scaleRatio || 1;
+      const fmt = (q) => {
+        if (q == null) return '';
+        const v = q * ratio;
+        const r2 = Math.round(v * 100) / 100;
+        return (r2 % 1 === 0) ? String(r2) : String(r2);
+      };
+      recipeView = {
+        title: ar.title, italianTitle: ar.it, desc: ar.desc, cuisine: ar.cuisine,
+        mins: ar.mins, serves: ar.serves, diff: ar.diff, coll: ar.coll,
+        meta: [ `${ar.mins} min`, `serves ${s.serveOverride || ar.serves}`, ar.diff, ar.cuisine ],
+        fitChips: ar.tracks.length ? ar.tracks.map(t => { const m=this.CAT[t.c]; return { label:m.label + (t.note?' · '+t.note:''), bg:m.bg, color:m.ink, border:m.border, dot:m.solid }; }) : [{ label:'Daily base — vegetables & grains', bg:'#EFE7D6', color:'#5A5247', border:'#DCD0BA', dot:'#A89B85' }],
+        plant: this.plantBadge(ar),
+        serveOverride: s.serveOverride || ar.serves,
+        scaleMode: s.scaleMode,
+        servingsActive: s.scaleMode === 'servings' ? true : null,
+        ingredientActive: s.scaleMode === 'ingredient' ? true : null,
+        servBg: s.scaleMode === 'servings' ? '#FBF7EE' : 'transparent',
+        servColor: s.scaleMode === 'servings' ? '#2A2620' : '#8A7E6C',
+        ingBg: s.scaleMode === 'ingredient' ? '#FBF7EE' : 'transparent',
+        ingColor: s.scaleMode === 'ingredient' ? '#2A2620' : '#8A7E6C',
+        saveLabel: s.saved[ar.id] ? 'Saved' : 'Save',
+        saveIcon: s.saved[ar.id] ? '★' : '☆',
+        incServe: () => this.setServings((s.serveOverride||ar.serves) + 1),
+        decServe: () => this.setServings((s.serveOverride||ar.serves) - 1),
+        setServeMode: () => this.setState({ scaleMode:'servings', anchorIng:null }),
+        setIngMode: () => this.setState({ scaleMode:'ingredient' }),
+        ingredients: ar.ing.map((i, idx) => ({
+          qty: fmt(i.q), unit: i.u, name: i.n, have: i.have ? true : null, need: i.have ? null : true,
+          isAnchor: s.anchorIng === idx ? true : null,
+          numeric: i.q != null ? true : null,
+          editable: (s.scaleMode === 'ingredient' && i.q != null) ? true : null,
+          readonly: (s.scaleMode === 'ingredient' && i.q != null) ? null : true,
+          anchorBorder: s.anchorIng === idx ? '#4D6A41' : '#D8CDB8',
+          onAnchor: (e) => this.setByIngredient(idx, parseFloat(e.target.value)),
+          baseQ: i.q, idx })),
+        steps: ar.steps.map((t, i) => ({ n: i+1, text:t })),
+        saved: s.saved[ar.id] ? true : null,
+        toggleSave: () => this.setState(st => ({ saved: { ...st.saved, [ar.id]: !st.saved[ar.id] } })),
+        addToWeek: () => { const empty = this.DAYS.find(d => !(s.week[d.key]||[]).length); this.addToDay(empty?empty.key:'Thu', ar.id); this.go('plan'); },
+      };
+    }
+
+    return {
+      logoMark: this.logo(),
+      planColumns, planBalance: this.buildBalance(), planSummary: this.balanceSummaryText(),
+      gapCat: gapCat ? { label:gapCat.label, rule:gapCat.rule, dot:gapCat.solid, bg:gapCat.bg, border:gapCat.border } : null,
+      gapItems, hasGap: gap.cat ? true : null, noGap: gap.cat ? null : true,
+      shopList: list, showList: s.showList ? true : null, toggleList: () => this.toggleList(),
+      recipe: recipeView, backFromRecipe: () => this.go('home'),
+      leafIcon: React.createElement('svg',{width:12,height:12,viewBox:'0 0 12 12',fill:'none',style:{display:'block'}},
+        React.createElement('path',{d:'M2 10 C2 5 6 2 10 2 C10 7 6 10 2 10 Z',fill:'#7B9A5E'}),
+        React.createElement('path',{d:'M2 10 C4 7 6 5 9 3.5',stroke:'#46562C',strokeWidth:0.8,strokeLinecap:'round'})),
+      navTabs: [ tab('home','This Week'), tab('plan','Plan'), tab('recipe', this.recipe(s.activeId)?'Recipe':'Recipe') ].slice(0,2),
+      isHome: screen === 'home' ? true : null,
+      isPlan: screen === 'plan' ? true : null,
+      isRecipe: screen === 'recipe' ? true : null,
+      goHome: () => this.go('home'),
+      goPlan: () => this.go('plan'),
+      weekRange: '16–22 June', weekRangeShort: 'Jun 16–22', todayLabel: 'Wednesday',
+      balance: this.buildBalance(), balanceSummary: this.balanceSummaryText(),
+      weekDays, tonight, kitchenStrip,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Manrope:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:#ECE8DC;color:#2C2820;font-family:'Manrope',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:#D8C9A6}
+  button{font-family:inherit;cursor:pointer}
+  input{font-family:inherit}
+  :focus-visible{outline:2.5px solid #3F6B38;outline-offset:2px;border-radius:3px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<a href="#main" style="position:absolute;left:-9999px;top:8px;z-index:200;background:#1E5E59;color:#F6F3EA;padding:10px 16px;border-radius:8px;text-decoration:none;font-family:'Spline Sans Mono',monospace;font-size:13px" style-focus="left:8px">Skip to content</a>
+
+<div aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">{{ live }}</div>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;background:#ECE8DC">
+
+  <!-- ============ HEADER ============ -->
+  <header style="position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:28px;padding:16px 40px;background:rgba(246,243,234,0.9);backdrop-filter:blur(10px);border-bottom:1px solid #DCD5C4">
+    <button onClick="{{ goHome }}" aria-label="Dispensa — home" style="display:flex;align-items:center;gap:11px;background:none;border:none;padding:0">
+      <span aria-hidden="true" style="width:30px;height:30px;border-radius:9px;background:#1E5E59;display:flex;align-items:center;justify-content:center;color:#F6F3EA;font-family:'Spectral',serif;font-style:italic;font-size:18px;font-weight:600">D</span>
+      <span style="font-family:'Spectral',serif;font-size:25px;font-weight:600;letter-spacing:-.01em;color:#2C2820">Dispensa</span>
+    </button>
+    <nav aria-label="Primary" style="display:flex;gap:5px;margin-left:6px">
+      <button onClick="{{ goHome }}" aria-current="{{ homeCur }}" style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:8px 14px;border-radius:8px;border:none;background:{{ homeBg }};color:{{ homeFg }}">This week</button>
+      <button onClick="{{ goPlan }}" aria-current="{{ planCur }}" style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:8px 14px;border-radius:8px;border:none;background:{{ planBg }};color:{{ planFg }}">Plan</button>
+      <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:8px 14px;color:#B6AC97" title="Coming later">Browse</span>
+    </nav>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
+      <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;color:#8A8170">Jun 16–22</span>
+      <span aria-hidden="true" style="width:34px;height:34px;border-radius:50%;background:#D8C9A6;display:flex;align-items:center;justify-content:center;font-family:'Spectral',serif;font-size:16px;font-weight:600;color:#5A4A2E">G</span>
+    </div>
+  </header>
+
+  <main id="main" style="flex:1;width:100%;max-width:1240px;margin:0 auto;padding:0 40px 80px">
+
+  <!-- ====================================================== -->
+  <!-- HOME -->
+  <!-- ====================================================== -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <section data-screen-label="Home — This Week">
+
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:40px;padding:40px 0 30px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#A07C3C;margin-bottom:14px">This week · 16–22 June</div>
+        <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:50px;line-height:1.04;letter-spacing:-.015em;margin:0;max-width:17ch">A table set for <em style="font-style:italic;color:#1E5E59">olive-oil season</em></h1>
+        <p style="margin:14px 0 0;color:#6E6655;font-size:16px;line-height:1.55;max-width:46ch">{{ homeLede }}</p>
+      </div>
+      <button onClick="{{ goPlan }}" style="flex:none;display:inline-flex;align-items:center;gap:9px;background:#1E5E59;color:#F6F3EA;border:none;border-radius:12px;padding:16px 26px;font-family:'Spline Sans Mono',monospace;font-size:13px;letter-spacing:.02em" style-hover="background:#174D49">Plan the week →</button>
+    </div>
+
+    <!-- balance -->
+    <div style="background:#F6F3EA;border:1px solid #DCD5C4;border-radius:18px;padding:28px 30px;margin-bottom:30px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;gap:16px;flex-wrap:wrap">
+        <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:24px;margin:0">Your weekly balance</h2>
+        <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;color:#8A8170">cooler = eat more · warmer = go easy</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 48px">
+        <sc-for list="{{ balance }}" as="row" hint-placeholder-count="7">
+          <div role="group" aria-label="{{ row.aria }}" style="display:flex;align-items:center;gap:14px">
+            <span aria-hidden="true" style="width:14px;height:14px;border-radius:4px;flex:none;background:{{ row.swBg }};box-shadow:{{ row.swRing }}"></span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;width:78px;flex:none">{{ row.label }}</span>
+            <div style="display:flex;gap:4px;flex:1" aria-hidden="true">
+              <sc-for list="{{ row.segs }}" as="s" hint-placeholder-count="3">
+                <span style="flex:1;height:11px;border-radius:3px;background:{{ s.bg }};box-shadow:{{ s.ring }}"></span>
+              </sc-for>
+            </div>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;width:92px;flex:none;text-align:right;color:{{ row.statusColor }};font-weight:500">{{ row.status }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- week strip -->
+    <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#A07C3C;margin-bottom:14px">The week</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:34px">
+      <sc-for list="{{ week }}" as="day" hint-placeholder-count="7">
+        <div style="border-radius:14px;padding:14px 13px;min-height:142px;display:flex;flex-direction:column;background:{{ day.cardBg }};border:{{ day.cardBorder }}">
+          <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:{{ day.dateColor }};margin-bottom:auto">{{ day.label }} <b style="color:{{ day.dateStrong }}">{{ day.date }}</b>{{ day.todayTag }}</div>
+          <sc-if value="{{ day.empty }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ day.add }}" aria-label="{{ day.addAria }}" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#A89E89">
+              <span aria-hidden="true" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #C9BFA6;display:flex;align-items:center;justify-content:center;font-size:18px">+</span>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:10px">Plan a meal</span>
+            </button>
+          </sc-if>
+          <sc-for list="{{ day.meals }}" as="m" hint-placeholder-count="1">
+            <button onClick="{{ m.open }}" style="text-align:left;background:none;border:none;padding:0;margin-top:10px">
+              <div style="font-family:'Spectral',serif;font-size:15px;line-height:1.16;color:{{ day.titleColor }};margin-bottom:8px">{{ m.title }}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px">
+                <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="1">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Spline Sans Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;background:{{ c.bg }};color:{{ c.fg }}"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }};box-shadow:{{ c.ring }}"></span>{{ c.label }}</span>
+                </sc-for>
+                <sc-if value="{{ m.plant }}" hint-placeholder-val="{{ false }}">
+                  <span role="img" aria-label="Plant-based" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#E7EBDB;color:#5E7A4E;font-size:10px">❧</span>
+                </sc-if>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- cook tonight + kitchen -->
+    <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:30px;align-items:start" data-stack="home">
+      <div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#A07C3C;margin-bottom:14px">Cook tonight · {{ tonight.day }}</div>
+        <button onClick="{{ tonight.open }}" style="text-align:left;width:100%;background:#F6F3EA;border:1px solid #DCD5C4;border-radius:18px;padding:28px;position:relative;overflow:hidden;display:block" style-hover="border-color:#C9B894">
+          <span aria-hidden="true" style="position:absolute;right:-26px;top:-26px;width:120px;height:120px;border-radius:50%;background:#E6EEEB"></span>
+          <div style="position:relative">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Spline Sans Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;background:{{ tonight.chip.bg }};color:{{ tonight.chip.fg }};margin-bottom:16px"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:{{ tonight.chip.dot }}"></span>{{ tonight.chipLabel }}</span>
+            <h3 style="font-family:'Spectral',serif;font-weight:500;font-size:33px;line-height:1.06;margin:0 0 8px;letter-spacing:-.01em">{{ tonight.title }}</h3>
+            <p style="margin:0 0 18px;color:#6E6655;font-size:15px;line-height:1.5;max-width:42ch">{{ tonight.desc }}</p>
+            <div style="display:flex;gap:14px;font-family:'Spline Sans Mono',monospace;font-size:12px;color:#8A8170;align-items:center;flex-wrap:wrap">
+              <span>{{ tonight.mins }} min</span><span style="opacity:.4">·</span><span>serves {{ tonight.serves }}</span><sc-if value="{{ showPantry }}" hint-placeholder-val="{{ true }}"><span style="opacity:.4">·</span><span>{{ tonight.kitchen }} in kitchen</span></sc-if><span style="margin-left:auto;color:#1E5E59;font-weight:600">Open recipe →</span>
+            </div>
+          </div>
+        </button>
+      </div>
+      <div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#A07C3C;margin-bottom:14px">From your kitchen</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ kitchen }}" as="k" hint-placeholder-count="3">
+            <button onClick="{{ k.open }}" style="display:flex;align-items:center;gap:14px;text-align:left;background:#F6F3EA;border:1px solid #DCD5C4;border-radius:13px;padding:13px 16px" style-hover="background:#F1EAD9">
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Spectral',serif;font-size:17px;line-height:1.15">{{ k.title }}</div>
+                <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:{{ k.noteColor }};margin-top:3px">{{ k.note }}</div>
+              </div>
+              <sc-if value="{{ showPantry }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;color:#3F6B38;flex:none">{{ k.kitchen }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+  </section>
+  </sc-if>
+
+  <!-- ====================================================== -->
+  <!-- PLAN BUILDER -->
+  <!-- ====================================================== -->
+  <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Plan Builder">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:34px 0 22px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#A07C3C;margin-bottom:12px">Plan the week · 16–22 June</div>
+        <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:40px;line-height:1.05;margin:0">Build your <em style="font-style:italic;color:#1E5E59">seven days</em></h1>
+      </div>
+      <button onClick="{{ goHome }}" style="background:none;border:1px solid #CDC4AF;border-radius:10px;padding:11px 18px;font-family:'Spline Sans Mono',monospace;font-size:12px;color:#6E6655">← Back to this week</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start" data-stack="plan">
+
+      <!-- left: 7 day columns -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
+        <sc-for list="{{ planDays }}" as="day" hint-placeholder-count="7">
+          <div style="background:#F6F3EA;border:1px solid #DCD5C4;border-radius:14px;padding:11px 10px;min-height:260px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:{{ day.dateColor }};text-align:center;padding-bottom:6px;border-bottom:1px solid #E3DCCB">{{ day.label }} <b style="color:{{ day.dateStrong }}">{{ day.date }}</b></div>
+            <sc-for list="{{ day.meals }}" as="m" hint-placeholder-count="1">
+              <div style="background:#FBFAF5;border:1px solid #E3DCCB;border-radius:10px;padding:9px 10px">
+                <button onClick="{{ m.open }}" style="text-align:left;background:none;border:none;padding:0;width:100%">
+                  <div style="font-family:'Spectral',serif;font-size:13.5px;line-height:1.15;margin-bottom:7px">{{ m.title }}</div>
+                </button>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px">
+                  <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="1">
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Spline Sans Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:{{ c.bg }};color:{{ c.fg }}"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:{{ c.dot }};box-shadow:{{ c.ring }}"></span>{{ c.label }}</span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                  <sc-if value="{{ showPantry }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#8A8170">{{ m.kitchen }} in kitchen</span></sc-if>
+                  <button onClick="{{ m.remove }}" aria-label="{{ m.removeAria }}" style="background:none;border:none;color:#B0563F;font-family:'Spline Sans Mono',monospace;font-size:14px;line-height:1;padding:2px 4px">×</button>
+                </div>
+              </div>
+            </sc-for>
+            <button onClick="{{ day.add }}" aria-label="{{ day.addAria }}" style="margin-top:auto;background:none;border:1.5px dashed #CDC4AF;border-radius:10px;padding:9px;color:#8A8170;font-family:'Spline Sans Mono',monospace;font-size:10.5px" style-hover="border-color:#1E5E59;color:#1E5E59">+ add</button>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- right: sticky balance + suggestions + shopping -->
+      <div style="position:sticky;top:90px;display:flex;flex-direction:column;gap:18px">
+        <div style="background:#F6F3EA;border:1px solid #DCD5C4;border-radius:16px;padding:22px">
+          <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:20px;margin:0 0 4px">Weekly balance</h2>
+          <p style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#8A8170;margin:0 0 16px">{{ balanceNote }}</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ balance }}" as="row" hint-placeholder-count="7">
+              <div role="group" aria-label="{{ row.aria }}" style="display:flex;align-items:center;gap:10px">
+                <span aria-hidden="true" style="width:12px;height:12px;border-radius:4px;flex:none;background:{{ row.swBg }};box-shadow:{{ row.swRing }}"></span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;width:62px;flex:none">{{ row.label }}</span>
+                <div style="display:flex;gap:3px;flex:1" aria-hidden="true">
+                  <sc-for list="{{ row.segs }}" as="s" hint-placeholder-count="3">
+                    <span style="flex:1;height:9px;border-radius:2px;background:{{ s.bg }};box-shadow:{{ s.ring }}"></span>
+                  </sc-for>
+                </div>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;width:64px;flex:none;text-align:right;color:{{ row.statusColor }};font-weight:500">{{ row.statusShort }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#F6F3EA;border:1px solid #DCD5C4;border-radius:16px;padding:22px">
+          <h3 style="font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#A07C3C;margin:0 0 4px">Fills a gap</h3>
+          <p style="font-size:13px;color:#6E6655;margin:0 0 14px;line-height:1.4">{{ gapNote }}</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;background:#FBFAF5;border:1px solid #E3DCCB;border-radius:11px;padding:10px 12px">
+                <button onClick="{{ s.open }}" style="flex:1;min-width:0;text-align:left;background:none;border:none;padding:0">
+                  <div style="font-family:'Spectral',serif;font-size:15px;line-height:1.15">{{ s.title }}</div>
+                  <div style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#8A8170;margin-top:2px">{{ s.note }}</div>
+                </button>
+                <button onClick="{{ s.add }}" aria-label="{{ s.addAria }}" style="flex:none;background:#1E5E59;color:#F6F3EA;border:none;border-radius:8px;padding:7px 11px;font-family:'Spline Sans Mono',monospace;font-size:10.5px">+ Add</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#1E5E59;border-radius:16px;padding:22px">
+          <button onClick="{{ toggleShop }}" aria-expanded="{{ shopExpanded }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;color:#F6F3EA;padding:0">
+            <span style="font-family:'Spectral',serif;font-size:19px;font-weight:500">Generate shopping list</span>
+            <span aria-hidden="true" style="font-family:'Spline Sans Mono',monospace;font-size:16px">{{ shopCaret }}</span>
+          </button>
+          <p style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#AFD0CB;margin:6px 0 0">{{ shopSummary }}</p>
+          <sc-if value="{{ shopOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+              <sc-for list="{{ shopGroups }}" as="g" hint-placeholder-count="3">
+                <div>
+                  <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FB8B2;margin-bottom:7px">{{ g.aisle }}</div>
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#EAF4F2;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:5px">
+                        <span>{{ it.name }}</span>
+                        <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#AFD0CB;flex:none">{{ it.qty }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <!-- recipe picker overlay -->
+    <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-modal="true" aria-label="{{ pickerTitle }}" style="position:fixed;inset:0;z-index:120;background:rgba(36,30,18,.42);display:flex;align-items:center;justify-content:center;padding:24px">
+      <div style="background:#F6F3EA;border-radius:20px;width:100%;max-width:680px;max-height:82vh;overflow:auto;padding:26px 28px;box-shadow:0 30px 80px -30px rgba(40,25,10,.6)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:24px;margin:0">{{ pickerTitle }}</h2>
+          <button onClick="{{ closePicker }}" aria-label="Close" style="background:none;border:1px solid #CDC4AF;border-radius:9px;width:34px;height:34px;font-size:18px;color:#6E6655">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ pickerList }}" as="p" hint-placeholder-count="6">
+            <button onClick="{{ p.pick }}" style="text-align:left;background:#FBFAF5;border:1px solid #E3DCCB;border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:8px" style-hover="border-color:#1E5E59">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                <span style="font-family:'Spectral',serif;font-size:17px;line-height:1.1">{{ p.title }}</span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8A8170;flex:none">{{ p.mins }}m</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px">
+                <sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="1">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Spline Sans Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:{{ c.bg }};color:{{ c.fg }}"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:{{ c.dot }};box-shadow:{{ c.ring }}"></span>{{ c.label }}</span>
+                </sc-for>
+                <sc-if value="{{ p.plant }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="Plant-based" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#E7EBDB;color:#5E7A4E;font-size:9px">❧</span></sc-if>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </section>
+  </sc-if>
+
+  <!-- ====================================================== -->
+  <!-- RECIPE DETAIL -->
+  <!-- ====================================================== -->
+  <sc-if value="{{ isRecipe }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Recipe Detail">
+    <button onClick="{{ recipeBack }}" style="margin-top:28px;background:none;border:1px solid #CDC4AF;border-radius:10px;padding:10px 16px;font-family:'Spline Sans Mono',monospace;font-size:12px;color:#6E6655">← {{ backLabel }}</button>
+
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:48px;align-items:start;padding-top:24px" data-stack="recipe">
+
+      <!-- left column: title, meta, method -->
+      <div>
+        <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#A07C3C;margin-bottom:14px">{{ rec.cuisine }} · {{ rec.coll }}</div>
+        <h1 style="font-family:'Spectral',serif;font-weight:500;font-size:48px;line-height:1.02;letter-spacing:-.015em;margin:0">{{ rec.titlePre }}<em style="font-style:italic;color:#1E5E59">{{ rec.titleEm }}</em></h1>
+        <p style="font-size:18px;line-height:1.5;color:#6E6655;margin:16px 0 22px;max-width:48ch">{{ rec.desc }}</p>
+
+        <div style="display:flex;flex-wrap:wrap;gap:18px;font-family:'Spline Sans Mono',monospace;font-size:12px;color:#6E6655;padding:16px 0;border-top:1px solid #DCD5C4;border-bottom:1px solid #DCD5C4">
+          <span>⏱ {{ rec.mins }} min</span><span>· serves {{ rec.servesNow }}</span><span>· {{ rec.diff }}</span><span>· {{ rec.meal }}</span>
+        </div>
+
+        <!-- mediterranean fit -->
+        <div style="display:flex;align-items:flex-start;gap:12px;background:{{ rec.fitBg }};border:1px solid {{ rec.fitBorder }};border-radius:14px;padding:16px 18px;margin:22px 0 28px">
+          <span aria-hidden="true" style="width:14px;height:14px;border-radius:4px;flex:none;margin-top:2px;background:{{ rec.fitSwBg }};box-shadow:{{ rec.fitSwRing }}"></span>
+          <div>
+            <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#7A6B4E;margin-bottom:4px">Mediterranean fit</div>
+            <div style="font-size:14.5px;line-height:1.45;color:#3E3729">{{ rec.fitText }}</div>
+          </div>
+        </div>
+
+        <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:22px;margin:0 0 14px">Method</h2>
+        <ol style="list-style:none;counter-reset:step;padding:0;margin:0;display:flex;flex-direction:column;gap:16px">
+          <sc-for list="{{ rec.steps }}" as="st" hint-placeholder-count="4">
+            <li style="display:flex;gap:16px;align-items:flex-start">
+              <span aria-hidden="true" style="flex:none;width:30px;height:30px;border-radius:50%;background:#E6EEEB;color:#1E5E59;font-family:'Spline Sans Mono',monospace;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ st.n }}</span>
+              <p style="margin:0;font-size:15.5px;line-height:1.55;color:#3E3729;padding-top:3px">{{ st.text }}</p>
+            </li>
+          </sc-for>
+        </ol>
+      </div>
+
+      <!-- right column: scaling + ingredients + actions -->
+      <div style="position:sticky;top:90px">
+        <div style="background:#F6F3EA;border:1px solid #DCD5C4;border-radius:18px;padding:24px">
+
+          <!-- servings stepper -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#7A6B4E">Servings</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <button onClick="{{ rec.dec }}" aria-label="Fewer servings" style="width:36px;height:36px;border-radius:9px;border:1px solid #CDC4AF;background:#FBFAF5;font-size:18px;color:#2C2820;line-height:1">−</button>
+              <span aria-live="polite" style="font-family:'Spline Sans Mono',monospace;font-size:16px;font-weight:600;width:46px;text-align:center">{{ rec.servesNow }}</span>
+              <button onClick="{{ rec.inc }}" aria-label="More servings" style="width:36px;height:36px;border-radius:9px;border:1px solid #CDC4AF;background:#FBFAF5;font-size:18px;color:#2C2820;line-height:1">+</button>
+            </div>
+          </div>
+          <p style="font-size:12px;color:#8A8170;margin:0 0 18px;line-height:1.4">{{ rec.scaleHint }}</p>
+
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+            <h2 style="font-family:'Spectral',serif;font-weight:500;font-size:20px;margin:0">Ingredients</h2>
+            <sc-if value="{{ rec.scaled }}" hint-placeholder-val="{{ false }}"><button onClick="{{ rec.reset }}" style="background:none;border:none;font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#1E5E59;text-decoration:underline">reset to {{ rec.baseServes }}</button></sc-if>
+          </div>
+          <p style="font-size:11.5px;color:#8A8170;margin:0 0 8px;line-height:1.4">Type the amount you actually have — everything else rescales.</p>
+
+          <ul style="list-style:none;padding:0;margin:0">
+            <sc-for list="{{ rec.ing }}" as="g" hint-placeholder-count="6">
+              <li style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #E3DCCB">
+                <sc-if value="{{ g.numeric }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:inline-flex;align-items:center;gap:5px;flex:none;width:104px">
+                    <input value="{{ g.amount }}" onChange="{{ g.onType }}" inputmode="decimal" aria-label="{{ g.ariaAmount }}" style="width:50px;font-family:'Spline Sans Mono',monospace;font-size:13px;text-align:right;border:1px solid #DCD5C4;border-radius:7px;padding:5px 6px;background:#FBFAF5;color:#2C2820">
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;color:#8A8170">{{ g.unit }}</span>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ g.nonNumeric }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;color:#8A8170;width:104px;flex:none">{{ g.unit }}</span>
+                </sc-if>
+                <span style="flex:1;font-size:14.5px;line-height:1.3">{{ g.name }}</span>
+                <span title="{{ g.statusFull }}" style="font-family:'Spline Sans Mono',monospace;font-size:10px;flex:none;color:{{ g.statusColor }};display:inline-flex;align-items:center;gap:4px"><span aria-hidden="true">{{ g.statusIcon }}</span>{{ g.statusLabel }}</span>
+              </li>
+            </sc-for>
+          </ul>
+
+          <!-- actions -->
+          <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
+            <button onClick="{{ rec.toggleSave }}" aria-pressed="{{ rec.savedAria }}" style="flex:1;min-width:120px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:11px;padding:13px;font-family:'Spline Sans Mono',monospace;font-size:12px;border:1px solid {{ rec.saveBorder }};background:{{ rec.saveBg }};color:{{ rec.saveFg }}"><span aria-hidden="true">{{ rec.saveIcon }}</span>{{ rec.saveLabel }}</button>
+            <button onClick="{{ rec.toggleAddDay }}" aria-expanded="{{ rec.addDayAria }}" style="flex:1;min-width:120px;border-radius:11px;padding:13px;font-family:'Spline Sans Mono',monospace;font-size:12px;border:none;background:#1E5E59;color:#F6F3EA">+ Add to a day</button>
+          </div>
+          <sc-if value="{{ rec.addDayOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:5px">
+              <sc-for list="{{ rec.dayButtons }}" as="d" hint-placeholder-count="7">
+                <button onClick="{{ d.add }}" aria-label="{{ d.aria }}" style="padding:9px 4px;border-radius:8px;border:1px solid #CDC4AF;background:#FBFAF5;font-family:'Spline Sans Mono',monospace;font-size:10px;color:#2C2820" style-hover="border-color:#1E5E59;color:#1E5E59">{{ d.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <button onClick="{{ rec.addMissing }}" style="margin-top:8px;width:100%;background:none;border:1px solid #CDC4AF;border-radius:11px;padding:12px;font-family:'Spline Sans Mono',monospace;font-size:12px;color:#6E6655" style-hover="border-color:#A07C3C">{{ rec.missingLabel }}</button>
+
+        </div>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:900},&quot;showPantryCounts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Display&quot;,&quot;label&quot;:&quot;Show pantry counts&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    // ---------- category system (Maiolica palette) ----------
+    this.CATS = {
+      fish:     {label:'Fish',     full:'Fish & seafood', dir:'more', min:2, max:3, rule:'at least twice a week; aim for ≥1 oily fish', dot:'#3E9D94', tint:'#CFE3DF', bg:'#DCEAE7', fg:'#1E5E59'},
+      legumes:  {label:'Legumes',  full:'Legumes',        dir:'more', min:2, max:3, rule:'2–3 a week',          dot:'#3F6B38', tint:'#D6DECB', bg:'#DCE7D5', fg:'#345A2E'},
+      poultry:  {label:'Poultry',  full:'Poultry',        dir:'mod',  min:2, max:2, rule:'moderate',            dot:'#C28A1E', tint:'#ECE0C4', bg:'#F4E7C9', fg:'#7A5A12'},
+      eggs:     {label:'Eggs',     full:'Eggs',           dir:'mod',  min:2, max:4, rule:'2–4 a week', outline:true, ring:'#C28A1E', dot:'#C28A1E', tint:'#ECE0C4', bg:'#F4E7C9', fg:'#7A5A12'},
+      dairy:    {label:'Dairy',    full:'Dairy & cheese', dir:'mod',  min:1, max:4, rule:'small portions; limit hard cheese', dot:'#1E5E59', tint:'#CBD9D6', bg:'#CBD9D6', fg:'#16443F'},
+      redmeat:  {label:'Red meat', full:'Red meat',       dir:'less', max:2, ideal:1, rule:'occasional, lean cuts', dot:'#C0533A', tint:'#EAD3CC', bg:'#F0D9D2', fg:'#8A3A26'},
+      processed:{label:'Processed',full:'Processed meat', dir:'less', max:1, ideal:0, rule:'rarely', outline:true, ring:'#C0533A', dot:'#C0533A', tint:'#EAD3CC', bg:'#F0D9D2', fg:'#8A3A26'}
+    };
+    this.ORDER = ['fish','legumes','poultry','eggs','dairy','redmeat','processed'];
+    this.DAYS = [
+      {key:'Mon',label:'MON',date:'16'},{key:'Tue',label:'TUE',date:'17'},
+      {key:'Wed',label:'WED',date:'18',today:true},{key:'Thu',label:'THU',date:'19'},
+      {key:'Fri',label:'FRI',date:'20'},{key:'Sat',label:'SAT',date:'21'},{key:'Sun',label:'SUN',date:'22'}
+    ];
+    // ---------- recipes ----------
+    const t=(c,note)=>note?{c,note}:{c};
+    this.R = {
+      r1:{id:'r1',title:'Pasta e Ceci',it:true,desc:'A brothy Roman soup of chickpeas and small pasta, scented with rosemary and good oil.',cuisine:'Italian',mins:35,serves:4,diff:'Easy',meal:'Dinner',coll:'Soups',diet:'vegan',tracks:[t('legumes')],have:7,total:9,cookable:true,
+        ing:[{q:200,u:'g',n:'ditalini pasta',have:true},{q:400,u:'g',n:'cooked chickpeas',have:true},{q:1,u:'sprig',n:'rosemary',have:true},{q:2,u:'tbsp',n:'extra-virgin olive oil',have:true},{q:2,u:'',n:'garlic cloves',have:false},{q:400,u:'g',n:'passata',have:true},{q:1,u:'l',n:'vegetable stock',have:true}],
+        steps:['Warm the oil and gently soften the garlic and rosemary, about 3 minutes.','Add passata and half the chickpeas; simmer 10 minutes.','Blend a ladleful smooth, return it for body, then add stock and pasta.','Cook until al dente, finish with a thread of raw oil and black pepper.']},
+      r2:{id:'r2',title:"Orata all'Acqua Pazza",it:true,desc:'Sea bream poached in “crazy water” — tomatoes, garlic, parsley and a splash of white wine.',cuisine:'Italian',mins:30,serves:2,diff:'Medium',meal:'Dinner',coll:'Fish',diet:null,tracks:[t('fish')],have:5,total:9,cookable:false,
+        ing:[{q:2,u:'',n:'whole sea bream, cleaned',have:false},{q:200,u:'g',n:'cherry tomatoes',have:true},{q:100,u:'ml',n:'white wine',have:false},{q:2,u:'',n:'garlic cloves',have:true},{q:1,u:'handful',n:'parsley',have:true},{q:3,u:'tbsp',n:'extra-virgin olive oil',have:true}],
+        steps:['Sear garlic in oil, add halved tomatoes and let them slump.','Pour in wine, let it steam off, add a splash of water.','Lay in the fish, cover and poach 12–14 minutes, spooning broth over.','Scatter parsley and serve in shallow bowls with the broth.']},
+      r3:{id:'r3',title:'Sgombro in Saor',it:true,desc:'Venetian mackerel under sweet-sour onions — an oily fish that loves a night in the fridge.',cuisine:'Italian',mins:40,serves:4,diff:'Medium',meal:'Dinner',coll:'Fish',diet:null,tracks:[t('fish','oily')],have:6,total:8,cookable:false,
+        ing:[{q:600,u:'g',n:'mackerel fillets',have:false},{q:3,u:'',n:'white onions',have:true},{q:80,u:'ml',n:'white wine vinegar',have:true},{q:2,u:'tbsp',n:'raisins',have:true},{q:2,u:'tbsp',n:'pine nuts',have:true},{q:4,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Fry the floured mackerel briefly, set aside.','Soften sliced onions slowly until sweet, add vinegar.','Layer fish and onions with raisins and pine nuts.','Rest at least overnight before serving at room temperature.']},
+      r4:{id:'r4',title:'Zuppa di Lenticchie e Parmigiano',it:true,desc:'Lentil soup finished with a melting rind of parmesan — counts twice toward your week.',cuisine:'Italian',mins:45,serves:4,diff:'Easy',meal:'Dinner',coll:'Soups',diet:'veg',tracks:[t('legumes'),t('dairy')],have:8,total:9,cookable:true,
+        ing:[{q:250,u:'g',n:'brown lentils',have:true},{q:1,u:'',n:'parmesan rind',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:1,u:'stick',n:'celery',have:true},{q:3,u:'tbsp',n:'olive oil',have:true},{q:30,u:'g',n:'grated parmesan',have:false}],
+        steps:['Sweat the diced soffritto in oil until soft.','Add lentils, the rind and water to cover; simmer 30 minutes.','Fish out the rind, season, and loosen with water if needed.','Serve with grated parmesan and a drizzle of oil.']},
+      r5:{id:'r5',title:'Pollo alla Cacciatora',it:true,desc:'Hunter’s chicken braised with tomato, rosemary and olives until the meat slips off the bone.',cuisine:'Italian',mins:55,serves:4,diff:'Medium',meal:'Dinner',coll:'Chicken',diet:null,tracks:[t('poultry')],have:6,total:10,cookable:false,
+        ing:[{q:8,u:'',n:'chicken thighs',have:false},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:100,u:'g',n:'black olives',have:true},{q:2,u:'',n:'rosemary sprigs',have:true},{q:150,u:'ml',n:'white wine',have:false},{q:3,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Brown the chicken well on all sides; remove.','Deglaze with wine, add tomatoes, olives and rosemary.','Return chicken, cover and braise gently 35 minutes.','Reduce the sauce a little and rest before serving.']},
+      r6:{id:'r6',title:'Lemon & Herb Roast Chicken',it:false,desc:'A whole bird roasted over lemons and thyme — Sunday lunch that becomes three more meals.',cuisine:'Mediterranean',mins:90,serves:6,diff:'Medium',meal:'Lunch',coll:'Chicken',diet:null,tracks:[t('poultry')],have:7,total:8,cookable:false,
+        ing:[{q:1.6,u:'kg',n:'whole chicken',have:false},{q:2,u:'',n:'lemons',have:true},{q:1,u:'bunch',n:'thyme',have:true},{q:1,u:'head',n:'garlic',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Rub the bird with oil, salt and lemon zest.','Stuff the cavity with halved lemons and thyme.','Roast at 200°C for 75–80 minutes, basting twice.','Rest 15 minutes before carving.']},
+      r7:{id:'r7',title:'Frittata di Zucchine',it:true,desc:'Soft courgette frittata with mint and a little pecorino — equally good warm or packed for lunch.',cuisine:'Italian',mins:25,serves:4,diff:'Easy',meal:'Lunch',coll:'Courgettes',diet:'veg',tracks:[t('eggs')],have:8,total:8,cookable:true,
+        ing:[{q:6,u:'',n:'eggs',have:true},{q:3,u:'',n:'courgettes',have:true},{q:30,u:'g',n:'pecorino',have:true},{q:1,u:'handful',n:'mint',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Slice and soften the courgettes in oil until golden.','Beat eggs with pecorino, mint, salt and pepper.','Pour over the courgettes and cook low until almost set.','Finish under the grill and slide out to cool slightly.']},
+      r8:{id:'r8',title:'Shakshuka',it:false,desc:'Eggs poached in a spiced pepper and tomato sauce, scooped up with bread.',cuisine:'Levantine',mins:30,serves:3,diff:'Easy',meal:'Dinner',coll:'Soups',diet:'veg',tracks:[t('eggs')],have:7,total:9,cookable:false,
+        ing:[{q:5,u:'',n:'eggs',have:true},{q:2,u:'',n:'red peppers',have:false},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:1,u:'tsp',n:'cumin',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Soften onion and peppers with cumin in oil.','Add tomatoes and simmer to a thick sauce.','Make wells, crack in the eggs, cover and cook to taste.','Finish with herbs and serve from the pan.']},
+      r9:{id:'r9',title:'Ribollita',it:true,desc:'Tuscan “reboiled” bread and bean soup — thrifty, deep, and better the next day.',cuisine:'Italian',mins:60,serves:6,diff:'Medium',meal:'Dinner',coll:'Soups',diet:'vegan',tracks:[t('legumes')],have:6,total:10,cookable:false,
+        ing:[{q:400,u:'g',n:'cannellini beans',have:true},{q:200,u:'g',n:'cavolo nero',have:false},{q:200,u:'g',n:'stale bread',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:4,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Build a soffritto, add beans and chopped greens.','Simmer with water until everything is meltingly soft.','Tear in the bread and stir until it collapses into the soup.','Rest, reheat, and finish each bowl with raw oil.']},
+      r10:{id:'r10',title:'Pumpkin & Sage Risotto',it:false,desc:'Creamy risotto with roasted pumpkin, sage butter and parmesan.',cuisine:'Italian',mins:45,serves:4,diff:'Medium',meal:'Dinner',coll:'Pumpkin',diet:'veg',tracks:[t('dairy')],have:7,total:9,cookable:false,
+        ing:[{q:300,u:'g',n:'arborio rice',have:true},{q:500,u:'g',n:'pumpkin',have:false},{q:50,u:'g',n:'parmesan',have:true},{q:1,u:'handful',n:'sage',have:true},{q:1,u:'l',n:'vegetable stock',have:true},{q:1,u:'',n:'onion',have:true}],
+        steps:['Roast diced pumpkin until caramelised.','Toast the rice with onion, then add stock a ladle at a time.','Fold through the pumpkin near the end.','Beat in parmesan and sage off the heat.']},
+      r11:{id:'r11',title:'Bruschette ai Fagioli',it:true,desc:'Grilled bread piled with white beans, garlic and rosemary oil — lunch in ten minutes.',cuisine:'Italian',mins:15,serves:2,diff:'Easy',meal:'Lunch',coll:'Panini & Bruschette',diet:'vegan',tracks:[t('legumes')],have:6,total:7,cookable:true,
+        ing:[{q:250,u:'g',n:'cannellini beans',have:true},{q:4,u:'slices',n:'sourdough',have:true},{q:1,u:'',n:'garlic clove',have:true},{q:1,u:'sprig',n:'rosemary',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Warm the beans with rosemary oil and a little of their liquid.','Crush lightly to a rough, spoonable texture.','Grill the bread and rub with the cut garlic.','Pile on the beans, season, and finish with more oil.']},
+      r12:{id:'r12',title:'Grilled Sardines',it:false,desc:'Whole sardines over fire with lemon and oregano — the cheapest oily fish, and the best.',cuisine:'Mediterranean',mins:20,serves:4,diff:'Easy',meal:'Dinner',coll:'Fish',diet:null,tracks:[t('fish','oily')],have:5,total:6,cookable:false,
+        ing:[{q:12,u:'',n:'fresh sardines',have:false},{q:2,u:'',n:'lemons',have:true},{q:1,u:'tbsp',n:'dried oregano',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Pat the sardines dry, oil and salt them well.','Grill hot, 2–3 minutes a side, until the skin blisters.','Squeeze over lemon and scatter oregano.','Serve at once with bread and a green salad.']},
+      r13:{id:'r13',title:'Stufato di Manzo alle Olive',it:true,desc:'Slow beef stew with olives and orange peel — a once-a-week treat, made lean.',cuisine:'Italian',mins:150,serves:6,diff:'Medium',meal:'Dinner',coll:'Soups',diet:null,tracks:[t('redmeat')],have:5,total:9,cookable:false,
+        ing:[{q:900,u:'g',n:'lean stewing beef',have:false},{q:120,u:'g',n:'green olives',have:true},{q:2,u:'strips',n:'orange peel',have:true},{q:250,u:'ml',n:'red wine',have:false},{q:2,u:'',n:'onions',have:true},{q:3,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Brown the beef hard in batches.','Soften onions, deglaze with wine, add olives and peel.','Cover and braise low for two hours until tender.','Skim, season, and rest before serving.']},
+      r14:{id:'r14',title:'Sausage & Lentil Stew',it:false,desc:'A few good sausages stretched over a pot of lentils — comfort with a conscience.',cuisine:'Mediterranean',mins:50,serves:4,diff:'Easy',meal:'Dinner',coll:'Legumes',diet:null,tracks:[t('legumes'),t('processed')],have:6,total:8,cookable:false,
+        ing:[{q:4,u:'',n:'pork sausages',have:false},{q:250,u:'g',n:'puy lentils',have:true},{q:1,u:'',n:'onion',have:true},{q:2,u:'',n:'carrots',have:true},{q:400,u:'g',n:'chopped tomatoes',have:true},{q:2,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Brown the sausages and set aside.','Soften the vegetables, add lentils and tomatoes.','Nestle the sausages back in and simmer 30 minutes.','Slice the sausages through and season the lentils well.']},
+      r15:{id:'r15',title:'Pasta alla Norma',it:true,desc:'Sicilian pasta with fried aubergine, tomato and salted ricotta — summer on a plate.',cuisine:'Italian',mins:40,serves:4,diff:'Easy',meal:'Dinner',coll:'Pasta',diet:'vegan',tracks:[],have:7,total:9,cookable:false,
+        ing:[{q:400,u:'g',n:'rigatoni',have:true},{q:2,u:'',n:'aubergines',have:false},{q:500,u:'g',n:'passata',have:true},{q:1,u:'handful',n:'basil',have:true},{q:5,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Fry the cubed aubergine until deep gold; drain.','Simmer passata with garlic and basil to a loose sauce.','Cook the pasta, toss with sauce and most of the aubergine.','Top with the rest and torn basil.']},
+      r16:{id:'r16',title:'Focaccia alle Olive',it:true,desc:'Dimpled, oil-pooled focaccia studded with olives — the table’s anchor.',cuisine:'Italian',mins:120,serves:8,diff:'Medium',meal:'Side',coll:'Bread & Pizza',diet:'vegan',tracks:[],have:6,total:7,cookable:false,
+        ing:[{q:500,u:'g',n:'strong flour',have:true},{q:350,u:'ml',n:'water',have:true},{q:7,u:'g',n:'dried yeast',have:true},{q:100,u:'g',n:'green olives',have:true},{q:5,u:'tbsp',n:'olive oil',have:true}],
+        steps:['Mix a wet dough and let it rise until doubled.','Stretch into an oiled tin and dimple deeply.','Press in olives, drizzle with oil and brine.','Bake hot until golden and crisp at the edges.']}
+    };
+    this.state = {
+      screen:'home',
+      week:{Mon:['r5'],Tue:['r1'],Wed:['r2'],Thu:[],Fri:['r7'],Sat:['r13'],Sun:[]},
+      recipeId:'r2', fromScreen:'home',
+      servings:null, ratio:null,
+      saved:{}, shopExtra:{},
+      pickerOpen:false, pickerDay:null,
+      shopOpen:false, addDayOpen:false,
+      live:''
+    };
+  }
+
+  // ---------- helpers ----------
+  announce(msg){ this.setState({live:msg}); }
+  nf(v){ if(v==null) return ''; let r=Math.round(v*100)/100; return (Math.abs(r-Math.round(r))<0.001)?String(Math.round(r)):String(r); }
+  chip(cKey){ const c=this.CATS[cKey]; return {label:c.label, bg:c.bg, fg:c.fg, dot:c.outline?'transparent':c.dot, ring:c.outline?('inset 0 0 0 2px '+c.ring):'none'}; }
+  isPlant(r){ return r.diet==='veg'||r.diet==='vegan'; }
+  recipeChips(r){ return (r.tracks||[]).map(t=>this.chip(t.c)); }
+  plannedIds(){ const w=this.state.week; return [].concat(...this.DAYS.map(d=>w[d.key]||[])); }
+  counts(){ const c={}; this.ORDER.forEach(k=>c[k]=0); this.plannedIds().forEach(id=>{ const r=this.R[id]; if(r) (r.tracks||[]).forEach(t=>{ c[t.c]=(c[t.c]||0)+1; }); }); return c; }
+
+  statusFor(key,n){
+    const c=this.CATS[key];
+    if(c.dir==='more'){ if(n>=c.min) return {s:(n>c.max?'plenty ✓':'on track ✓'), short:(n>c.max?'plenty':'on track'), col:'#3F6B38'}; const d=c.min-n; return {s:'add '+d+(d>1?' more':' more'), short:'add '+d, col:'#3F6B38'}; }
+    if(c.dir==='mod'){ if(n===0) return {s:'none yet', short:'none', col:'#8A8170'}; if(n>c.max) return {s:'plenty', short:'plenty', col:'#8A8170'}; if(n<c.min) return {s:'room left', short:'room', col:'#8A8170'}; return {s:'on track ✓', short:'on track', col:'#3F6B38'}; }
+    // less
+    if(n>c.max) return {s:'over by '+(n-c.max), short:'over', col:'#B8492F'};
+    if(n===0) return {s:'clear ✓', short:'clear ✓', col:'#3F6B38'};
+    return {s:n+' of '+c.max+' · ok', short:n+'/'+c.max, col:'#8A8170'};
+  }
+  balanceRows(){
+    const cnt=this.counts();
+    return this.ORDER.map(key=>{
+      const c=this.CATS[key]; const n=cnt[key]; const segCount=c.max;
+      const fill=c.outline?c.ring:c.dot;
+      const segs=[]; for(let i=0;i<segCount;i++){ segs.push(i<n?{bg:fill,ring:'none'}:{bg:c.tint,ring:'none'}); }
+      const st=this.statusFor(key,n);
+      const targetTxt=(c.dir==='less')?('≤'+c.max):(c.min===c.max?(''+c.min):(c.min+'–'+c.max));
+      return {key, label:c.label, swBg:c.outline?'transparent':c.dot, swRing:c.outline?('inset 0 0 0 2px '+c.ring):'none',
+        segs, status:st.s, statusShort:st.short, statusColor:st.col,
+        aria:c.full+': '+n+' planned of target '+targetTxt+'. '+st.s};
+    });
+  }
+  effScale(r){
+    const {servings,ratio}=this.state;
+    if(ratio && ratio.recipeId===r.id){ return ratio.amount/ratio.baseQ; }
+    const sv=servings||r.serves; return sv/r.serves;
+  }
+
+  // ---------- nav ----------
+  goHome=()=>this.setState({screen:'home'});
+  goPlan=()=>this.setState({screen:'plan',pickerOpen:false});
+  openRecipe=(id)=>this.setState({screen:'recipe',recipeId:id,servings:null,ratio:null,addDayOpen:false,fromScreen:this.state.screen==='recipe'?this.state.fromScreen:this.state.screen});
+
+  // ---------- plan editing ----------
+  addToDay=(day,id)=>{ const w={...this.state.week}; w[day]=[...(w[day]||[]),id]; this.setState({week:w,pickerOpen:false}); this.announce(this.R[id].title+' added to '+day+'. Balance updated.'); };
+  removeFromDay=(day,id)=>{ const w={...this.state.week}; const i=(w[day]||[]).indexOf(id); if(i>=0){ w[day]=w[day].slice(); w[day].splice(i,1); } this.setState({week:w}); this.announce(this.R[id].title+' removed from '+day+'. Balance updated.'); };
+  openPicker=(day)=>this.setState({pickerOpen:true,pickerDay:day});
+  closePicker=()=>this.setState({pickerOpen:false});
+
+  toggleSave=(id)=>{ const s={...this.state.saved}; s[id]=!s[id]; this.setState({saved:s}); this.announce(s[id]?'Saved '+this.R[id].title:'Removed from saved'); };
+  toggleShop=()=>this.setState({shopOpen:!this.state.shopOpen});
+  toggleAddDay=()=>this.setState({addDayOpen:!this.state.addDayOpen});
+  setServings=(n)=>{ const v=Math.max(1,Math.min(24,n)); this.setState({servings:v,ratio:null}); };
+  resetScale=()=>this.setState({servings:null,ratio:null});
+  typeIngredient=(r,idx,baseQ,val)=>{ const a=parseFloat(val); if(!isFinite(a)||a<=0){ this.setState({ratio:null}); } else { this.setState({ratio:{recipeId:r.id,idx,amount:a,baseQ}}); } };
+  addMissing=(r)=>{ const e={...this.state.shopExtra}; e[r.id]=true; this.setState({shopExtra:e,screen:'plan',shopOpen:true}); this.announce('Added missing ingredients from '+r.title+' to your shopping list.'); };
+
+  // ---------- shopping list ----------
+  aisleFor(name){
+    const n=name.toLowerCase();
+    if(/(bream|mackerel|sardine|fish|seafood)/.test(n)) return 'Fishmonger';
+    if(/(beef|sausage|chicken|pork|lamb)/.test(n)) return 'Butcher';
+    if(/(parmesan|pecorino|ricotta|cheese|egg|yoghurt|butter)/.test(n)) return 'Dairy & eggs';
+    if(/(tomato|onion|carrot|pepper|courgette|aubergine|lemon|garlic|herb|cavolo|pumpkin|basil|mint|sage|rosemary|thyme|parsley|oregano|celery|olive)/.test(n)) return 'Greengrocer';
+    return 'Pantry';
+  }
+  shopGroups(){
+    const ids=[...new Set([...this.plannedIds(), ...Object.keys(this.state.shopExtra)])];
+    const map={};
+    ids.forEach(id=>{ const r=this.R[id]; if(!r) return; r.ing.forEach(g=>{ if(g.have) return; const key=g.n.toLowerCase(); const aisle=this.aisleFor(g.n); if(!map[aisle]) map[aisle]={}; if(!map[aisle][key]){ map[aisle][key]={name:g.n, q:g.q, u:g.u, count:1}; } else { map[aisle][key].count++; if(g.q!=null && map[aisle][key].q!=null && g.u===map[aisle][key].u){ map[aisle][key].q+=g.q; } } }); });
+    const order=['Greengrocer','Fishmonger','Butcher','Dairy & eggs','Pantry'];
+    const groups=[];
+    order.forEach(a=>{ if(!map[a]) return; const items=Object.values(map[a]).map(it=>({name:it.name, qty:(it.q!=null?(this.nf(it.q)+(it.u?' '+it.u:'')):(it.count>1?'×'+it.count:'1'))})); groups.push({aisle:a, items}); });
+    return groups;
+  }
+  shopCount(){ return this.shopGroups().reduce((s,g)=>s+g.items.length,0); }
+
+  // ---------- view models ----------
+  homeView(){
+    const w=this.state.week;
+    const week=this.DAYS.map(d=>{
+      const ids=w[d.key]||[]; const empty=ids.length===0;
+      return {
+        label:d.label, date:d.date,
+        cardBg: d.today?'#1E5E59':(empty?'transparent':'#F6F3EA'),
+        cardBorder: d.today?'1px solid #1E5E59':(empty?'1.5px dashed #CDC4AF':'1px solid #DCD5C4'),
+        dateColor: d.today?'#AFD0CB':'#8A8170', dateStrong:d.today?'#fff':'#2C2820',
+        titleColor: d.today?'#F6F3EA':'#2C2820',
+        todayTag: d.today?' · today':'',
+        empty, add:()=>this.openPicker(d.key), addAria:'Plan a meal for '+d.label+' '+d.date,
+        meals: ids.map(id=>{ const r=this.R[id]; return {title:r.title, chips:this.recipeChips(r).map(c=>d.today?{...c,bg:'rgba(255,255,255,.16)',fg:'#EAF4F2',dot:c.dot==='transparent'?'transparent':'#9FE0D7'}:c), plant:this.isPlant(r), open:()=>this.openRecipe(id)}; })
+      };
+    });
+    // tonight = today's recipe
+    const today=this.DAYS.find(d=>d.today); const tid=(w[today.key]||[])[0];
+    const tr=this.R[tid]; const tchip=tr?this.chip(tr.tracks[0]?tr.tracks[0].c:'fish'):null;
+    const tonight= tr? {day:today.label.charAt(0)+today.label.slice(1).toLowerCase(), open:()=>this.openRecipe(tid), title:tr.title, desc:tr.desc, mins:tr.mins, serves:tr.serves, kitchen:tr.have+'/'+tr.total, chip:tchip, chipLabel:this.CATS[tr.tracks[0].c].full+' · twice a week'} : null;
+    const kitchen=Object.values(this.R).filter(r=>r.cookable).slice(0,3).map(r=>({title:r.title, kitchen:r.have+'/'+r.total, open:()=>this.openRecipe(r.id), note: r.have===r.total?'all in · cookable now':(r.id==='r4'?'parmesan rind to use soon':'cookable now'), noteColor: r.id==='r4'?'#B0731E':'#3F6B38'}));
+    const cnt=this.counts(); const low=this.ORDER.filter(k=>this.CATS[k].dir==='more'&&cnt[k]<this.CATS[k].min).map(k=>this.CATS[k].label.toLowerCase());
+    const planned=this.plannedIds().length;
+    const open=this.DAYS.filter(d=>(w[d.key]||[]).length===0).length;
+    const homeLede=planned+' meals planned, '+open+(open===1?' day':' days')+' open.'+(low.length?(' Your week leans light on '+low.join(' and ')+' — let’s even it out.'):' A nicely balanced week.');
+    return {week, tonight, kitchen, homeLede};
+  }
+  planView(){
+    const w=this.state.week;
+    const planDays=this.DAYS.map(d=>({
+      label:d.label, date:d.date, dateColor:d.today?'#1E5E59':'#8A8170', dateStrong:d.today?'#1E5E59':'#2C2820',
+      add:()=>this.openPicker(d.key), addAria:'Add a recipe to '+d.label+' '+d.date,
+      meals:(w[d.key]||[]).map(id=>{ const r=this.R[id]; return {title:r.title, chips:this.recipeChips(r), kitchen:r.have+'/'+r.total, open:()=>this.openRecipe(id), remove:()=>this.removeFromDay(d.key,id), removeAria:'Remove '+r.title+' from '+d.label}; })
+    }));
+    // suggestions: most-under 'more' category
+    const cnt=this.counts(); let gapKey=null, gapDef=0;
+    this.ORDER.forEach(k=>{ const c=this.CATS[k]; if(c.dir==='more'){ const def=c.min-cnt[k]; if(def>gapDef){ gapDef=def; gapKey=k; } } });
+    const plannedSet=new Set(this.plannedIds());
+    let suggestions=[], gapNote;
+    if(gapKey){ const cat=this.CATS[gapKey];
+      suggestions=Object.values(this.R).filter(r=>!plannedSet.has(r.id)&&(r.tracks||[]).some(t=>t.c===gapKey)).slice(0,3).map(r=>({title:r.title, note:cat.label+' · '+r.mins+' min'+(r.tracks.some(t=>t.note==='oily')?' · oily fish':''), open:()=>this.openRecipe(r.id), add:()=>this.addToDay(this.nextEmptyDay(),r.id), addAria:'Add '+r.title+' to your week'}));
+      gapNote='You’re '+gapDef+' short on '+cat.label.toLowerCase()+'. These would round it out:';
+    } else { gapNote='Your week is nicely balanced — nothing urgent to fill.'; suggestions=Object.values(this.R).filter(r=>!plannedSet.has(r.id)).slice(0,3).map(r=>({title:r.title, note:(r.tracks[0]?this.CATS[r.tracks[0].c].label:'Plant')+' · '+r.mins+' min', open:()=>this.openRecipe(r.id), add:()=>this.addToDay(this.nextEmptyDay(),r.id), addAria:'Add '+r.title+' to your week'})); }
+    const groups=this.shopGroups(); const shopCount=groups.reduce((s,g)=>s+g.items.length,0);
+    const cntLow=this.ORDER.filter(k=>this.CATS[k].dir==='more'&&cnt[k]<this.CATS[k].min).map(k=>this.CATS[k].label.toLowerCase());
+    return {planDays, suggestions, gapNote, shopGroups:groups, shopSummary: shopCount+' items to buy · '+groups.length+' aisles', balanceNote:(cntLow.length?('Low on '+cntLow.join(', ')):'Balanced across the week')};
+  }
+  nextEmptyDay(){ const w=this.state.week; const e=this.DAYS.find(d=>(w[d.key]||[]).length===0); return e?e.key:this.DAYS[this.DAYS.length-1].key; }
+  recipeView(){
+    const r=this.R[this.state.recipeId]; if(!r) return {};
+    const scale=this.effScale(r); const scaled=Math.abs(scale-1)>0.001;
+    const servesNow=this.nf(Math.round(r.serves*scale*10)/10);
+    // title em: italicise last word/phrase
+    const words=r.title.split(' '); let titleEm=words.length>1?(' '+words.slice(-1)[0]):r.title; let titlePre=words.length>1?words.slice(0,-1).join(' ')+' ':'';
+    if(r.title.indexOf("all'")>=0){ const i=r.title.indexOf("all'"); titlePre=r.title.slice(0,i); titleEm=r.title.slice(i); }
+    const fitCat=this.CATS[(r.tracks[0]||{}).c]||null;
+    let fitText, fitSwBg='transparent', fitSwRing='none', fitBg='#F1EFE4', fitBorder='#E3DCCB';
+    if(r.tracks.length){ const labels=r.tracks.map(t=>this.CATS[t.c].full).join(' + '); const rules=[...new Set(r.tracks.map(t=>this.CATS[t.c].rule))].join('; '); const oily=r.tracks.some(t=>t.note==='oily');
+      fitText='Counts toward '+labels+'. '+rules+(oily?' This is an oily fish — exactly what the week wants.':''); const c=fitCat; fitSwBg=c.outline?'transparent':c.dot; fitSwRing=c.outline?('inset 0 0 0 2px '+c.ring):'none'; fitBg=c.bg; fitBorder=c.tint; }
+    else { fitText='A supporting plate — not one of the seven tracked groups, but built on vegetables, whole grains and good olive oil.'; }
+    const ing=r.ing.map((g,idx)=>{ const numeric=g.q!=null; const amt=numeric?this.nf(g.q*scale):''; return {numeric, nonNumeric:!numeric, amount:amt, unit:g.u||(numeric?'':'—'), name:g.n, ariaAmount:'Amount of '+g.n, onType:(e)=>this.typeIngredient(r,idx,g.q,e&&e.target?e.target.value:e), statusLabel:g.have?'in kitchen':'to buy', statusFull:g.have?'Already in your kitchen':'Add to shopping list', statusIcon:g.have?'✓':'+', statusColor:g.have?'#3F6B38':'#A07C3C'}; });
+    const dayButtons=this.DAYS.map(d=>({label:d.label.slice(0,1)+d.date, aria:'Add '+r.title+' to '+d.label+' '+d.date, add:()=>this.addToDay(d.key,r.id)}));
+    const saved=!!this.state.saved[r.id];
+    const toBuy=r.ing.filter(g=>!g.have).length;
+    return {cuisine:r.cuisine, coll:r.coll, titlePre, titleEm, desc:r.desc, mins:r.mins, diff:r.diff, meal:r.meal, servesNow, baseServes:r.serves, scaled,
+      fitText, fitBg, fitBorder, fitSwBg, fitSwRing,
+      steps:r.steps.map((s,i)=>({n:i+1,text:s})), ing,
+      scaleHint: scaled?('Rescaled from '+r.serves+(this.state.ratio?' · matched to one ingredient':' · adjusted servings')):('Original recipe · serves '+r.serves),
+      inc:()=>this.setServings((this.state.servings||r.serves)+1), dec:()=>this.setServings((this.state.servings||r.serves)-1), reset:this.resetScale,
+      toggleSave:()=>this.toggleSave(r.id), savedAria:saved?'true':'false', saveLabel:saved?'Saved':'Save', saveIcon:saved?'♥':'♡', saveBg:saved?'#1E5E59':'#FBFAF5', saveFg:saved?'#F6F3EA':'#2C2820', saveBorder:saved?'#1E5E59':'#CDC4AF',
+      toggleAddDay:this.toggleAddDay, addDayAria:this.state.addDayOpen?'true':'false', addDayOpen:this.state.addDayOpen, dayButtons,
+      addMissing:()=>this.addMissing(r), missingLabel: toBuy>0?('Add '+toBuy+' missing to shopping list'):'Everything’s in your kitchen ✓'};
+  }
+
+  renderVals(){
+    const s=this.state; const screen=s.screen;
+    const base={
+      live:s.live,
+      isHome:screen==='home', isPlan:screen==='plan', isRecipe:screen==='recipe',
+      goHome:this.goHome, goPlan:this.goPlan,
+      homeCur:screen==='home'?'page':'false', planCur:screen==='plan'?'page':'false',
+      homeBg:screen==='home'?'#2C2820':'transparent', homeFg:screen==='home'?'#F6F3EA':'#6E6655',
+      planBg:screen==='plan'?'#2C2820':'transparent', planFg:screen==='plan'?'#F6F3EA':'#6E6655',
+      showPantry: this.props.showPantryCounts ?? true,
+      balance:this.balanceRows(),
+    };
+    if(screen==='home'){ Object.assign(base,this.homeView()); }
+    if(screen==='plan'){ const pv=this.planView(); Object.assign(base,pv, {
+      pickerOpen:s.pickerOpen, closePicker:this.closePicker, pickerTitle:'Add to '+(s.pickerDay||''),
+      pickerList:Object.values(this.R).map(r=>({title:r.title, mins:r.mins, chips:this.recipeChips(r), plant:this.isPlant(r), pick:()=>this.addToDay(s.pickerDay,r.id)})),
+      toggleShop:this.toggleShop, shopOpen:s.shopOpen, shopExpanded:s.shopOpen?'true':'false', shopCaret:s.shopOpen?'▾':'▸'
+    }); }
+    if(screen==='recipe'){ base.rec=this.recipeView(); base.recipeBack=()=>this.setState({screen:s.fromScreen||'home'}); base.backLabel=(s.fromScreen==='plan')?'Back to plan':'Back to this week'; }
+    return base;
+  }
+}
+</script>
+</body>
+</html>
