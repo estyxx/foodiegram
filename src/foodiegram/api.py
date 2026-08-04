@@ -18,8 +18,13 @@ logger = logging.getLogger(__name__)
 _FRONTEND = Path(__file__).parent.parent.parent / "frontend"
 
 
-def create_app(*, deps: Deps, auth: AuthConfig | None = None) -> FastAPI:
-    """Build a FastAPI app wired to deps, behind Basic auth and CORS."""
+def create_app(
+    *,
+    deps: Deps,
+    auth: AuthConfig | None = None,
+    cors_origins: list[str] | None = None,
+) -> FastAPI:
+    """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
     auth = auth or AuthConfig()
     app = FastAPI(title="Foodiegram API")
     app.state.deps = deps
@@ -29,13 +34,16 @@ def create_app(*, deps: Deps, auth: AuthConfig | None = None) -> FastAPI:
         username=auth.username,
         password=auth.password,
     )
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # The SPA is served same-origin, so CORS stays off unless an explicit
+    # allowlist is configured; never pair credentials with a wildcard origin.
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     app.include_router(recipes.router)
     app.include_router(plans.router)
@@ -58,6 +66,7 @@ def _default_app() -> FastAPI:
     return create_app(
         deps=build_deps(settings.database_url),
         auth=auth_from_settings(settings),
+        cors_origins=settings.cors_origins(),
     )
 
 

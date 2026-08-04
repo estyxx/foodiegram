@@ -35,9 +35,10 @@ def login_client(settings: Settings) -> Client:
     Follows the instagrapi best-practices pattern: always load + login together
     so device UUIDs stay consistent across runs.
     """
+    credentials = settings.require_instagram()
     session_file = settings.instagram_session_file
-    username = settings.instagram_username
-    password = settings.instagram_password
+    username = credentials.username
+    password = credentials.password
     verification_code = os.getenv("INSTAGRAM_2FA_CODE", "")
     sessionid = settings.instagram_sessionid
 

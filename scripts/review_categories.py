@@ -72,7 +72,7 @@ def main() -> None:
     init_db(engine)
     repo = RecipeRepository(engine)
     keywords = load_processed_meat_keywords()
-    agent = build_category_agent(api_key=settings.openai_api_key)
+    agent = build_category_agent(api_key=settings.require_openai_api_key())
 
     candidates = select_for_review(
         repo.list_all(),

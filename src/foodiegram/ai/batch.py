@@ -277,7 +277,7 @@ def cmd_submit(
 
     logger.info("Wrote %d tasks to %s", len(to_submit), BATCH_INPUT_PATH)
 
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.require_openai_api_key())
 
     with BATCH_INPUT_PATH.open("rb") as fh:
         upload = client.files.create(file=fh, purpose="batch")
@@ -297,7 +297,7 @@ def cmd_submit(
 def cmd_status(settings: Settings, batch_id: str | None) -> None:
     """Print the status and request counts of an OpenAI batch job."""
     bid = _load_batch_id(batch_id)
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.require_openai_api_key())
     batch = client.batches.retrieve(bid)
 
     counts = batch.request_counts
@@ -327,7 +327,7 @@ def cmd_apply(
     batch_output.jsonl is kept so history can be backfilled later.
     """
     bid = _load_batch_id(batch_id)
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.require_openai_api_key())
     batch = client.batches.retrieve(bid)
 
     if batch.status != "completed":
@@ -395,7 +395,7 @@ def cmd_smoke(
 
     prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
     schema = _extraction_schema()
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.require_openai_api_key())
 
     passed = 0
     for recipe in eligible:

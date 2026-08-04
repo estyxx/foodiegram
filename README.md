@@ -42,14 +42,16 @@ Web app: browse · search · plan weeks · (Phase 6) edit · add manual recipes
 ## Quick start (dev)
 
 ```bash
-cp .env.example .env   # fill in OPENAI_API_KEY + CLOUDINARY_*
+cp .env.example .env   # serving needs no secrets; fill the pipeline block only to ingest
 uv sync
 make import            # load data/recipes/ into data/dispensa.db (first run only)
 make serve-api         # → http://localhost:8000
 ```
 
 The database defaults to `sqlite:///data/dispensa.db` (auto-created). Point at another
-database — e.g. Neon Postgres in prod — by setting `DATABASE_URL`.
+database — e.g. Neon Postgres in prod — by setting `DATABASE_URL`. Serving the app needs
+only `DATABASE_URL` (+ `BASIC_AUTH_*` in prod); the OpenAI/Cloudinary/Instagram secrets
+are used solely by the local ingestion pipeline.
 
 ---
 
@@ -67,7 +69,7 @@ src/foodiegram/
   api.py         FastAPI: GET/PATCH /recipes + /scale (serves from the DB)
   api_models.py  API response models (RecipeSummary, RecipeDetail)
   settings.py    pydantic-settings (reads .env); DATABASE_URL, OpenAI, Cloudinary
-public/          SPA frontend (single index.html — split in Phase 4)
+frontend/        SPA (no-build ES modules): css/ tokens+base+components, js/ views+components
 scripts/         Thin CLI wrappers over foodiegram.app / foodiegram.ai
 tests/
 docs/PLAN.md     Full roadmap, architecture decisions, all specs
@@ -115,6 +117,45 @@ DB; `make backfill` reconstructs `extractions` history from kept `batch_output.j
 
 **Instagram account note:** instagrapi login is currently flagged; nothing here depends
 on it. Never run Instagram-facing code on the server.
+
+---
+
+## Deploy (FastAPI Cloud + Neon)
+
+One `fastapi deploy` ships the API and the SPA together (D1). The deploy artifact is
+**code only** — data reaches prod via a local `import_json` against Neon (D2), and the
+filesystem is ephemeral (nothing mutable on disk in prod).
+
+**Prerequisites**
+- The app serves fine with only `DATABASE_URL` set; ingestion secrets are optional.
+- FastAPI Cloud supports Python 3.14 (matches `requires-python`); pin `==3.14.*` only
+  if a dependency later forces it.
+- Tables + default targets are created automatically on first boot (`init_db`), so a
+  fresh Neon database is fine — but load the recipe data before/right after first deploy.
+
+**Steps**
+
+```bash
+# 1. Provision a Neon Postgres database; copy its POOLED connection string.
+# 2. Load your data into Neon from your laptop (data never rides in the artifact):
+DATABASE_URL='<neon-pooled-url>' make import
+
+# 3. Deploy the code (from the repo root):
+uvx fastapi deploy        # or: fastapi deploy
+
+# 4. In the FastAPI Cloud dashboard, set env vars:
+#      DATABASE_URL        = <neon-pooled-url>
+#      BASIC_AUTH_USERNAME = <you>
+#      BASIC_AUTH_PASSWORD = <strong-password>
+#      CORS_ALLOW_ORIGINS  = (leave empty — the SPA is same-origin)
+```
+
+**Smoke test after deploy:** open the URL (expect a Basic-auth prompt), load a recipe,
+then edit something and redeploy — the edit must survive (proves the DB, not the
+ephemeral disk, is the source of truth).
+
+> Auth is enforced over **everything** (static + API) whenever `BASIC_AUTH_USERNAME` is
+> set; leave it empty only for local dev.
 
 ---
 

@@ -16,3 +16,7 @@ class PromptTemplateError(FoodiegramError):
 
 class StorageError(FoodiegramError):
     """Raised when reading or writing persisted recipes fails."""
+
+
+class ConfigurationError(FoodiegramError):
+    """Raised when a required setting is missing for the requested operation."""

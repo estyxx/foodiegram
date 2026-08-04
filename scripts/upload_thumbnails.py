@@ -20,10 +20,11 @@ def main() -> None:
     """Upload missing thumbnails to Cloudinary and update recipes with durable URLs."""
     settings = Settings()
 
+    cloudinary_config = settings.require_cloudinary()
     cloudinary.config(
-        cloud_name=settings.cloudinary_cloud_name,
-        api_key=settings.cloudinary_api_key,
-        api_secret=settings.cloudinary_api_secret,
+        cloud_name=cloudinary_config.cloud_name,
+        api_key=cloudinary_config.api_key,
+        api_secret=cloudinary_config.api_secret,
     )
 
     engine = create_db_engine(settings.database_url)

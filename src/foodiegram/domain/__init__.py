@@ -18,6 +18,7 @@ from foodiegram.domain.enums import (
     RecipeSource,
 )
 from foodiegram.domain.errors import (
+    ConfigurationError,
     ExtractionError,
     FoodiegramError,
     InstagramFetchError,
@@ -61,6 +62,7 @@ __all__ = [
     "CategoryStatus",
     "CategoryTarget",
     "Collection",
+    "ConfigurationError",
     "Course",
     "CuisineType",
     "Difficulty",
