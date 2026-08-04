@@ -305,8 +305,15 @@
 .detail__photo--empty {
   display: grid;
   place-items: center;
+  gap: var(--space-3);
   border: 1px dashed var(--border-strong);
   background: var(--surface-tint);
+}
+
+.detail__photo-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--ink-faint);
 }
 
 .detail__photo-placeholder {

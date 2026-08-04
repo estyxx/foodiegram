@@ -94,10 +94,46 @@ function buildPhoto(recipe) {
     figure.classList.add("detail__photo--empty");
     const placeholder = document.createElement("span");
     placeholder.className = "detail__photo-placeholder";
-    placeholder.textContent = "No photo";
-    figure.append(placeholder);
+    placeholder.textContent = "No photo yet";
+    figure.append(buildPhotoIcon(), placeholder);
   }
   return figure;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * A line-art picture glyph for the empty cover state.
+ * @returns {SVGSVGElement}
+ */
+function buildPhotoIcon() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "detail__photo-icon");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.5");
+  svg.setAttribute("aria-hidden", "true");
+
+  const frame = document.createElementNS(SVG_NS, "rect");
+  frame.setAttribute("x", "3");
+  frame.setAttribute("y", "3");
+  frame.setAttribute("width", "18");
+  frame.setAttribute("height", "18");
+  frame.setAttribute("rx", "2");
+
+  const sun = document.createElementNS(SVG_NS, "circle");
+  sun.setAttribute("cx", "8.5");
+  sun.setAttribute("cy", "8.5");
+  sun.setAttribute("r", "1.5");
+
+  const hill = document.createElementNS(SVG_NS, "path");
+  hill.setAttribute("d", "M21 15l-5-5L5 21");
+  hill.setAttribute("stroke-linecap", "round");
+  hill.setAttribute("stroke-linejoin", "round");
+
+  svg.append(frame, sun, hill);
+  return svg;
 }
 
 /**
@@ -160,7 +196,7 @@ function buildViewOriginal(recipe) {
   link.href = `https://www.instagram.com/p/${encodeURIComponent(recipe.code)}/`;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.textContent = "View original post \u2197";
+  link.textContent = "\u2197 View original post";
   return link;
 }
 
@@ -172,12 +208,13 @@ function buildCopyRecipe(recipe) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn";
-  button.textContent = "Copy recipe";
+  const idle = "\u29c9 Copy recipe";
+  button.textContent = idle;
   button.addEventListener("click", async () => {
     await navigator.clipboard.writeText(formatRecipe(recipe));
-    button.textContent = "Copied \u2713";
+    button.textContent = "\u2713 Copied";
     window.setTimeout(() => {
-      button.textContent = "Copy recipe";
+      button.textContent = idle;
     }, 1500);
   });
   return button;
