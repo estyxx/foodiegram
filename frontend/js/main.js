@@ -69,7 +69,8 @@ async function showVersion() {
   }
   try {
     const info = await getVersion();
-    const commit = info.commit && info.commit !== "unknown" ? ` \u00b7 ${info.commit}` : "";
+    const commit =
+      info.commit && info.commit !== "unknown" ? ` \u00b7 ${info.commit}` : "";
     el.textContent = `v${info.version}${commit}`;
   } catch {
     el.textContent = "";
