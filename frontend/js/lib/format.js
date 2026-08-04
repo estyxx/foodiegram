@@ -29,3 +29,12 @@ export function hasValue(value) {
 export function formatServings(servings) {
   return Number.isInteger(servings) ? String(servings) : servings.toFixed(1);
 }
+
+/**
+ * Format a scaled ingredient quantity: round to 2 dp, drop trailing zeros.
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatQuantity(value) {
+  return String(Math.round(value * 100) / 100);
+}

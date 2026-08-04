@@ -2,13 +2,17 @@
 
 import { getRecipe, updateRecipe } from "../api/client.js";
 import { Chip } from "../components/Chip.js";
-import { extractNumber, scaleIngredient } from "../lib/scale.js";
-import { hasValue } from "../lib/format.js";
+import { formatQuantity, hasValue, humanise } from "../lib/format.js";
 
 /** @typedef {import("../api/client.js").RecipeDetail} RecipeDetail */
 
+const NUMBER_RE = /(\d+\.?\d*)/;
+
 /**
- * Render the recipe-detail view into container.
+ * Render the recipe-detail view (Dispensa v3 magazine layout) into container.
+ *
+ * Layout mirrors Dispensa v3: method on the left, a sticky ingredients +
+ * scaling panel on the right.
  * @param {HTMLElement} container
  * @param {string} code
  * @returns {Promise<void>}
@@ -17,75 +21,384 @@ export async function renderDetail(container, code) {
   const recipe = await getRecipe(code);
   container.replaceChildren();
 
-  const article = document.createElement("article");
-  article.className = "detail";
-  article.append(
-    buildHero(recipe),
-    buildScaler(recipe),
-    buildColumns(recipe),
-    buildTags(recipe),
-    buildNotes(recipe),
-  );
-  container.append(article);
+  const back = document.createElement("a");
+  back.className = "detail__back";
+  back.href = "#browse";
+  back.textContent = "\u2190 Back to browse";
+
+  const left = document.createElement("div");
+  left.className = "detail__left";
+  left.append(buildHead(recipe), buildMethod(recipe));
+
+  const grid = document.createElement("div");
+  grid.className = "detail__grid";
+  grid.append(left, buildIngredients(recipe));
+
+  container.append(back, grid, buildTags(recipe), buildNotes(recipe));
+}
+
+/* ---- Left column: head + method ---------------------------------------- */
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildHead(recipe) {
+  const head = document.createElement("header");
+  head.className = "detail__head";
+
+  const eyebrowText = [recipe.cuisine_type, recipe.course]
+    .filter(hasValue)
+    .map(humanise)
+    .join(" \u00b7 ");
+  if (eyebrowText) {
+    const eyebrow = document.createElement("div");
+    eyebrow.className = "detail__eyebrow";
+    eyebrow.textContent = eyebrowText;
+    head.append(eyebrow);
+  }
+
+  head.append(buildTitle(recipe.title), buildMeta(recipe));
+
+  const fit = buildFit(recipe);
+  if (fit) {
+    head.append(fit);
+  }
+  return head;
+}
+
+/**
+ * Split a title so the last phrase can be italicised (Italian "all'" aware).
+ * @param {string} title
+ * @returns {HTMLElement}
+ */
+function buildTitle(title) {
+  const h1 = document.createElement("h1");
+  h1.className = "detail__title";
+
+  const idx = title.indexOf("all'");
+  let pre = "";
+  let em = title;
+  if (idx > 0) {
+    pre = title.slice(0, idx);
+    em = title.slice(idx);
+  } else {
+    const words = title.split(" ");
+    if (words.length > 1) {
+      pre = `${words.slice(0, -1).join(" ")} `;
+      em = words[words.length - 1];
+    }
+  }
+  if (pre) {
+    h1.append(document.createTextNode(pre));
+  }
+  const emphasis = document.createElement("em");
+  emphasis.textContent = em;
+  h1.append(emphasis);
+  return h1;
 }
 
 /**
  * @param {RecipeDetail} recipe
  * @returns {HTMLElement}
  */
-function buildHero(recipe) {
-  const hero = document.createElement("header");
-  hero.className = "detail__hero";
-
-  const src = recipe.cloudinary_url ?? recipe.thumbnail_url;
-  if (src) {
-    const img = document.createElement("img");
-    img.className = "detail__img";
-    img.src = src;
-    img.alt = recipe.title;
-    hero.append(img);
-  }
-
-  const title = document.createElement("h1");
-  title.className = "detail__title";
-  title.textContent = recipe.title;
-
+function buildMeta(recipe) {
   const meta = document.createElement("div");
   meta.className = "detail__meta";
-  for (const value of [
-    recipe.course,
-    recipe.cuisine_type,
-    recipe.difficulty,
-    recipe.meal_type,
-  ]) {
-    if (hasValue(value)) {
-      meta.append(Chip(value));
+
+  /** @type {string[]} */
+  const parts = [];
+  const time = [recipe.prep_time, recipe.cook_time].filter(Boolean).join(" + ");
+  if (time) {
+    parts.push(`\u23f1 ${time}`);
+  }
+  if (recipe.base_servings !== null) {
+    parts.push(`serves ${recipe.base_servings}`);
+  }
+  if (hasValue(recipe.difficulty)) {
+    parts.push(humanise(recipe.difficulty));
+  }
+  if (hasValue(recipe.meal_type)) {
+    parts.push(humanise(recipe.meal_type));
+  }
+
+  parts.forEach((part, index) => {
+    if (index > 0) {
+      const sep = document.createElement("span");
+      sep.setAttribute("aria-hidden", "true");
+      sep.textContent = "\u00b7";
+      meta.append(sep);
     }
+    const span = document.createElement("span");
+    span.textContent = part;
+    meta.append(span);
+  });
+  return meta;
+}
+
+/**
+ * The "Mediterranean fit" callout, shown only when v2 categories are present.
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement | null}
+ */
+function buildFit(recipe) {
+  const cats = recipe.mediterranean_categories;
+  if (cats.length === 0) {
+    return null;
+  }
+  const labels = [...new Set(cats.map((c) => humanise(c.category)))];
+  const oily = cats.some((c) => c.is_oily_fish);
+
+  const box = document.createElement("div");
+  box.className = "detail__fit";
+
+  const swatch = document.createElement("span");
+  swatch.className = "detail__fit__swatch";
+  swatch.setAttribute("aria-hidden", "true");
+
+  const body = document.createElement("div");
+  const label = document.createElement("div");
+  label.className = "detail__fit__label";
+  label.textContent = "Mediterranean fit";
+  const text = document.createElement("div");
+  text.className = "detail__fit__text";
+  text.textContent = `Counts toward ${labels.join(" & ")}.${
+    oily ? " An oily fish — exactly what the week wants." : ""
+  }`;
+  body.append(label, text);
+
+  box.append(swatch, body);
+  return box;
+}
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildMethod(recipe) {
+  const section = document.createElement("section");
+  section.className = "detail__method";
+  section.setAttribute("aria-label", "Method");
+
+  const heading = document.createElement("h2");
+  heading.className = "detail__section-title";
+  heading.textContent = "Method";
+  section.append(heading);
+
+  if (recipe.instructions.length === 0) {
+    const note = document.createElement("p");
+    note.className = "scale-hint";
+    note.textContent = "No method captured for this recipe.";
+    section.append(note);
+    return section;
   }
 
-  hero.append(buildFavButton(recipe), title, meta);
+  const list = document.createElement("ol");
+  list.className = "method__list";
+  recipe.instructions.forEach((step, index) => {
+    const item = document.createElement("li");
+    item.className = "method__item";
+    const num = document.createElement("span");
+    num.className = "method__num";
+    num.setAttribute("aria-hidden", "true");
+    num.textContent = String(index + 1);
+    const text = document.createElement("p");
+    text.className = "method__text";
+    text.textContent = step;
+    item.append(num, text);
+    list.append(item);
+  });
+  section.append(list);
+  return section;
+}
 
-  const times = buildTimes(recipe);
-  if (times) {
-    hero.append(times);
+/* ---- Right column: ingredients + scaling ------------------------------- */
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildIngredients(recipe) {
+  const panel = document.createElement("section");
+  panel.className = "panel detail__panel";
+  panel.setAttribute("aria-label", "Ingredients and scaling");
+
+  const base = recipe.base_servings;
+  let ratio = 1;
+  /** @type {(() => void)[]} */
+  const updaters = [];
+
+  // --- servings stepper ---
+  const stepper = document.createElement("div");
+  stepper.className = "stepper";
+  const stepLabel = document.createElement("span");
+  stepLabel.className = "stepper__label";
+  stepLabel.textContent = "Servings";
+  const stepBtns = document.createElement("div");
+  stepBtns.className = "stepper__btns";
+  const dec = stepButton("\u2212", "Fewer servings", () => step(-1));
+  const value = document.createElement("span");
+  value.className = "stepper__val";
+  value.setAttribute("aria-live", "polite");
+  const inc = stepButton("+", "More servings", () => step(1));
+  stepBtns.append(dec, value, inc);
+  stepper.append(stepLabel, stepBtns);
+
+  const scaleHint = document.createElement("p");
+  scaleHint.className = "scale-hint";
+
+  // --- ingredients heading + reset ---
+  const head = document.createElement("div");
+  head.className = "ingredients__head";
+  const title = document.createElement("h2");
+  title.className = "detail__section-title";
+  title.textContent = "Ingredients";
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "ingredients__reset";
+  reset.textContent = base === null ? "reset" : `reset to ${base}`;
+  reset.hidden = true;
+  reset.addEventListener("click", () => setRatio(1));
+  head.append(title, reset);
+
+  const typeHint = document.createElement("p");
+  typeHint.className = "scale-hint";
+  typeHint.textContent =
+    "Type the amount you actually have — everything else rescales.";
+
+  const list = document.createElement("ul");
+  list.className = "ing-list";
+  for (const line of recipe.ingredients) {
+    list.append(buildRow(line));
   }
-  return hero;
+
+  if (base === null) {
+    stepper.hidden = true;
+  }
+  panel.append(stepper, scaleHint, head, typeHint, list, buildActions(recipe));
+
+  /**
+   * @param {number} delta
+   */
+  function step(delta) {
+    if (base === null) {
+      return;
+    }
+    const current = Math.round(base * ratio);
+    setRatio(Math.max(1, current + delta) / base);
+  }
+
+  /**
+   * @param {number} next
+   */
+  function setRatio(next) {
+    ratio = next;
+    for (const update of updaters) {
+      update();
+    }
+    const scaled = Math.abs(ratio - 1) >= 0.001;
+    if (base !== null) {
+      value.textContent = formatQuantity(base * ratio);
+      scaleHint.textContent = scaled
+        ? `Rescaled from ${base} servings`
+        : `Original recipe \u00b7 serves ${base}`;
+    } else {
+      scaleHint.textContent = scaled ? "Rescaled to your amount" : "Original amounts";
+    }
+    reset.hidden = !scaled;
+  }
+
+  /**
+   * @param {string} line
+   * @returns {HTMLLIElement}
+   */
+  function buildRow(line) {
+    const row = document.createElement("li");
+    row.className = "ing-row";
+    const match = NUMBER_RE.exec(line);
+    const name = document.createElement("span");
+    name.className = "ing-name";
+
+    if (match === null) {
+      const qty = document.createElement("span");
+      qty.className = "ing-qty ing-qty--empty";
+      qty.textContent = "\u2014";
+      name.textContent = line;
+      row.append(qty, name);
+      return row;
+    }
+
+    const baseNum = parseFloat(match[1]);
+    name.textContent = (
+      line.slice(0, match.index) + line.slice(match.index + match[1].length)
+    ).trim();
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.className = "ing-qty-input";
+    input.value = formatQuantity(baseNum * ratio);
+    input.setAttribute("aria-label", `Amount of ${name.textContent}`);
+    input.addEventListener("input", () => {
+      const typed = parseFloat(input.value);
+      if (Number.isFinite(typed) && typed > 0) {
+        setRatio(typed / baseNum);
+      }
+    });
+    updaters.push(() => {
+      if (document.activeElement !== input) {
+        input.value = formatQuantity(baseNum * ratio);
+      }
+    });
+    row.append(input, name);
+    return row;
+  }
+
+  setRatio(1);
+  return panel;
+}
+
+/**
+ * @param {string} glyph
+ * @param {string} label
+ * @param {() => void} onClick
+ * @returns {HTMLButtonElement}
+ */
+function stepButton(glyph, label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "stepper__btn";
+  button.textContent = glyph;
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildActions(recipe) {
+  const wrap = document.createElement("div");
+  wrap.className = "panel__actions";
+  wrap.append(buildSaveButton(recipe), buildCopyButton(recipe));
+  return wrap;
 }
 
 /**
  * @param {RecipeDetail} recipe
  * @returns {HTMLButtonElement}
  */
-function buildFavButton(recipe) {
+function buildSaveButton(recipe) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "detail__fav";
+  button.className = "btn";
   let favourite = recipe.is_favorite;
 
   const paint = () => {
     button.textContent = favourite ? "\u2605 Saved" : "\u2606 Save";
     button.setAttribute("aria-pressed", String(favourite));
-    button.classList.toggle("detail__fav--active", favourite);
+    button.classList.toggle("btn--saved", favourite);
   };
   paint();
 
@@ -104,215 +417,16 @@ function buildFavButton(recipe) {
 
 /**
  * @param {RecipeDetail} recipe
- * @returns {HTMLElement | null}
- */
-function buildTimes(recipe) {
-  /** @type {[string, string | null][]} */
-  const entries = [
-    ["Prep", recipe.prep_time],
-    ["Cook", recipe.cook_time],
-    ["Skill", recipe.skill_level],
-  ];
-  const shown = entries.filter(([, value]) => Boolean(value));
-  if (shown.length === 0) {
-    return null;
-  }
-  const dl = document.createElement("dl");
-  dl.className = "detail__times";
-  for (const [label, value] of shown) {
-    const dt = document.createElement("dt");
-    dt.textContent = label;
-    const dd = document.createElement("dd");
-    dd.textContent = value ?? "";
-    dl.append(dt, dd);
-  }
-  return dl;
-}
-
-/**
- * The scaling widget: by servings, or anchored to one ingredient's amount.
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildScaler(recipe) {
-  const section = document.createElement("section");
-  section.className = "scaler";
-  section.setAttribute("aria-label", "Scale recipe");
-
-  const badge = document.createElement("span");
-  badge.className = "scaler__factor";
-
-  const servingsRow = buildServingsRow(recipe, applyFactor);
-  const anchorRow = buildAnchorRow(recipe, applyFactor);
-
-  const reset = document.createElement("button");
-  reset.type = "button";
-  reset.className = "scaler__reset";
-  reset.textContent = "Reset";
-  reset.addEventListener("click", () => applyFactor(1));
-
-  section.append(servingsRow, anchorRow, reset, badge);
-
-  /**
-   * @param {number} factor
-   */
-  function applyFactor(factor) {
-    const rounded = Math.round(factor * 10000) / 10000;
-    badge.textContent = rounded === 1 ? "Original amounts" : `Scaled \u00d7${rounded}`;
-    for (const li of document.querySelectorAll(".ingredient")) {
-      const raw = li.getAttribute("data-raw");
-      if (raw === null) {
-        continue;
-      }
-      li.textContent = rounded === 1 ? raw : scaleIngredient(raw, rounded);
-      li.classList.toggle("ingredient--scaled", rounded !== 1);
-    }
-  }
-
-  applyFactor(1);
-  return section;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @param {(factor: number) => void} onScale
- * @returns {HTMLElement}
- */
-function buildServingsRow(recipe, onScale) {
-  const row = document.createElement("div");
-  row.className = "scaler__row";
-
-  const label = document.createElement("label");
-  label.className = "scaler__label";
-  label.textContent = "Servings";
-  const input = document.createElement("input");
-  input.type = "number";
-  input.min = "1";
-  input.step = "1";
-  input.className = "scaler__input";
-  const id = "scaler-servings";
-  input.id = id;
-  label.htmlFor = id;
-
-  if (recipe.base_servings === null) {
-    input.disabled = true;
-    input.placeholder = "n/a";
-    const note = document.createElement("span");
-    note.className = "scaler__note";
-    note.textContent = "No base servings recorded";
-    row.append(label, input, note);
-    return row;
-  }
-
-  const base = recipe.base_servings;
-  input.value = String(base);
-  input.addEventListener("input", () => {
-    const target = Number(input.value);
-    if (target > 0) {
-      onScale(target / base);
-    }
-  });
-  row.append(label, input);
-  return row;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @param {(factor: number) => void} onScale
- * @returns {HTMLElement}
- */
-function buildAnchorRow(recipe, onScale) {
-  const row = document.createElement("div");
-  row.className = "scaler__row";
-
-  const scalable = recipe.ingredients.filter((line) => extractNumber(line) !== null);
-  if (scalable.length === 0) {
-    return row;
-  }
-
-  const label = document.createElement("label");
-  label.className = "scaler__label";
-  label.textContent = "Set amount for";
-  const select = document.createElement("select");
-  select.className = "scaler__select";
-  const id = "scaler-anchor";
-  select.id = id;
-  label.htmlFor = id;
-  for (const line of scalable) {
-    const option = document.createElement("option");
-    option.value = line;
-    option.textContent = line;
-    select.append(option);
-  }
-
-  const amount = document.createElement("input");
-  amount.type = "number";
-  amount.min = "0";
-  amount.step = "any";
-  amount.className = "scaler__input";
-  amount.setAttribute("aria-label", "Target amount");
-
-  amount.addEventListener("input", () => {
-    const base = extractNumber(select.value);
-    const target = Number(amount.value);
-    if (base && base > 0 && target > 0) {
-      onScale(target / base);
-    }
-  });
-
-  row.append(label, select, amount);
-  return row;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildColumns(recipe) {
-  const columns = document.createElement("div");
-  columns.className = "detail__columns";
-  columns.append(buildIngredients(recipe), buildInstructions(recipe));
-  return columns;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildIngredients(recipe) {
-  const section = document.createElement("section");
-  section.className = "detail__ingredients";
-
-  const heading = document.createElement("h2");
-  heading.className = "detail__section-title";
-  heading.textContent = "Ingredients";
-  section.append(heading, buildCopyButton(recipe));
-
-  const list = document.createElement("ul");
-  list.className = "ingredient-list";
-  for (const line of recipe.ingredients) {
-    const li = document.createElement("li");
-    li.className = "ingredient";
-    li.setAttribute("data-raw", line);
-    li.textContent = line;
-    list.append(li);
-  }
-  section.append(list);
-  return section;
-}
-
-/**
- * @param {RecipeDetail} recipe
  * @returns {HTMLButtonElement}
  */
 function buildCopyButton(recipe) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "detail__copy";
+  button.className = "btn";
   button.textContent = "Copy list";
   button.addEventListener("click", async () => {
     await navigator.clipboard.writeText(recipe.ingredients.join("\n"));
-    button.textContent = "Copied\u2713";
+    button.textContent = "Copied \u2713";
     window.setTimeout(() => {
       button.textContent = "Copy list";
     }, 1500);
@@ -320,39 +434,8 @@ function buildCopyButton(recipe) {
   return button;
 }
 
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildInstructions(recipe) {
-  const section = document.createElement("section");
-  section.className = "detail__instructions";
+/* ---- Tag groups --------------------------------------------------------- */
 
-  const heading = document.createElement("h2");
-  heading.className = "detail__section-title";
-  heading.textContent = "Method";
-  section.append(heading);
-
-  if (recipe.instructions.length === 0) {
-    const note = document.createElement("p");
-    note.className = "state-msg";
-    note.textContent = "No method captured for this recipe.";
-    section.append(note);
-    return section;
-  }
-
-  const list = document.createElement("ol");
-  list.className = "instruction-list";
-  for (const step of recipe.instructions) {
-    const li = document.createElement("li");
-    li.textContent = step;
-    list.append(li);
-  }
-  section.append(list);
-  return section;
-}
-
-/** Tag groups shown as chips at the foot of the detail page. */
 const TAG_GROUPS = /** @type {const} */ ([
   ["Proteins", "proteins"],
   ["Vegetables", "vegetables"],
@@ -391,6 +474,8 @@ function buildTags(recipe) {
   return section;
 }
 
+/* ---- Notes -------------------------------------------------------------- */
+
 /**
  * @param {RecipeDetail} recipe
  * @returns {HTMLElement}
@@ -411,7 +496,7 @@ function buildNotes(recipe) {
 
   const save = document.createElement("button");
   save.type = "button";
-  save.className = "notes__save";
+  save.className = "btn notes__save";
   save.textContent = "Save notes";
 
   const status = document.createElement("span");

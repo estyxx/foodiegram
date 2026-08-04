@@ -17,6 +17,13 @@
  */
 
 /**
+ * @typedef {object} MedCategory
+ * @property {string} category
+ * @property {number} servings
+ * @property {boolean} is_oily_fish
+ */
+
+/**
  * @typedef {object} RecipeDetail
  * @property {string} code
  * @property {string} title
@@ -35,6 +42,7 @@
  * @property {string[]} herbs_spices
  * @property {string[]} cooking_methods
  * @property {string[]} equipment
+ * @property {MedCategory[]} mediterranean_categories
  * @property {string | null} prep_time
  * @property {string | null} cook_time
  * @property {number | null} base_servings
