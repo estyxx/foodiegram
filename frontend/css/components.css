@@ -72,6 +72,14 @@
   padding: var(--space-6);
 }
 
+/* #view is focused on every route change so the skip-link and keyboard users
+ * land on fresh content; it is a landmark target, not a control, so it must not
+ * paint the green focus ring. Interactive controls keep :focus-visible. */
+.app-main:focus,
+.app-main:focus-visible {
+  outline: none;
+}
+
 .app-footer {
   margin-top: var(--space-10);
   border-top: 1px solid var(--border);
