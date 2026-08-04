@@ -271,6 +271,17 @@ def test_basic_auth_blocks_and_allows(db_engine: Engine) -> None:
     assert wrong.status_code == HTTPStatus.UNAUTHORIZED
 
 
+def test_recipe_detail_includes_author(client: TestClient, deps: Deps) -> None:
+    """The detail response exposes the post author's Instagram handle."""
+    deps.recipes.save(
+        _fish_recipe("F1").model_copy(update={"author_username": "chef_ig"}),
+    )
+
+    body = client.get("/api/recipes/F1").json()
+
+    assert body["author_username"] == "chef_ig"
+
+
 def test_version_endpoint_reports_build(client: TestClient) -> None:
     """The version endpoint returns a package version and a commit field."""
     body = client.get("/api/version").json()

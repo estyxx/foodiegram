@@ -1,8 +1,10 @@
 // @ts-check
 
-import { getRecipes, updateRecipe } from "../api/client.js";
+import { getAllRecipes, updateRecipe } from "../api/client.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 import { humanise } from "../lib/format.js";
+
+const RENDER_CHUNK = 24;
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 /** @typedef {import("../api/client.js").RecipeFilters} RecipeFilters */
@@ -77,35 +79,60 @@ export async function renderBrowse(container, options) {
   const grid = document.createElement("div");
   grid.className = "recipe-grid";
 
-  container.append(header, summary, grid);
+  const sentinel = document.createElement("div");
+  sentinel.className = "scroll-sentinel";
+  sentinel.setAttribute("aria-hidden", "true");
+
+  container.append(header, summary, grid, sentinel);
 
   /** @type {RecipeSummary[]} */
   let universe = [];
+  /** @type {RecipeSummary[]} */
+  let results = [];
+  let rendered = 0;
+
+  // Reveal more cards as the sentinel nears the viewport (progressive render of
+  // an already-loaded result set — no extra network per scroll).
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        renderMore();
+      }
+    },
+    { rootMargin: "600px 0px" },
+  );
+  observer.observe(sentinel);
 
   async function refetch() {
     filters.q = search.value.trim();
-    const recipes = await getRecipes(toQuery(filters, favourites));
-    renderResults(recipes);
+    results = await getAllRecipes(toQuery(filters, favourites));
+    renderResults();
   }
 
-  /**
-   * @param {RecipeSummary[]} recipes
-   */
-  function renderResults(recipes) {
-    summary.textContent = `${recipes.length} ${
-      recipes.length === 1 ? "recipe" : "recipes"
+  function renderResults() {
+    summary.textContent = `${results.length} ${
+      results.length === 1 ? "recipe" : "recipes"
     }`;
     grid.replaceChildren();
-    if (recipes.length === 0) {
+    rendered = 0;
+    if (results.length === 0) {
       const empty = document.createElement("p");
       empty.className = "state-msg";
       empty.textContent = "No recipes match your filters.";
       grid.append(empty);
       return;
     }
-    for (const recipe of recipes) {
+    renderMore();
+  }
+
+  /** Append the next chunk of cards from the loaded result set. */
+  function renderMore() {
+    const next = results.slice(rendered, rendered + RENDER_CHUNK);
+    for (const recipe of next) {
       grid.append(RecipeCard(recipe, { onToggleFavourite }));
     }
+    rendered += next.length;
+    sentinel.hidden = rendered >= results.length;
   }
 
   /**
@@ -130,9 +157,10 @@ export async function renderBrowse(container, options) {
     }
   }
 
-  universe = await getRecipes(favourites ? { is_favorite: true } : {});
+  universe = await getAllRecipes(favourites ? { is_favorite: true } : {});
+  results = universe;
   renderFilters();
-  renderResults(universe);
+  renderResults();
 }
 
 /**

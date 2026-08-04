@@ -110,6 +110,8 @@ class Recipe(BaseModel):
     pk: str | None
     post_url: str | None
     caption: str | None
+    # Instagram handle of the post's author (the account it was saved from).
+    author_username: str | None = None
 
     # Core content
     title: str

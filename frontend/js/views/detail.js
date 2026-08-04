@@ -34,7 +34,14 @@ export async function renderDetail(container, code) {
   grid.className = "detail__grid";
   grid.append(left, buildIngredients(recipe));
 
-  container.append(back, grid, buildTags(recipe), buildNotes(recipe));
+  container.append(
+    back,
+    buildPhoto(recipe),
+    buildSourceBar(recipe),
+    grid,
+    buildTags(recipe),
+    buildNotes(recipe),
+  );
 }
 
 /* ---- Left column: head + method ---------------------------------------- */
@@ -47,11 +54,6 @@ function buildHead(recipe) {
   const head = document.createElement("header");
   head.className = "detail__head";
 
-  const photo = buildPhoto(recipe);
-  if (photo) {
-    head.append(photo);
-  }
-
   const eyebrowText = [recipe.cuisine_type, recipe.course]
     .filter(hasValue)
     .map(humanise)
@@ -63,7 +65,7 @@ function buildHead(recipe) {
     head.append(eyebrow);
   }
 
-  head.append(buildTitle(recipe.title), buildMeta(recipe), buildSourceLink(recipe));
+  head.append(buildTitle(recipe.title), buildMeta(recipe));
 
   const fit = buildFit(recipe);
   if (fit) {
@@ -75,37 +77,123 @@ function buildHead(recipe) {
 /**
  * The lead photo (Cloudinary preferred, Instagram thumbnail as fallback).
  * @param {RecipeDetail} recipe
- * @returns {HTMLElement | null}
+ * @returns {HTMLElement}
  */
 function buildPhoto(recipe) {
-  const src = recipe.cloudinary_url ?? recipe.thumbnail_url;
-  if (!src) {
-    return null;
-  }
   const figure = document.createElement("figure");
   figure.className = "detail__photo";
-  const img = document.createElement("img");
-  img.className = "detail__photo-img";
-  img.src = src;
-  img.alt = recipe.title;
-  img.loading = "lazy";
-  figure.append(img);
+  const src = recipe.cloudinary_url ?? recipe.thumbnail_url;
+  if (src) {
+    const img = document.createElement("img");
+    img.className = "detail__photo-img";
+    img.src = src;
+    img.alt = recipe.title;
+    img.loading = "lazy";
+    figure.append(img);
+  } else {
+    figure.classList.add("detail__photo--empty");
+    const placeholder = document.createElement("span");
+    placeholder.className = "detail__photo-placeholder";
+    placeholder.textContent = "No photo";
+    figure.append(placeholder);
+  }
   return figure;
 }
 
 /**
- * A link back to the original Instagram post, built from the canonical shortcode.
+ * The bar under the photo: attribution on the left, actions on the right.
  * @param {RecipeDetail} recipe
  * @returns {HTMLElement}
  */
-function buildSourceLink(recipe) {
+function buildSourceBar(recipe) {
+  const bar = document.createElement("div");
+  bar.className = "detail__sourcebar";
+  bar.append(buildSavedFrom(recipe), buildSourceActions(recipe));
+  return bar;
+}
+
+/**
+ * "Saved from @handle on Instagram", linking the handle to its profile.
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildSavedFrom(recipe) {
+  const line = document.createElement("p");
+  line.className = "detail__savedfrom";
+  const handle = recipe.author_username;
+  if (!handle) {
+    line.textContent = "Saved from Instagram";
+    return line;
+  }
   const link = document.createElement("a");
-  link.className = "detail__source";
+  link.className = "detail__handle";
+  link.href = `https://www.instagram.com/${encodeURIComponent(handle)}/`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = `@${handle}`;
+  line.append(
+    document.createTextNode("Saved from "),
+    link,
+    document.createTextNode(" on Instagram"),
+  );
+  return line;
+}
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildSourceActions(recipe) {
+  const actions = document.createElement("div");
+  actions.className = "detail__sourceactions";
+  actions.append(buildCopyRecipe(recipe), buildViewOriginal(recipe));
+  return actions;
+}
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLAnchorElement}
+ */
+function buildViewOriginal(recipe) {
+  const link = document.createElement("a");
+  link.className = "btn btn--primary";
   link.href = `https://www.instagram.com/p/${encodeURIComponent(recipe.code)}/`;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.textContent = "View original on Instagram \u2197";
+  link.textContent = "View original post \u2197";
   return link;
+}
+
+/**
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLButtonElement}
+ */
+function buildCopyRecipe(recipe) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  button.textContent = "Copy recipe";
+  button.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(formatRecipe(recipe));
+    button.textContent = "Copied \u2713";
+    window.setTimeout(() => {
+      button.textContent = "Copy recipe";
+    }, 1500);
+  });
+  return button;
+}
+
+/**
+ * Format the whole recipe (title, ingredients, method) as plain text.
+ * @param {RecipeDetail} recipe
+ * @returns {string}
+ */
+function formatRecipe(recipe) {
+  const parts = [recipe.title, "", recipe.ingredients.join("\n")];
+  if (recipe.instructions.length > 0) {
+    parts.push("", recipe.instructions.map((step, i) => `${i + 1}. ${step}`).join("\n"));
+  }
+  return parts.join("\n");
 }
 
 /**
@@ -422,7 +510,7 @@ function stepButton(glyph, label, onClick) {
 function buildActions(recipe) {
   const wrap = document.createElement("div");
   wrap.className = "panel__actions";
-  wrap.append(buildSaveButton(recipe), buildCopyButton(recipe));
+  wrap.append(buildSaveButton(recipe));
   return wrap;
 }
 
@@ -452,25 +540,6 @@ function buildSaveButton(recipe) {
     } finally {
       button.disabled = false;
     }
-  });
-  return button;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLButtonElement}
- */
-function buildCopyButton(recipe) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn";
-  button.textContent = "Copy list";
-  button.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(recipe.ingredients.join("\n"));
-    button.textContent = "Copied \u2713";
-    window.setTimeout(() => {
-      button.textContent = "Copy list";
-    }, 1500);
   });
   return button;
 }

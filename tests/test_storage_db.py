@@ -45,6 +45,7 @@ def _full_recipe() -> Recipe:
         pk="42",
         post_url="https://instagram.com/p/ABC/",
         caption="Una caption verbatim 🍝",
+        author_username="chef_test",
         title="Carbonara",
         ingredients=["guanciale", "uova", "pecorino"],
         instructions=["fry guanciale", "toss with eggs"],
@@ -160,6 +161,7 @@ def test_recipe_round_trips_fully(engine: Engine) -> None:
 
     assert loaded == original
     assert loaded is not None
+    assert loaded.author_username == "chef_test"
     assert loaded.source is RecipeSource.MANUAL
     assert loaded.dish_type is DishType.PASTA
     assert isinstance(loaded.edited_fields, frozenset)

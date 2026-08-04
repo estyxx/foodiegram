@@ -26,6 +26,7 @@
 /**
  * @typedef {object} RecipeDetail
  * @property {string} code
+ * @property {string | null} author_username
  * @property {string} title
  * @property {string[]} ingredients
  * @property {string[]} instructions
@@ -90,21 +91,47 @@ async function apiFetch(path, options) {
   return res.json();
 }
 
+const MAX_PAGE = 500;
+
 /**
- * List recipes matching the given filters.
+ * List recipes matching the given filters, optionally paginated.
  * @param {RecipeFilters} [filters]
+ * @param {{ limit?: number, offset?: number }} [page]
  * @returns {Promise<RecipeSummary[]>}
  */
-export async function getRecipes(filters) {
+export async function getRecipes(filters, page) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters ?? {})) {
     if (value !== "" && value !== undefined && value !== null) {
       params.set(key, String(value));
     }
   }
+  if (page?.limit !== undefined) {
+    params.set("limit", String(page.limit));
+  }
+  if (page?.offset !== undefined) {
+    params.set("offset", String(page.offset));
+  }
   const query = params.toString();
   const result = await apiFetch(query ? `/recipes?${query}` : "/recipes");
   return /** @type {RecipeSummary[]} */ (result);
+}
+
+/**
+ * Fetch every recipe matching filters by paging through the server limit.
+ * @param {RecipeFilters} [filters]
+ * @returns {Promise<RecipeSummary[]>}
+ */
+export async function getAllRecipes(filters) {
+  /** @type {RecipeSummary[]} */
+  const all = [];
+  for (let offset = 0; ; offset += MAX_PAGE) {
+    const chunk = await getRecipes(filters, { limit: MAX_PAGE, offset });
+    all.push(...chunk);
+    if (chunk.length < MAX_PAGE) {
+      return all;
+    }
+  }
 }
 
 /**

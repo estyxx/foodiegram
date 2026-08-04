@@ -14,6 +14,7 @@ class RecipeRow(SQLModel, table=True):
     pk: str | None = None
     post_url: str | None = None
     caption: str | None = None
+    author_username: str | None = None
 
     title: str
     meal_type: str
