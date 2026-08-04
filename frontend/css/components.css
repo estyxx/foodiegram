@@ -72,6 +72,21 @@
   padding: var(--space-6);
 }
 
+.app-footer {
+  max-width: var(--container-max);
+  margin: var(--space-10) auto 0;
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.app-footer__version {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-faint);
+}
+
 /* ---- Browse toolbar ----------------------------------------------------- */
 .browse__header {
   margin-bottom: var(--space-5);
@@ -267,6 +282,37 @@
 }
 
 /* ---- Recipe detail (Maiolica) ------------------------------------------- */
+.detail__photo {
+  margin: 0 0 var(--space-6);
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-tint);
+}
+
+.detail__photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.detail__source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.detail__source:hover {
+  text-decoration: underline;
+}
+
 .detail__back {
   display: inline-block;
   margin-top: var(--space-6);

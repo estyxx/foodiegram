@@ -47,6 +47,11 @@ function buildHead(recipe) {
   const head = document.createElement("header");
   head.className = "detail__head";
 
+  const photo = buildPhoto(recipe);
+  if (photo) {
+    head.append(photo);
+  }
+
   const eyebrowText = [recipe.cuisine_type, recipe.course]
     .filter(hasValue)
     .map(humanise)
@@ -58,13 +63,49 @@ function buildHead(recipe) {
     head.append(eyebrow);
   }
 
-  head.append(buildTitle(recipe.title), buildMeta(recipe));
+  head.append(buildTitle(recipe.title), buildMeta(recipe), buildSourceLink(recipe));
 
   const fit = buildFit(recipe);
   if (fit) {
     head.append(fit);
   }
   return head;
+}
+
+/**
+ * The lead photo (Cloudinary preferred, Instagram thumbnail as fallback).
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement | null}
+ */
+function buildPhoto(recipe) {
+  const src = recipe.cloudinary_url ?? recipe.thumbnail_url;
+  if (!src) {
+    return null;
+  }
+  const figure = document.createElement("figure");
+  figure.className = "detail__photo";
+  const img = document.createElement("img");
+  img.className = "detail__photo-img";
+  img.src = src;
+  img.alt = recipe.title;
+  img.loading = "lazy";
+  figure.append(img);
+  return figure;
+}
+
+/**
+ * A link back to the original Instagram post, built from the canonical shortcode.
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildSourceLink(recipe) {
+  const link = document.createElement("a");
+  link.className = "detail__source";
+  link.href = `https://www.instagram.com/p/${encodeURIComponent(recipe.code)}/`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "View original on Instagram \u2197";
+  return link;
 }
 
 /**

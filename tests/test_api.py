@@ -271,6 +271,14 @@ def test_basic_auth_blocks_and_allows(db_engine: Engine) -> None:
     assert wrong.status_code == HTTPStatus.UNAUTHORIZED
 
 
+def test_version_endpoint_reports_build(client: TestClient) -> None:
+    """The version endpoint returns a package version and a commit field."""
+    body = client.get("/api/version").json()
+
+    assert body["version"]
+    assert "commit" in body
+
+
 def test_serves_spa_from_configured_frontend_dir(
     deps: Deps,
     tmp_path: Path,

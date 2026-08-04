@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from foodiegram.api_auth import BasicAuthMiddleware
 from foodiegram.deps import AuthConfig, Deps, auth_from_settings, build_deps
-from foodiegram.routers import pantry, plans, recipes, targets
+from foodiegram.routers import meta, pantry, plans, recipes, targets
 from foodiegram.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -24,12 +24,14 @@ def create_app(
     auth: AuthConfig | None = None,
     cors_origins: list[str] | None = None,
     frontend_dir: Path | None = None,
+    git_sha: str = "",
 ) -> FastAPI:
     """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
     auth = auth or AuthConfig()
     frontend = frontend_dir or _FRONTEND
     app = FastAPI(title="Foodiegram API")
     app.state.deps = deps
+    app.state.git_sha = git_sha
 
     app.add_middleware(
         BasicAuthMiddleware,
@@ -51,6 +53,7 @@ def create_app(
     app.include_router(plans.router)
     app.include_router(pantry.router)
     app.include_router(targets.router)
+    app.include_router(meta.router)
 
     @app.get("/")
     async def serve_index() -> FileResponse:
@@ -70,6 +73,7 @@ def _default_app() -> FastAPI:
         auth=auth_from_settings(settings),
         cors_origins=settings.cors_origins(),
         frontend_dir=settings.frontend_dir,
+        git_sha=settings.git_sha,
     )
 
 

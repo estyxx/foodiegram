@@ -55,6 +55,12 @@
  */
 
 /**
+ * @typedef {object} VersionInfo
+ * @property {string} version
+ * @property {string} commit
+ */
+
+/**
  * @typedef {object} RecipeFilters
  * @property {string} [q]
  * @property {string} [cuisine]
@@ -109,6 +115,15 @@ export async function getRecipes(filters) {
 export async function getRecipe(code) {
   const result = await apiFetch(`/recipes/${encodeURIComponent(code)}`);
   return /** @type {RecipeDetail} */ (result);
+}
+
+/**
+ * Fetch the deployed application version and source commit.
+ * @returns {Promise<VersionInfo>}
+ */
+export async function getVersion() {
+  const result = await apiFetch("/version");
+  return /** @type {VersionInfo} */ (result);
 }
 
 /**

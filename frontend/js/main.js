@@ -1,5 +1,6 @@
 // @ts-check
 
+import { getVersion } from "./api/client.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
 
@@ -60,5 +61,21 @@ function renderError(error) {
   view.replaceChildren(el);
 }
 
+/** Populate the footer with the deployed version, once at startup. */
+async function showVersion() {
+  const el = document.getElementById("app-version");
+  if (el === null) {
+    return;
+  }
+  try {
+    const info = await getVersion();
+    const commit = info.commit && info.commit !== "unknown" ? ` \u00b7 ${info.commit}` : "";
+    el.textContent = `v${info.version}${commit}`;
+  } catch {
+    el.textContent = "";
+  }
+}
+
 window.addEventListener("hashchange", route);
 route();
+showVersion();

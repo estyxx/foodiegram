@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # package lives in site-packages; override with FRONTEND_DIR if needed.
     frontend_dir: Path = Path("frontend")
 
+    # Commit SHA shown in the footer so the deployed build is identifiable. Falls
+    # back to reading .git at runtime, then to "unknown"; set GIT_SHA in deploys
+    # where .git is not shipped.
+    git_sha: str = ""
+
     # HTTP Basic auth over the whole app (D13). Empty username disables auth (dev).
     basic_auth_username: str = ""
     basic_auth_password: str = ""
