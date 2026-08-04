@@ -23,9 +23,11 @@ def create_app(
     deps: Deps,
     auth: AuthConfig | None = None,
     cors_origins: list[str] | None = None,
+    frontend_dir: Path | None = None,
 ) -> FastAPI:
     """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
     auth = auth or AuthConfig()
+    frontend = frontend_dir or _FRONTEND
     app = FastAPI(title="Foodiegram API")
     app.state.deps = deps
 
@@ -53,9 +55,9 @@ def create_app(
     @app.get("/")
     async def serve_index() -> FileResponse:
         """Serve the frontend SPA."""
-        return FileResponse(_FRONTEND / "index.html")
+        return FileResponse(frontend / "index.html")
 
-    app.mount("/", StaticFiles(directory=_FRONTEND), name="static")
+    app.mount("/", StaticFiles(directory=frontend), name="static")
     return app
 
 
@@ -67,6 +69,7 @@ def _default_app() -> FastAPI:
         deps=build_deps(settings.database_url),
         auth=auth_from_settings(settings),
         cors_origins=settings.cors_origins(),
+        frontend_dir=settings.frontend_dir,
     )
 
 

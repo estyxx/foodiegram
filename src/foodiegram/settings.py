@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # SPA directory to serve, resolved against the process CWD (the repo root under
+    # `fastapi run`). CWD-relative so it survives a non-editable install where the
+    # package lives in site-packages; override with FRONTEND_DIR if needed.
+    frontend_dir: Path = Path("frontend")
+
     # HTTP Basic auth over the whole app (D13). Empty username disables auth (dev).
     basic_auth_username: str = ""
     basic_auth_password: str = ""

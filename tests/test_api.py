@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from http import HTTPStatus
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -268,3 +269,17 @@ def test_basic_auth_blocks_and_allows(db_engine: Engine) -> None:
 
     wrong = client.get("/api/targets", auth=("user", "nope"))
     assert wrong.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_serves_spa_from_configured_frontend_dir(
+    deps: Deps,
+    tmp_path: Path,
+) -> None:
+    """The SPA is served from the injected frontend_dir, not a fixed path."""
+    (tmp_path / "index.html").write_text("<h1>hi</h1>", encoding="utf-8")
+    client = TestClient(create_app(deps=deps, frontend_dir=tmp_path))
+
+    response = client.get("/")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "<h1>hi</h1>" in response.text
