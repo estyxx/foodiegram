@@ -4,12 +4,17 @@
  * @typedef {object} RecipeSummary
  * @property {string} code
  * @property {string} title
+ * @property {string | null} description
+ * @property {string | null} author_username
  * @property {string} cuisine_type
  * @property {string} meal_type
  * @property {string} dish_type
  * @property {string} difficulty
+ * @property {string | null} total_time
+ * @property {number | null} base_servings
  * @property {string[]} dietary_tags
  * @property {string[]} proteins
+ * @property {string[]} mediterranean_categories
  * @property {string | null} thumbnail_url
  * @property {string | null} cloudinary_url
  * @property {boolean} is_favorite

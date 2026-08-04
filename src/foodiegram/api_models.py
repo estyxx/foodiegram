@@ -5,6 +5,22 @@ from pydantic import BaseModel, ConfigDict
 
 from foodiegram.domain.models import Recipe
 
+# Longest caption snippet surfaced as a card description; the card clamps to two
+# lines, so this only bounds payload size (the full caption stays on the detail).
+_SNIPPET_MAX = 180
+
+
+def _snippet(caption: str | None) -> str | None:
+    """Return a single-line caption snippet for card descriptions, or None."""
+    if not caption:
+        return None
+    text = " ".join(caption.split())
+    if not text:
+        return None
+    if len(text) <= _SNIPPET_MAX:
+        return text
+    return text[:_SNIPPET_MAX].rstrip() + "\u2026"
+
 
 class RecipeSummary(BaseModel):
     """Lightweight recipe representation for list views."""
@@ -13,12 +29,17 @@ class RecipeSummary(BaseModel):
 
     code: str
     title: str
+    description: str | None
+    author_username: str | None
     cuisine_type: str
     meal_type: str
     dish_type: str
     difficulty: str
+    total_time: str | None
+    base_servings: int | None
     dietary_tags: list[str]
     proteins: list[str]
+    mediterranean_categories: list[str]
     thumbnail_url: str | None
     cloudinary_url: str | None
     is_favorite: bool
@@ -30,12 +51,19 @@ class RecipeSummary(BaseModel):
         return cls(
             code=recipe.code,
             title=recipe.title,
+            description=_snippet(recipe.caption),
+            author_username=recipe.author_username,
             cuisine_type=recipe.cuisine_type,
             meal_type=recipe.meal_type,
             dish_type=recipe.dish_type,
             difficulty=recipe.difficulty,
+            total_time=recipe.total_time,
+            base_servings=recipe.base_servings,
             dietary_tags=recipe.dietary_tags,
             proteins=recipe.proteins,
+            mediterranean_categories=sorted(
+                {cat.category.value for cat in recipe.mediterranean_categories},
+            ),
             thumbnail_url=recipe.thumbnail_url,
             cloudinary_url=recipe.cloudinary_url,
             is_favorite=is_favorite,

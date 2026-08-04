@@ -2,44 +2,32 @@
 
 import { getAllRecipes, updateRecipe } from "../api/client.js";
 import { RecipeCard } from "../components/RecipeCard.js";
-import { humanise } from "../lib/format.js";
 
-const RENDER_CHUNK = 24;
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 200;
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 /** @typedef {import("../api/client.js").RecipeFilters} RecipeFilters */
 
 /**
- * @typedef {object} FilterGroup
- * @property {"cuisine" | "meal_type" | "difficulty" | "dietary_tag"} key
+ * @typedef {object} CategoryChip
+ * @property {string} value MedCategory value, or "" for the "All" reset chip.
  * @property {string} label
- * @property {(recipe: RecipeSummary) => string[]} values
+ * @property {string} [color] CSS custom-property name for the dot swatch.
+ * @property {boolean} [ring] Render the dot as an outline (eggs, processed).
  */
 
-/** @type {FilterGroup[]} */
-const FILTER_GROUPS = [
-  { key: "cuisine", label: "Cuisine", values: (r) => single(r.cuisine_type) },
-  { key: "meal_type", label: "Meal", values: (r) => single(r.meal_type) },
-  { key: "difficulty", label: "Difficulty", values: (r) => single(r.difficulty) },
-  { key: "dietary_tag", label: "Dietary", values: (r) => r.dietary_tags },
-];
-
-/**
- * @param {string} value
- * @returns {string[]}
- */
-function single(value) {
-  return value && value !== "unknown" ? [value] : [];
-}
-
-/**
- * @typedef {object} FilterState
- * @property {string} q
- * @property {string} cuisine
- * @property {string} meal_type
- * @property {string} difficulty
- * @property {string} dietary_tag
- */
+/** The 7-category key, in Browse order (mirrors the domain MedCategory enum). */
+const CATEGORY_CHIPS = /** @type {CategoryChip[]} */ ([
+  { value: "", label: "All" },
+  { value: "fish", label: "Fish", color: "--cat-fish" },
+  { value: "legumes", label: "Legumes", color: "--cat-legumes" },
+  { value: "poultry", label: "Poultry", color: "--cat-poultry" },
+  { value: "eggs", label: "Eggs", color: "--cat-eggs", ring: true },
+  { value: "dairy", label: "Dairy", color: "--cat-dairy" },
+  { value: "red_meat", label: "Red meat", color: "--cat-red-meat" },
+  { value: "processed_meat", label: "Processed", color: "--cat-processed", ring: true },
+]);
 
 /**
  * Render the browse (or favourites) view into container.
@@ -49,70 +37,68 @@ function single(value) {
  */
 export async function renderBrowse(container, options) {
   const favourites = options?.favourites ?? false;
-  /** @type {FilterState} */
-  const filters = {
-    q: "",
-    cuisine: "",
-    meal_type: "",
-    difficulty: "",
-    dietary_tag: "",
-  };
-
   container.replaceChildren();
 
-  const heading = document.createElement("h1");
-  heading.className = "browse__title";
-  heading.textContent = favourites ? "Favourites" : "Browse recipes";
+  let query = "";
+  let category = "";
 
-  const search = buildSearch(() => refetch());
-  const filtersEl = document.createElement("div");
-  filtersEl.className = "filters";
-
-  const header = document.createElement("div");
-  header.className = "browse__header";
-  header.append(heading, search, filtersEl);
+  const chips = document.createElement("div");
+  chips.className = "chip-filters";
+  chips.setAttribute("role", "group");
+  chips.setAttribute("aria-label", "Filter by Mediterranean category");
 
   const summary = document.createElement("p");
-  summary.className = "browse__summary";
+  summary.className = "browse__count";
   summary.setAttribute("aria-live", "polite");
 
   const grid = document.createElement("div");
   grid.className = "recipe-grid";
 
-  const sentinel = document.createElement("div");
-  sentinel.className = "scroll-sentinel";
-  sentinel.setAttribute("aria-hidden", "true");
+  const loadMore = document.createElement("div");
+  loadMore.className = "load-more";
+  const loadMoreButton = document.createElement("button");
+  loadMoreButton.type = "button";
+  loadMoreButton.className = "load-more__btn";
+  loadMoreButton.addEventListener("click", renderMore);
+  loadMore.append(loadMoreButton);
 
-  container.append(header, summary, grid, sentinel);
+  const toolbar = buildToolbar((value) => {
+    query = value;
+    void refetch();
+  });
 
-  /** @type {RecipeSummary[]} */
-  let universe = [];
-  /** @type {RecipeSummary[]} */
+  container.append(buildHero(favourites), toolbar, chips, summary, grid, loadMore);
+
+  /** @type {RecipeSummary[]} Server results reflecting the current query. */
+  let matched = [];
+  /** @type {RecipeSummary[]} matched after category + sort. */
   let results = [];
   let rendered = 0;
 
-  // Reveal more cards as the sentinel nears the viewport (progressive render of
-  // an already-loaded result set — no extra network per scroll).
-  const observer = new IntersectionObserver(
-    (entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        renderMore();
-      }
-    },
-    { rootMargin: "600px 0px" },
-  );
-  observer.observe(sentinel);
-
   async function refetch() {
-    filters.q = search.value.trim();
-    results = await getAllRecipes(toQuery(filters, favourites));
+    matched = await getAllRecipes(toQuery(query, favourites));
+    recompute();
+  }
+
+  function recompute() {
+    results = filterByCategory(matched, category);
+    renderChips();
     renderResults();
   }
 
+  function renderChips() {
+    chips.replaceChildren();
+    for (const chip of CATEGORY_CHIPS) {
+      chips.append(
+        buildChip(chip, category === chip.value, () => {
+          category = chip.value;
+          recompute();
+        }),
+      );
+    }
+  }
+
   function renderResults() {
-    summary.textContent = `${results.length} ${
-      results.length === 1 ? "recipe" : "recipes"
-    }`;
     grid.replaceChildren();
     rendered = 0;
     if (results.length === 0) {
@@ -120,19 +106,32 @@ export async function renderBrowse(container, options) {
       empty.className = "state-msg";
       empty.textContent = "No recipes match your filters.";
       grid.append(empty);
+      updateCount();
+      loadMore.hidden = true;
       return;
     }
     renderMore();
   }
 
-  /** Append the next chunk of cards from the loaded result set. */
+  /** Append the next page of cards from the loaded result set. */
   function renderMore() {
-    const next = results.slice(rendered, rendered + RENDER_CHUNK);
+    const next = results.slice(rendered, rendered + PAGE_SIZE);
     for (const recipe of next) {
       grid.append(RecipeCard(recipe, { onToggleFavourite }));
     }
     rendered += next.length;
-    sentinel.hidden = rendered >= results.length;
+    updateCount();
+    const remaining = results.length - rendered;
+    loadMore.hidden = remaining <= 0;
+    if (remaining > 0) {
+      loadMoreButton.textContent = `Load ${Math.min(PAGE_SIZE, remaining)} more \u2193`;
+    }
+  }
+
+  function updateCount() {
+    summary.textContent = `Showing ${rendered} of ${results.length} ${
+      results.length === 1 ? "recipe" : "recipes"
+    }`;
   }
 
   /**
@@ -140,148 +139,189 @@ export async function renderBrowse(container, options) {
    */
   async function onToggleFavourite(recipe) {
     await updateRecipe(recipe.code, { is_favorite: !recipe.is_favorite });
-    await refetch();
+    matched = await getAllRecipes(toQuery(query, favourites));
+    recompute();
   }
 
-  function renderFilters() {
-    filtersEl.replaceChildren();
-    for (const group of FILTER_GROUPS) {
-      const values = collect(universe, group);
-      if (values.length === 0) {
-        continue;
-      }
-      filtersEl.append(buildFilterGroup(group, values, filters, refetch));
-    }
-    if (hasActiveFilter(filters)) {
-      filtersEl.append(buildClearButton(filters, search, refetch));
-    }
+  matched = await getAllRecipes(toQuery(query, favourites));
+  recompute();
+}
+
+/* ---- Hero --------------------------------------------------------------- */
+
+/**
+ * @param {boolean} favourites
+ * @returns {HTMLElement}
+ */
+function buildHero(favourites) {
+  const hero = document.createElement("header");
+  hero.className = "browse__hero";
+
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "browse__eyebrow";
+  eyebrow.textContent = favourites ? "Your picks" : "The collection";
+
+  const title = document.createElement("h1");
+  title.className = "browse__hero-title";
+  const emphasis = document.createElement("em");
+  if (favourites) {
+    title.append(document.createTextNode("Your "), withText(emphasis, "saved picks"));
+  } else {
+    title.append(
+      document.createTextNode("Browse every "),
+      withText(emphasis, "saved recipe"),
+    );
   }
 
-  universe = await getAllRecipes(favourites ? { is_favorite: true } : {});
-  results = universe;
-  renderFilters();
-  renderResults();
+  const subtitle = document.createElement("p");
+  subtitle.className = "browse__hero-sub";
+  subtitle.textContent = favourites
+    ? "The recipes you\u2019ve starred. Filter by what the week needs, or search by name or ingredient."
+    : "Everything pulled from your Instagram saves. Filter by what the week needs, or search by name or ingredient.";
+
+  hero.append(eyebrow, title, subtitle);
+  return hero;
 }
 
 /**
- * @param {() => void} onInput
- * @returns {HTMLInputElement}
+ * @param {HTMLElement} el
+ * @param {string} text
+ * @returns {HTMLElement}
+ */
+function withText(el, text) {
+  el.textContent = text;
+  return el;
+}
+
+/* ---- Toolbar: search + sort -------------------------------------------- */
+
+/**
+ * @param {(value: string) => void} onSearch
+ * @returns {HTMLElement}
+ */
+function buildToolbar(onSearch) {
+  const toolbar = document.createElement("div");
+  toolbar.className = "browse__toolbar";
+  toolbar.append(buildSearch(onSearch));
+  return toolbar;
+}
+
+/**
+ * @param {(value: string) => void} onInput
+ * @returns {HTMLElement}
  */
 function buildSearch(onInput) {
+  const wrap = document.createElement("div");
+  wrap.className = "searchbar";
+  wrap.append(buildSearchIcon());
+
   const input = document.createElement("input");
   input.type = "search";
-  input.className = "search";
-  input.placeholder = "Search recipes\u2026";
-  input.setAttribute("aria-label", "Search recipes");
+  input.className = "searchbar__input";
+  input.placeholder = "Search recipes or ingredients\u2026";
+  input.setAttribute("aria-label", "Search recipes or ingredients");
+
   let timer = 0;
   input.addEventListener("input", () => {
     window.clearTimeout(timer);
-    timer = window.setTimeout(onInput, 200);
+    timer = window.setTimeout(() => onInput(input.value.trim()), SEARCH_DEBOUNCE_MS);
   });
-  return input;
-}
-
-/**
- * @param {FilterGroup} group
- * @param {string[]} values
- * @param {FilterState} filters
- * @param {() => void} onChange
- * @returns {HTMLElement}
- */
-function buildFilterGroup(group, values, filters, onChange) {
-  const wrap = document.createElement("div");
-  wrap.className = "filter-group";
-  wrap.setAttribute("role", "group");
-  wrap.setAttribute("aria-label", group.label);
-
-  const label = document.createElement("span");
-  label.className = "filter-group__label";
-  label.textContent = group.label;
-  wrap.append(label);
-
-  for (const value of values) {
-    const pill = document.createElement("button");
-    pill.type = "button";
-    pill.className = "pill";
-    pill.textContent = humanise(value);
-    const active = filters[group.key] === value;
-    pill.classList.toggle("pill--active", active);
-    pill.setAttribute("aria-pressed", String(active));
-    pill.addEventListener("click", () => {
-      filters[group.key] = filters[group.key] === value ? "" : value;
-      onChange();
-    });
-    wrap.append(pill);
-  }
+  wrap.append(input);
   return wrap;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
 /**
- * @param {FilterState} filters
- * @param {HTMLInputElement} search
- * @param {() => void} onChange
+ * @returns {SVGSVGElement}
+ */
+function buildSearchIcon() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "searchbar__icon");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.6");
+  svg.setAttribute("aria-hidden", "true");
+
+  const circle = document.createElementNS(SVG_NS, "circle");
+  circle.setAttribute("cx", "11");
+  circle.setAttribute("cy", "11");
+  circle.setAttribute("r", "7");
+
+  const handle = document.createElementNS(SVG_NS, "line");
+  handle.setAttribute("x1", "20");
+  handle.setAttribute("y1", "20");
+  handle.setAttribute("x2", "16.5");
+  handle.setAttribute("y2", "16.5");
+  handle.setAttribute("stroke-linecap", "round");
+
+  svg.append(circle, handle);
+  return svg;
+}
+
+/* ---- Category chips ----------------------------------------------------- */
+
+/**
+ * @param {CategoryChip} chip
+ * @param {boolean} active
+ * @param {() => void} onClick
  * @returns {HTMLButtonElement}
  */
-function buildClearButton(filters, search, onChange) {
+function buildChip(chip, active, onClick) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "filters__clear";
-  button.textContent = "Clear filters";
-  button.addEventListener("click", () => {
-    filters.cuisine = "";
-    filters.meal_type = "";
-    filters.difficulty = "";
-    filters.dietary_tag = "";
-    filters.q = "";
-    search.value = "";
-    onChange();
-  });
+  button.className = "chip-filter";
+  button.classList.toggle("chip-filter--active", active);
+  button.setAttribute("aria-pressed", String(active));
+
+  if (chip.color) {
+    const dot = document.createElement("span");
+    dot.className = chip.ring
+      ? "chip-filter__dot chip-filter__dot--ring"
+      : "chip-filter__dot";
+    dot.style.setProperty("--dot", `var(${chip.color})`);
+    dot.setAttribute("aria-hidden", "true");
+    button.append(dot);
+  }
+
+  const text = document.createElement("span");
+  text.textContent = chip.label;
+  button.append(text);
+
+  button.addEventListener("click", onClick);
   return button;
 }
 
-/**
- * @param {RecipeSummary[]} universe
- * @param {FilterGroup} group
- * @returns {string[]}
- */
-function collect(universe, group) {
-  /** @type {Set<string>} */
-  const set = new Set();
-  for (const recipe of universe) {
-    for (const value of group.values(recipe)) {
-      set.add(value);
-    }
-  }
-  return [...set].sort();
-}
+/* ---- Filtering / sorting ------------------------------------------------ */
 
 /**
- * @param {FilterState} filters
- * @returns {boolean}
+ * @param {RecipeSummary[]} recipes
+ * @param {string} category
+ * @returns {RecipeSummary[]}
  */
-function hasActiveFilter(filters) {
-  return Boolean(
-    filters.cuisine ||
-      filters.meal_type ||
-      filters.difficulty ||
-      filters.dietary_tag ||
-      filters.q,
+function filterByCategory(recipes, category) {
+  if (!category) {
+    return recipes;
+  }
+  return recipes.filter((recipe) =>
+    recipe.mediterranean_categories.includes(category),
   );
 }
 
 /**
- * @param {FilterState} filters
+ * @param {string} query
  * @param {boolean} favourites
  * @returns {RecipeFilters}
  */
-function toQuery(filters, favourites) {
+function toQuery(query, favourites) {
   /** @type {RecipeFilters} */
-  const query = {};
-  if (filters.q) query.q = filters.q;
-  if (filters.cuisine) query.cuisine = filters.cuisine;
-  if (filters.meal_type) query.meal_type = filters.meal_type;
-  if (filters.difficulty) query.difficulty = filters.difficulty;
-  if (filters.dietary_tag) query.dietary_tag = filters.dietary_tag;
-  if (favourites) query.is_favorite = true;
-  return query;
+  const filters = {};
+  if (query) {
+    filters.q = query;
+  }
+  if (favourites) {
+    filters.is_favorite = true;
+  }
+  return filters;
 }
