@@ -253,13 +253,71 @@
   box-shadow: inset 0 0 0 2px var(--dot);
 }
 
-/* ---- Result count ------------------------------------------------------- */
+/* ---- Result count + is-recipe segmented control ------------------------- */
+.browse__results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
 .browse__count {
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: var(--tracking-mono);
   color: var(--ink-muted);
-  margin: 0 0 var(--space-4);
+  margin: 0;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+
+.segmented__option {
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.segmented__option:hover:not(.segmented__option--active) {
+  color: var(--ink);
+}
+
+.segmented__option--active {
+  background: var(--teal-deep);
+  color: var(--on-dark);
+}
+
+/* Mobile: a full-width two-segment switch (design rule card). */
+@media (max-width: 599px) {
+  .browse__results-bar {
+    align-items: stretch;
+  }
+
+  .segmented {
+    width: 100%;
+  }
+
+  .segmented__option {
+    flex: 1;
+    text-align: center;
+  }
 }
 
 /* ---- Results grid ------------------------------------------------------- */

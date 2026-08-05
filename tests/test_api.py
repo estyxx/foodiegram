@@ -40,6 +40,11 @@ def _fish_recipe(code: str, *, confidence: float = 0.8) -> Recipe:
     )
 
 
+def _inspiration_recipe(code: str) -> Recipe:
+    """Build a saved post the extractor judged not to be a recipe."""
+    return _fish_recipe(code).model_copy(update={"is_recipe": False})
+
+
 def _make_deps(engine: Engine) -> Deps:
     return Deps(
         recipes=RecipeRepository(engine),
@@ -248,6 +253,47 @@ def test_patch_base_servings_marks_recipe_edited(
     detail = client.get("/api/recipes/F1").json()
     assert detail["base_servings"] == _UPDATED_SERVINGS
     assert detail["edited_by_user"] is True
+
+
+def test_list_recipes_filters_on_is_recipe(client: TestClient, deps: Deps) -> None:
+    """The is_recipe parameter selects a segment; omitting it returns both."""
+    deps.recipes.save(_fish_recipe("F1"))
+    deps.recipes.save(_inspiration_recipe("N1"))
+
+    only_recipes = client.get("/api/recipes", params={"is_recipe": "true"}).json()
+    assert [r["code"] for r in only_recipes] == ["F1"]
+
+    only_saves = client.get("/api/recipes", params={"is_recipe": "false"}).json()
+    assert [r["code"] for r in only_saves] == ["N1"]
+
+    everything = client.get("/api/recipes").json()
+    assert {r["code"] for r in everything} == {"F1", "N1"}
+
+
+def test_recipe_counts_report_both_segments(client: TestClient, deps: Deps) -> None:
+    """The count endpoint returns each segment total under the active facets."""
+    deps.recipes.save(_fish_recipe("F1"))
+    deps.recipes.save(_fish_recipe("F2"))
+    deps.recipes.save(_inspiration_recipe("N1"))
+
+    body = client.get("/api/recipes/count").json()
+    assert body == {"recipes_only": 2, "all_saves": 3}
+
+    # A facet shared with /recipes narrows both totals the same way.
+    client.patch("/api/recipes/F1", json={"is_favorite": True})
+    favourites_only = client.get(
+        "/api/recipes/count",
+        params={"is_favorite": "true"},
+    ).json()
+    assert favourites_only == {"recipes_only": 1, "all_saves": 1}
+
+
+def test_recipe_count_route_is_not_read_as_a_code(client: TestClient) -> None:
+    """/recipes/count resolves to the count endpoint, not the detail route."""
+    response = client.get("/api/recipes/count")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "recipes_only" in response.json()
 
 
 def _credentialed_client(engine: Engine, creds: Sequence[str]) -> TestClient:

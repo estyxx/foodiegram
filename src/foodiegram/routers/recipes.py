@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query
 
 from foodiegram.api_models import (
+    RecipeCounts,
     RecipeDetail,
     RecipeSummary,
     RecipeUpdate,
@@ -58,6 +59,36 @@ def _detail(recipe: Recipe, *, deps: DepsDep) -> RecipeDetail:
     )
 
 
+def _filtered(
+    *,
+    deps: DepsDep,
+    favourites: set[str],
+    cuisine: str | None,
+    meal_type: str | None,
+    dish_type: str | None,
+    difficulty: str | None,
+    dietary_tag: str | None,
+    protein: str | None,
+    q: str | None,
+    is_recipe: bool | None,
+    is_favorite: bool | None,
+) -> list[Recipe]:
+    """Resolve raw query parameters into the recipes they match."""
+    recipes = deps.recipes.find(
+        cuisine=_to_enum(CuisineType, cuisine) if cuisine else None,
+        meal_type=_to_enum(MealType, meal_type) if meal_type else None,
+        dish_type=_to_enum(DishType, dish_type) if dish_type else None,
+        difficulty=_to_enum(Difficulty, difficulty) if difficulty else None,
+        is_recipe=is_recipe,
+        dietary_tags=[dietary_tag] if dietary_tag else None,
+        proteins=[protein] if protein else None,
+        q=q,
+    )
+    if is_favorite is None:
+        return recipes
+    return [r for r in recipes if (r.code in favourites) == is_favorite]
+
+
 @router.get("/recipes")
 async def list_recipes(
     deps: DepsDep,
@@ -68,28 +99,65 @@ async def list_recipes(
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
+    is_recipe: Annotated[bool | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[RecipeSummary]:
     """Return a filtered, paginated list of recipe summaries."""
-    recipes = deps.recipes.find(
-        cuisine=_to_enum(CuisineType, cuisine) if cuisine else None,
-        meal_type=_to_enum(MealType, meal_type) if meal_type else None,
-        dish_type=_to_enum(DishType, dish_type) if dish_type else None,
-        difficulty=_to_enum(Difficulty, difficulty) if difficulty else None,
-        dietary_tags=[dietary_tag] if dietary_tag else None,
-        proteins=[protein] if protein else None,
-        q=q,
-    )
     favourites = set(deps.user_state.all_favorites())
-    if is_favorite is not None:
-        recipes = [r for r in recipes if (r.code in favourites) == is_favorite]
+    recipes = _filtered(
+        deps=deps,
+        favourites=favourites,
+        cuisine=cuisine,
+        meal_type=meal_type,
+        dish_type=dish_type,
+        difficulty=difficulty,
+        dietary_tag=dietary_tag,
+        protein=protein,
+        q=q,
+        is_recipe=is_recipe,
+        is_favorite=is_favorite,
+    )
     page = recipes[offset : offset + limit]
     return [
         RecipeSummary.from_recipe(recipe, is_favorite=recipe.code in favourites)
         for recipe in page
     ]
+
+
+@router.get("/recipes/count")
+async def count_recipes(
+    deps: DepsDep,
+    cuisine: Annotated[str | None, Query()] = None,
+    meal_type: Annotated[str | None, Query()] = None,
+    dish_type: Annotated[str | None, Query()] = None,
+    difficulty: Annotated[str | None, Query()] = None,
+    dietary_tag: Annotated[str | None, Query()] = None,
+    protein: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    is_favorite: Annotated[bool | None, Query()] = None,
+) -> RecipeCounts:
+    """Return both is-recipe segment totals under the given facets."""
+    matched = _filtered(
+        deps=deps,
+        favourites=set(deps.user_state.all_favorites()),
+        cuisine=cuisine,
+        meal_type=meal_type,
+        dish_type=dish_type,
+        difficulty=difficulty,
+        dietary_tag=dietary_tag,
+        protein=protein,
+        q=q,
+        is_recipe=None,
+        is_favorite=is_favorite,
+    )
+    # The recipes-only segment is a subset of all saves under the same facets,
+    # so one pass answers both totals.
+    return RecipeCounts(
+        recipes_only=sum(1 for recipe in matched if recipe.is_recipe),
+        all_saves=len(matched),
+    )
 
 
 @router.get("/recipes/{code}")

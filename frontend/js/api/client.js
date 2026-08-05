@@ -75,7 +75,14 @@
  * @property {string} [difficulty]
  * @property {string} [dietary_tag]
  * @property {string} [protein]
+ * @property {boolean} [is_recipe]
  * @property {boolean} [is_favorite]
+ */
+
+/**
+ * @typedef {object} RecipeCounts
+ * @property {number} recipes_only
+ * @property {number} all_saves
  */
 
 const API_BASE = "/api";
@@ -99,18 +106,28 @@ async function apiFetch(path, options) {
 const MAX_PAGE = 500;
 
 /**
- * List recipes matching the given filters, optionally paginated.
+ * Serialise filters into query parameters, dropping empty values.
  * @param {RecipeFilters} [filters]
- * @param {{ limit?: number, offset?: number }} [page]
- * @returns {Promise<RecipeSummary[]>}
+ * @returns {URLSearchParams}
  */
-export async function getRecipes(filters, page) {
+function toParams(filters) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters ?? {})) {
     if (value !== "" && value !== undefined && value !== null) {
       params.set(key, String(value));
     }
   }
+  return params;
+}
+
+/**
+ * List recipes matching the given filters, optionally paginated.
+ * @param {RecipeFilters} [filters]
+ * @param {{ limit?: number, offset?: number }} [page]
+ * @returns {Promise<RecipeSummary[]>}
+ */
+export async function getRecipes(filters, page) {
+  const params = toParams(filters);
   if (page?.limit !== undefined) {
     params.set("limit", String(page.limit));
   }
@@ -137,6 +154,22 @@ export async function getAllRecipes(filters) {
       return all;
     }
   }
+}
+
+/**
+ * Fetch both is-recipe segment totals under the given filters.
+ * is_recipe is ignored: the endpoint always reports both segments.
+ * @param {RecipeFilters} [filters]
+ * @returns {Promise<RecipeCounts>}
+ */
+export async function getRecipeCounts(filters) {
+  const params = toParams(filters);
+  params.delete("is_recipe");
+  const query = params.toString();
+  const result = await apiFetch(
+    query ? `/recipes/count?${query}` : "/recipes/count",
+  );
+  return /** @type {RecipeCounts} */ (result);
 }
 
 /**

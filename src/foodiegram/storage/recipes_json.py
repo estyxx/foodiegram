@@ -106,6 +106,7 @@ class RecipeRepository:
         meal_type: MealType | None = None,
         dish_type: DishType | None = None,
         difficulty: Difficulty | None = None,
+        is_recipe: bool | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
         q: str | None = None,
@@ -117,6 +118,7 @@ class RecipeRepository:
         expansion so e.g. "courgette" matches recipes tagged "zucchini".
         q is a case-insensitive substring match on title, caption, and
         ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
+        is_recipe=None keeps both real recipes and inspiration-only saves.
         """
         results = self.list_all()
 
@@ -128,6 +130,8 @@ class RecipeRepository:
             results = [r for r in results if r.dish_type == dish_type]
         if difficulty is not None:
             results = [r for r in results if r.difficulty == difficulty]
+        if is_recipe is not None:
+            results = [r for r in results if r.is_recipe == is_recipe]
         if dietary_tags is not None:
             expanded_tags = {s.lower() for t in dietary_tags for s in expand_term(t)}
             results = [

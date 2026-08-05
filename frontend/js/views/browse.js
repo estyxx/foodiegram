@@ -1,6 +1,6 @@
 // @ts-check
 
-import { getAllRecipes, updateRecipe } from "../api/client.js";
+import { getAllRecipes, getRecipeCounts, updateRecipe } from "../api/client.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 
 const PAGE_SIZE = 50;
@@ -8,6 +8,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 /** @typedef {import("../api/client.js").RecipeFilters} RecipeFilters */
+/** @typedef {import("../api/client.js").RecipeCounts} RecipeCounts */
 
 /**
  * @typedef {object} CategoryChip
@@ -41,6 +42,9 @@ export async function renderBrowse(container, options) {
 
   let query = "";
   let category = "";
+  let recipesOnly = true;
+  /** @type {RecipeCounts} */
+  let counts = { recipes_only: 0, all_saves: 0 };
 
   const chips = document.createElement("div");
   chips.className = "chip-filters";
@@ -50,6 +54,25 @@ export async function renderBrowse(container, options) {
   const summary = document.createElement("p");
   summary.className = "browse__count";
   summary.setAttribute("aria-live", "polite");
+
+  // Both segments are built once and only relabelled, so a keyboard toggle keeps
+  // its focus on the button that was activated.
+  const recipesSegment = buildSegment("Recipes only", recipesOnly, () => {
+    void setRecipesOnly(true);
+  });
+  const allSavesSegment = buildSegment("All saves", !recipesOnly, () => {
+    void setRecipesOnly(false);
+  });
+
+  const segmented = document.createElement("div");
+  segmented.className = "segmented";
+  segmented.setAttribute("role", "group");
+  segmented.setAttribute("aria-label", "Which saves to show");
+  segmented.append(recipesSegment, allSavesSegment);
+
+  const resultsBar = document.createElement("div");
+  resultsBar.className = "browse__results-bar";
+  resultsBar.append(summary, segmented);
 
   const grid = document.createElement("div");
   grid.className = "recipe-grid";
@@ -67,7 +90,7 @@ export async function renderBrowse(container, options) {
     void refetch();
   });
 
-  container.append(buildHero(favourites), toolbar, chips, summary, grid, loadMore);
+  container.append(buildHero(favourites), toolbar, chips, resultsBar, grid, loadMore);
 
   /** @type {RecipeSummary[]} Server results reflecting the current query. */
   let matched = [];
@@ -76,14 +99,39 @@ export async function renderBrowse(container, options) {
   let rendered = 0;
 
   async function refetch() {
-    matched = await getAllRecipes(toQuery(query, favourites));
+    const filters = toQuery({ query, favourites, recipesOnly });
+    const [fetched, fetchedCounts] = await Promise.all([
+      getAllRecipes(filters),
+      getRecipeCounts(filters),
+    ]);
+    matched = fetched;
+    counts = fetchedCounts;
     recompute();
+  }
+
+  /**
+   * @param {boolean} next
+   * @returns {Promise<void>}
+   */
+  async function setRecipesOnly(next) {
+    if (next === recipesOnly) {
+      return;
+    }
+    recipesOnly = next;
+    await refetch();
   }
 
   function recompute() {
     results = filterByCategory(matched, category);
     renderChips();
+    renderSegmented();
     renderResults();
+  }
+
+  function renderSegmented() {
+    setPressed(recipesSegment, recipesOnly);
+    setPressed(allSavesSegment, !recipesOnly);
+    allSavesSegment.textContent = `All saves \u00b7 ${counts.all_saves.toLocaleString()}`;
   }
 
   function renderChips() {
@@ -139,12 +187,10 @@ export async function renderBrowse(container, options) {
    */
   async function onToggleFavourite(recipe) {
     await updateRecipe(recipe.code, { is_favorite: !recipe.is_favorite });
-    matched = await getAllRecipes(toQuery(query, favourites));
-    recompute();
+    await refetch();
   }
 
-  matched = await getAllRecipes(toQuery(query, favourites));
-  recompute();
+  await refetch();
 }
 
 /* ---- Hero --------------------------------------------------------------- */
@@ -293,6 +339,33 @@ function buildChip(chip, active, onClick) {
   return button;
 }
 
+/* ---- Is-recipe segmented control ---------------------------------------- */
+
+/**
+ * @param {string} label
+ * @param {boolean} pressed
+ * @param {() => void} onClick
+ * @returns {HTMLButtonElement}
+ */
+function buildSegment(label, pressed, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "segmented__option";
+  button.textContent = label;
+  setPressed(button, pressed);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+/**
+ * @param {HTMLButtonElement} button
+ * @param {boolean} pressed
+ */
+function setPressed(button, pressed) {
+  button.classList.toggle("segmented__option--active", pressed);
+  button.setAttribute("aria-pressed", String(pressed));
+}
+
 /* ---- Filtering / sorting ------------------------------------------------ */
 
 /**
@@ -310,18 +383,20 @@ function filterByCategory(recipes, category) {
 }
 
 /**
- * @param {string} query
- * @param {boolean} favourites
+ * @param {{ query: string, favourites: boolean, recipesOnly: boolean }} state
  * @returns {RecipeFilters}
  */
-function toQuery(query, favourites) {
+function toQuery(state) {
   /** @type {RecipeFilters} */
   const filters = {};
-  if (query) {
-    filters.q = query;
+  if (state.query) {
+    filters.q = state.query;
   }
-  if (favourites) {
+  if (state.favourites) {
     filters.is_favorite = true;
+  }
+  if (state.recipesOnly) {
+    filters.is_recipe = true;
   }
   return filters;
 }

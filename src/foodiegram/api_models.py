@@ -71,6 +71,15 @@ class RecipeSummary(BaseModel):
         )
 
 
+class RecipeCounts(BaseModel):
+    """Both is-recipe segment totals under the current Browse facets."""
+
+    model_config = ConfigDict(frozen=True)
+
+    recipes_only: int
+    all_saves: int
+
+
 class RecipeDetail(Recipe):
     """Full recipe response for single-recipe API endpoints.
 

@@ -181,6 +181,33 @@ def test_exists_and_list_all(engine: Engine) -> None:
     assert [r.code for r in repo.list_all()] == ["ABC"]
 
 
+def test_find_filters_on_is_recipe(engine: Engine) -> None:
+    """is_recipe splits real recipes from inspiration saves; None keeps both."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+    repo.save(
+        _full_recipe().model_copy(update={"code": "NOTR", "is_recipe": False}),
+    )
+
+    assert [r.code for r in repo.find(is_recipe=True)] == ["ABC"]
+    assert [r.code for r in repo.find(is_recipe=False)] == ["NOTR"]
+    assert [r.code for r in repo.find()] == ["ABC", "NOTR"]
+
+
+def test_find_combines_is_recipe_with_other_filters(engine: Engine) -> None:
+    """is_recipe narrows within another facet rather than replacing it."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+    repo.save(
+        _full_recipe().model_copy(
+            update={"code": "SOUP", "dish_type": DishType.SOUP, "is_recipe": False},
+        ),
+    )
+
+    assert [r.code for r in repo.find(dish_type=DishType.SOUP, is_recipe=True)] == []
+    assert [r.code for r in repo.find(dish_type=DishType.SOUP)] == ["SOUP"]
+
+
 def test_extraction_append_and_latest_for(engine: Engine) -> None:
     """Extractions append with ids; latest_for returns the newest, version-aware."""
     RecipeRepository(engine).save(_full_recipe())
