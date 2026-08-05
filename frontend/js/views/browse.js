@@ -18,7 +18,10 @@ const SEARCH_DEBOUNCE_MS = 200;
  * @property {boolean} [ring] Render the dot as an outline (eggs, processed).
  */
 
-/** The 7-category key, in Browse order (mirrors the domain MedCategory enum). */
+/* The category key in Browse order. MedCategory also carries plant_protein,
+ * left out here because these chips filter the LLM-assigned categories and no
+ * recipe has been tagged plant_protein yet; the Filters panel picks it up from
+ * the derived protein facet instead. */
 const CATEGORY_CHIPS = /** @type {CategoryChip[]} */ ([
   { value: "", label: "All" },
   { value: "fish", label: "Fish", color: "--cat-fish" },

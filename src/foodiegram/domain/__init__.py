@@ -15,7 +15,6 @@ from foodiegram.domain.enums import (
     DishType,
     MealType,
     MedCategory,
-    ProteinCategory,
     ProteinTier,
     RecipeSource,
 )
@@ -90,7 +89,6 @@ __all__ = [
     "MedCategory",
     "PantryItem",
     "PlannedMeal",
-    "ProteinCategory",
     "ProteinTier",
     "Recipe",
     "RecipeSource",

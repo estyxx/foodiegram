@@ -1,6 +1,6 @@
 import pytest
 
-from foodiegram.domain.enums import ProteinCategory, ProteinTier
+from foodiegram.domain.enums import MedCategory, ProteinTier
 from foodiegram.domain.proteins import (
     PROTEIN_WORDS,
     TIERS,
@@ -12,24 +12,24 @@ from foodiegram.domain.proteins import (
 @pytest.mark.parametrize(
     ("word", "expected"),
     [
-        ("tofu", ProteinCategory.PLANT_PROTEIN),
-        ("seitan", ProteinCategory.PLANT_PROTEIN),
-        ("mozzarella", ProteinCategory.DAIRY),
-        ("ricotta", ProteinCategory.DAIRY),
-        ("cheese", ProteinCategory.DAIRY),
-        ("chicken", ProteinCategory.POULTRY),
-        ("beef", ProteinCategory.RED_MEAT),
-        ("pork", ProteinCategory.RED_MEAT),
-        ("guanciale", ProteinCategory.PROCESSED_MEAT),
-        ("prosciutto", ProteinCategory.PROCESSED_MEAT),
-        ("ceci", ProteinCategory.LEGUMES),
-        ("lenticchie", ProteinCategory.LEGUMES),
-        ("beans", ProteinCategory.LEGUMES),
-        ("seafood", ProteinCategory.FISH),
-        ("eggs", ProteinCategory.EGGS),
+        ("tofu", MedCategory.PLANT_PROTEIN),
+        ("seitan", MedCategory.PLANT_PROTEIN),
+        ("mozzarella", MedCategory.DAIRY),
+        ("ricotta", MedCategory.DAIRY),
+        ("cheese", MedCategory.DAIRY),
+        ("chicken", MedCategory.POULTRY),
+        ("beef", MedCategory.RED_MEAT),
+        ("pork", MedCategory.RED_MEAT),
+        ("guanciale", MedCategory.PROCESSED_MEAT),
+        ("prosciutto", MedCategory.PROCESSED_MEAT),
+        ("ceci", MedCategory.LEGUMES),
+        ("lenticchie", MedCategory.LEGUMES),
+        ("beans", MedCategory.LEGUMES),
+        ("seafood", MedCategory.FISH),
+        ("eggs", MedCategory.EGGS),
     ],
 )
-def test_word_maps_to_its_category(word: str, expected: ProteinCategory) -> None:
+def test_word_maps_to_its_category(word: str, expected: MedCategory) -> None:
     """Each protein word lands in the group the mapping table assigns it."""
     assert categories_for([word]) == {expected}
 
@@ -37,7 +37,7 @@ def test_word_maps_to_its_category(word: str, expected: ProteinCategory) -> None
 def test_unknown_word_is_skipped_not_an_error() -> None:
     """An unmapped word yields no category and never raises."""
     assert categories_for(["quinoa"]) == set()
-    assert categories_for(["tofu", "quinoa"]) == {ProteinCategory.PLANT_PROTEIN}
+    assert categories_for(["tofu", "quinoa"]) == {MedCategory.PLANT_PROTEIN}
 
 
 def test_nuts_are_not_a_protein_category() -> None:
@@ -48,16 +48,16 @@ def test_nuts_are_not_a_protein_category() -> None:
 def test_words_are_matched_case_and_whitespace_insensitively() -> None:
     """Extraction casing and stray spacing do not change the mapping."""
     assert categories_for([" Tofu ", "CHEESE"]) == {
-        ProteinCategory.PLANT_PROTEIN,
-        ProteinCategory.DAIRY,
+        MedCategory.PLANT_PROTEIN,
+        MedCategory.DAIRY,
     }
 
 
 def test_several_words_collapse_to_the_set_of_their_categories() -> None:
     """Repeated categories dedupe; distinct ones accumulate."""
     assert categories_for(["fish", "seafood", "chicken"]) == {
-        ProteinCategory.FISH,
-        ProteinCategory.POULTRY,
+        MedCategory.FISH,
+        MedCategory.POULTRY,
     }
 
 
@@ -69,15 +69,15 @@ def test_empty_input_yields_no_categories() -> None:
 def test_cured_meat_outranks_red_meat() -> None:
     """Cured pork reads as processed, not as red meat."""
     assert categories_for(["guanciale", "pancetta", "speck"]) == {
-        ProteinCategory.PROCESSED_MEAT,
+        MedCategory.PROCESSED_MEAT,
     }
 
 
 def test_plant_protein_stays_separate_from_legumes() -> None:
     """Soy foods and pulses are filterable independently."""
     assert categories_for(["tofu", "beans"]) == {
-        ProteinCategory.PLANT_PROTEIN,
-        ProteinCategory.LEGUMES,
+        MedCategory.PLANT_PROTEIN,
+        MedCategory.LEGUMES,
     }
 
 
@@ -92,23 +92,23 @@ def test_every_category_has_exactly_one_tier() -> None:
     """TIERS partitions the eight categories, so tier_for is always defined."""
     tiered = [category for categories in TIERS.values() for category in categories]
 
-    assert sorted(tiered) == sorted(ProteinCategory)
+    assert sorted(tiered) == sorted(MedCategory)
     assert len(tiered) == len(set(tiered))
-    for category in ProteinCategory:
+    for category in MedCategory:
         assert tier_for(category) in ProteinTier
 
 
 @pytest.mark.parametrize(
     ("category", "expected"),
     [
-        (ProteinCategory.FISH, ProteinTier.EAT_FREELY),
-        (ProteinCategory.PLANT_PROTEIN, ProteinTier.EAT_FREELY),
-        (ProteinCategory.DAIRY, ProteinTier.MODERATE),
-        (ProteinCategory.PROCESSED_MEAT, ProteinTier.OCCASIONAL),
+        (MedCategory.FISH, ProteinTier.EAT_FREELY),
+        (MedCategory.PLANT_PROTEIN, ProteinTier.EAT_FREELY),
+        (MedCategory.DAIRY, ProteinTier.MODERATE),
+        (MedCategory.PROCESSED_MEAT, ProteinTier.OCCASIONAL),
     ],
 )
 def test_tier_for_places_the_category(
-    category: ProteinCategory,
+    category: MedCategory,
     expected: ProteinTier,
 ) -> None:
     """Each category sits in its Mediterranean tier."""
