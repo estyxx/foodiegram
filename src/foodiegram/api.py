@@ -5,6 +5,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -38,6 +39,9 @@ def create_app(
         username=auth.username,
         password=auth.password,
     )
+    # The all-recipes list is a large JSON payload; compress it (and the JS/CSS)
+    # so transfer time doesn't dominate load on slower connections.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     # The SPA is served same-origin, so CORS stays off unless an explicit
     # allowlist is configured; never pair credentials with a wildcard origin.
     if cors_origins:

@@ -129,6 +129,16 @@ class RecipeRepository:
     def __init__(self, engine: Engine) -> None:
         """Bind the repository to a database engine."""
         self._engine = engine
+        # Prod is effectively read-only between deploys, so we cache the full,
+        # deserialised recipe set for the process lifetime and rebuild it lazily
+        # after any write. This turns repeated list/find calls (the browse page
+        # loads every recipe) from a full table scan + Pydantic revalidation into
+        # an in-memory read.
+        self._all_cache: list[Recipe] | None = None
+
+    def _invalidate(self) -> None:
+        """Drop the cached recipe list so the next read reloads from the DB."""
+        self._all_cache = None
 
     def get(self, code: str) -> Recipe | None:
         """Return the recipe for code, or None if it does not exist."""
@@ -142,10 +152,14 @@ class RecipeRepository:
             return session.get(RecipeRow, code) is not None
 
     def list_all(self) -> list[Recipe]:
-        """Return every stored recipe, ordered by code."""
-        with get_session(self._engine) as session:
-            rows = session.exec(select(RecipeRow).order_by(RecipeRow.code)).all()
-            return [_to_domain(row) for row in rows]
+        """Return every stored recipe, ordered by code (cached per process)."""
+        if self._all_cache is None:
+            with get_session(self._engine) as session:
+                rows = session.exec(select(RecipeRow).order_by(RecipeRow.code)).all()
+                self._all_cache = [_to_domain(row) for row in rows]
+        # Return a shallow copy so callers can filter/sort without mutating the
+        # cache; the Recipe elements themselves are frozen and safe to share.
+        return list(self._all_cache)
 
     def save(self, recipe: Recipe) -> None:
         """Insert or update recipe, preserving created_at and user edits.
@@ -166,6 +180,7 @@ class RecipeRepository:
             created_at = existing.created_at if existing is not None else now
             session.merge(_to_row(recipe, created_at=created_at, updated_at=now))
             session.commit()
+        self._invalidate()
 
     def delete(self, code: str) -> bool:
         """Delete the recipe for code; return True if deleted, False if absent."""
@@ -175,6 +190,7 @@ class RecipeRepository:
                 return False
             session.delete(row)
             session.commit()
+            self._invalidate()
             return True
 
     def find(
