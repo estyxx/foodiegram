@@ -15,6 +15,8 @@ from foodiegram.domain.enums import (
     DishType,
     MealType,
     MedCategory,
+    ProteinCategory,
+    ProteinTier,
     RecipeSource,
 )
 from foodiegram.domain.errors import (
@@ -45,6 +47,12 @@ from foodiegram.domain.planning import (
     oily_fish_count,
     week_balance,
 )
+from foodiegram.domain.proteins import (
+    PROTEIN_WORDS,
+    TIERS,
+    categories_for,
+    tier_for,
+)
 from foodiegram.domain.shopping import AisleGroup, ShoppingItem, shopping_list
 from foodiegram.domain.synonyms import (
     SYNONYM_GROUPS,
@@ -56,7 +64,9 @@ __all__ = [
     "DEFAULT_TARGETS",
     "EXTRACTION_FIELDS",
     "PROTECTED_FIELDS",
+    "PROTEIN_WORDS",
     "SYNONYM_GROUPS",
+    "TIERS",
     "AisleGroup",
     "CategoryServing",
     "CategoryStatus",
@@ -80,6 +90,8 @@ __all__ = [
     "MedCategory",
     "PantryItem",
     "PlannedMeal",
+    "ProteinCategory",
+    "ProteinTier",
     "Recipe",
     "RecipeSource",
     "ShoppingItem",
@@ -87,6 +99,7 @@ __all__ = [
     "UserState",
     "WeekPlan",
     "canonical_term",
+    "categories_for",
     "diff_against_recipe",
     "diff_payloads",
     "expand_term",
@@ -95,5 +108,6 @@ __all__ = [
     "oily_fish_count",
     "promote",
     "shopping_list",
+    "tier_for",
     "week_balance",
 ]

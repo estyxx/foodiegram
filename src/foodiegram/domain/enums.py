@@ -45,6 +45,33 @@ class MedCategory(StrEnum):
     PROCESSED_MEAT = "processed_meat"
 
 
+class ProteinCategory(StrEnum):
+    """Protein group a recipe's free protein words map to.
+
+    The seven MedCategory names repeat here with identical values, plus
+    PLANT_PROTEIN. The two answer different questions: MedCategory carries the
+    LLM-assigned servings the weekly balance counts, while this is derived from
+    the protein word list to drive the Browse facets.
+    """
+
+    FISH = "fish"
+    LEGUMES = "legumes"
+    PLANT_PROTEIN = "plant_protein"
+    POULTRY = "poultry"
+    EGGS = "eggs"
+    DAIRY = "dairy"
+    RED_MEAT = "red_meat"
+    PROCESSED_MEAT = "processed_meat"
+
+
+class ProteinTier(StrEnum):
+    """How often a protein group belongs in a Mediterranean week."""
+
+    EAT_FREELY = "eat_freely"
+    MODERATE = "moderate"
+    OCCASIONAL = "occasional"
+
+
 class RecipeSource(StrEnum):
     """Where a recipe originated."""
 
