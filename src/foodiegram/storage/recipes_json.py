@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
-from foodiegram.domain.proteins import categories_for
+from foodiegram.domain.proteins import facets_for
 from foodiegram.domain.synonyms import expand_term
 
 if TYPE_CHECKING:
@@ -127,9 +127,8 @@ class RecipeRepository:
         q is a case-insensitive substring match on title, caption, and
         ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
         is_recipe=None keeps both real recipes and inspiration-only saves.
-        protein_categories also ANY-matches, against the groups derived from a
-        recipe's protein words — not the LLM-assigned mediterranean_categories.
-        An empty list means no protein filter, as does None.
+        protein_categories also ANY-matches, against the groups from
+        proteins.facets_for. An empty list means no protein filter, as does None.
         """
         results = self.list_all()
 
@@ -145,7 +144,7 @@ class RecipeRepository:
             results = [r for r in results if r.is_recipe == is_recipe]
         if protein_categories:
             wanted = set(protein_categories)
-            results = [r for r in results if categories_for(r.proteins) & wanted]
+            results = [r for r in results if facets_for(r) & wanted]
         if dietary_tags is not None:
             expanded_tags = {s.lower() for t in dietary_tags for s in expand_term(t)}
             results = [

@@ -1,12 +1,38 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from foodiegram.domain.enums import MedCategory, ProteinTier
+from foodiegram.domain.models import CategoryServing, Recipe
 from foodiegram.domain.proteins import (
     PROTEIN_WORDS,
     TIERS,
     categories_for,
+    facets_for,
     tier_for,
 )
+
+_EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
+
+
+def _recipe(
+    *,
+    proteins: list[str],
+    assigned: list[CategoryServing],
+) -> Recipe:
+    """Build a minimal recipe carrying protein words and LLM categories."""
+    return Recipe(
+        code="ABC",
+        pk="1",
+        post_url="https://instagram.com/p/ABC/",
+        caption=None,
+        title="Test",
+        ingredients=["something"],
+        instructions=["cook"],
+        proteins=proteins,
+        mediterranean_categories=assigned,
+        extracted_at=_EXTRACTED_AT,
+    )
 
 
 @pytest.mark.parametrize(
@@ -113,6 +139,51 @@ def test_tier_for_places_the_category(
 ) -> None:
     """Each category sits in its Mediterranean tier."""
     assert tier_for(category) == expected
+
+
+def test_facets_come_from_the_llm_categories() -> None:
+    """The LLM's assignment wins, even when no protein word agrees with it."""
+    recipe = _recipe(
+        proteins=["pork"],
+        assigned=[CategoryServing(category=MedCategory.PROCESSED_MEAT)],
+    )
+
+    assert facets_for(recipe) == {MedCategory.PROCESSED_MEAT}
+
+
+def test_plant_protein_is_filled_in_from_the_protein_words() -> None:
+    """Extraction never emits plant_protein, so the word list supplies it."""
+    recipe = _recipe(
+        proteins=["tofu"],
+        assigned=[CategoryServing(category=MedCategory.LEGUMES)],
+    )
+
+    assert facets_for(recipe) == {MedCategory.LEGUMES, MedCategory.PLANT_PROTEIN}
+
+
+def test_only_plant_protein_is_derived() -> None:
+    """Protein words never add an animal category the LLM left off."""
+    recipe = _recipe(proteins=["beef", "cheese", "salmon"], assigned=[])
+
+    assert facets_for(recipe) == set()
+
+
+def test_zero_serving_categories_do_not_count() -> None:
+    """A zero-serving entry is excluded, as it is from the weekly balance."""
+    recipe = _recipe(
+        proteins=[],
+        assigned=[
+            CategoryServing(category=MedCategory.FISH, servings=0),
+            CategoryServing(category=MedCategory.DAIRY),
+        ],
+    )
+
+    assert facets_for(recipe) == {MedCategory.DAIRY}
+
+
+def test_a_recipe_with_nothing_tagged_has_no_facets() -> None:
+    """No categories and no protein words means the recipe matches no facet."""
+    assert facets_for(_recipe(proteins=[], assigned=[])) == set()
 
 
 def test_mapping_keys_are_normalised() -> None:

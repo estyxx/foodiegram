@@ -209,55 +209,68 @@ def test_find_combines_is_recipe_with_other_filters(engine: Engine) -> None:
     assert [r.code for r in repo.find(dish_type=DishType.SOUP)] == ["SOUP"]
 
 
-def _with_proteins(code: str, proteins: list[str]) -> Recipe:
-    """Build a recipe carrying only the given protein words."""
-    return _full_recipe().model_copy(update={"code": code, "proteins": proteins})
+def _faceted(code: str, *, proteins: list[str], assigned: MedCategory | None) -> Recipe:
+    """Build a recipe with the given protein words and one LLM category."""
+    categories = [CategoryServing(category=assigned)] if assigned else []
+    return _full_recipe().model_copy(
+        update={
+            "code": code,
+            "proteins": proteins,
+            "mediterranean_categories": categories,
+        },
+    )
 
 
-def test_find_filters_on_derived_protein_categories(engine: Engine) -> None:
-    """A protein facet matches the groups derived from a recipe's protein words."""
+def test_find_filters_on_protein_facet(engine: Engine) -> None:
+    """A protein facet selects the recipes carrying that group."""
     repo = RecipeRepository(engine)
-    repo.save(_with_proteins("TOFU", ["tofu"]))
-    repo.save(_with_proteins("FISH", ["salmon"]))
-    repo.save(_with_proteins("NONE", []))
+    repo.save(_faceted("FISH", proteins=["salmon"], assigned=MedCategory.FISH))
+    repo.save(_faceted("BEEF", proteins=["beef"], assigned=MedCategory.RED_MEAT))
+    repo.save(_faceted("NONE", proteins=[], assigned=None))
 
-    plant = repo.find(protein_categories=[MedCategory.PLANT_PROTEIN])
-    assert [r.code for r in plant] == ["TOFU"]
+    matched = repo.find(protein_categories=[MedCategory.FISH])
+    assert [r.code for r in matched] == ["FISH"]
 
 
 def test_find_ors_several_protein_categories(engine: Engine) -> None:
     """Two facets OR together rather than intersecting."""
     repo = RecipeRepository(engine)
-    repo.save(_with_proteins("TOFU", ["tofu"]))
-    repo.save(_with_proteins("FISH", ["salmon"]))
-    repo.save(_with_proteins("BEEF", ["beef"]))
+    repo.save(_faceted("FISH", proteins=["salmon"], assigned=MedCategory.FISH))
+    repo.save(_faceted("BEEF", proteins=["beef"], assigned=MedCategory.RED_MEAT))
+    repo.save(_faceted("TOFU", proteins=["tofu"], assigned=None))
 
     matched = repo.find(
-        protein_categories=[MedCategory.PLANT_PROTEIN, MedCategory.FISH],
+        protein_categories=[MedCategory.FISH, MedCategory.RED_MEAT],
     )
-    assert [r.code for r in matched] == ["FISH", "TOFU"]
+    assert [r.code for r in matched] == ["BEEF", "FISH"]
 
 
 def test_find_without_protein_categories_keeps_everything(engine: Engine) -> None:
     """None and an empty list both mean no protein filter."""
     repo = RecipeRepository(engine)
-    repo.save(_with_proteins("TOFU", ["tofu"]))
-    repo.save(_with_proteins("NONE", []))
+    repo.save(_faceted("FISH", proteins=["salmon"], assigned=MedCategory.FISH))
+    repo.save(_faceted("NONE", proteins=[], assigned=None))
 
     assert len(repo.find()) == _TWO_RECIPES
     assert len(repo.find(protein_categories=[])) == _TWO_RECIPES
 
 
-def test_protein_facet_ignores_llm_assigned_categories(engine: Engine) -> None:
-    """The facet reads protein words, not the stored mediterranean_categories."""
+def test_protein_facet_follows_the_llm_except_for_plant(engine: Engine) -> None:
+    """Animal facets come from the LLM; plant protein comes from the words."""
     repo = RecipeRepository(engine)
-    # _full_recipe carries EGGS and PROCESSED_MEAT servings from the LLM, but no
-    # protein word maps to eggs, so the eggs facet must not match it.
-    repo.save(_with_proteins("LLM", ["tofu"]))
+    # Cured meat the protein words miss entirely, but the LLM tagged.
+    repo.save(_faceted("CURED", proteins=["pork"], assigned=MedCategory.PROCESSED_MEAT))
+    # Tofu the LLM filed under legumes; the word list supplies plant protein.
+    repo.save(_faceted("TOFU", proteins=["tofu"], assigned=MedCategory.LEGUMES))
 
-    assert repo.find(protein_categories=[MedCategory.EGGS]) == []
+    processed = repo.find(protein_categories=[MedCategory.PROCESSED_MEAT])
+    assert [r.code for r in processed] == ["CURED"]
+
     plant = repo.find(protein_categories=[MedCategory.PLANT_PROTEIN])
-    assert [r.code for r in plant] == ["LLM"]
+    assert [r.code for r in plant] == ["TOFU"]
+
+    # "pork" maps to red meat by word, but the LLM did not tag it as such.
+    assert repo.find(protein_categories=[MedCategory.RED_MEAT]) == []
 
 
 def test_extraction_append_and_latest_for(engine: Engine) -> None:

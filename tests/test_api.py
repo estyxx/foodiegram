@@ -288,16 +288,28 @@ def test_recipe_counts_report_both_segments(client: TestClient, deps: Deps) -> N
     assert favourites_only == {"recipes_only": 1, "all_saves": 1}
 
 
-def _protein_recipe(code: str, proteins: list[str]) -> Recipe:
-    """Build a recipe carrying the given protein words."""
-    return _fish_recipe(code).model_copy(update={"proteins": proteins})
+def _protein_recipe(
+    code: str,
+    *,
+    proteins: list[str],
+    assigned: MedCategory | None,
+) -> Recipe:
+    """Build a recipe with the given protein words and one LLM category."""
+    categories = [CategoryServing(category=assigned)] if assigned else []
+    return _fish_recipe(code).model_copy(
+        update={"proteins": proteins, "mediterranean_categories": categories},
+    )
 
 
 def test_protein_category_facet_filters_and_ors(client: TestClient, deps: Deps) -> None:
     """A protein facet selects its group; repeating the parameter ORs the groups."""
-    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
-    deps.recipes.save(_protein_recipe("SALM", ["salmon"]))
-    deps.recipes.save(_protein_recipe("BEEF", ["beef"]))
+    deps.recipes.save(_protein_recipe("TOFU", proteins=["tofu"], assigned=None))
+    deps.recipes.save(
+        _protein_recipe("SALM", proteins=["salmon"], assigned=MedCategory.FISH),
+    )
+    deps.recipes.save(
+        _protein_recipe("BEEF", proteins=["beef"], assigned=MedCategory.RED_MEAT),
+    )
 
     plant = client.get("/api/recipes", params={"protein_category": "plant_protein"})
     assert [r["code"] for r in plant.json()] == ["TOFU"]
@@ -311,7 +323,7 @@ def test_protein_category_facet_filters_and_ors(client: TestClient, deps: Deps) 
 
 def test_unknown_protein_category_is_ignored(client: TestClient, deps: Deps) -> None:
     """An invalid facet value is dropped rather than raising a 500."""
-    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
+    deps.recipes.save(_protein_recipe("TOFU", proteins=["tofu"], assigned=None))
 
     response = client.get("/api/recipes", params={"protein_category": "unicorn"})
     assert response.status_code == HTTPStatus.OK
@@ -325,21 +337,30 @@ def test_unknown_protein_category_is_ignored(client: TestClient, deps: Deps) -> 
     assert mixed.json() == []
 
 
-def test_processed_meat_facet_is_empty_today(client: TestClient, deps: Deps) -> None:
-    """No extraction emits cured-meat words yet, so the facet matches nothing."""
-    deps.recipes.save(_protein_recipe("PORK", ["pork"]))
+def test_processed_meat_facet_reads_the_llm_tag(client: TestClient, deps: Deps) -> None:
+    """Cured meat has no protein word, so the facet relies on the LLM category."""
+    deps.recipes.save(
+        _protein_recipe("CURED", proteins=["pork"], assigned=MedCategory.PROCESSED_MEAT),
+    )
+    deps.recipes.save(
+        _protein_recipe("ROAST", proteins=["pork"], assigned=MedCategory.RED_MEAT),
+    )
 
     response = client.get("/api/recipes", params={"protein_category": "processed_meat"})
 
-    assert response.json() == []
+    assert [r["code"] for r in response.json()] == ["CURED"]
 
 
 def test_recipe_counts_respect_the_protein_facet(client: TestClient, deps: Deps) -> None:
     """The count endpoint narrows by the same facet the list uses."""
-    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
-    deps.recipes.save(_protein_recipe("SALM", ["salmon"]))
+    deps.recipes.save(_protein_recipe("TOFU", proteins=["tofu"], assigned=None))
     deps.recipes.save(
-        _protein_recipe("NOTR", ["tofu"]).model_copy(update={"is_recipe": False}),
+        _protein_recipe("SALM", proteins=["salmon"], assigned=MedCategory.FISH),
+    )
+    deps.recipes.save(
+        _protein_recipe("NOTR", proteins=["tofu"], assigned=None).model_copy(
+            update={"is_recipe": False},
+        ),
     )
 
     body = client.get(

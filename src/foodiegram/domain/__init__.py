@@ -50,6 +50,7 @@ from foodiegram.domain.proteins import (
     PROTEIN_WORDS,
     TIERS,
     categories_for,
+    facets_for,
     tier_for,
 )
 from foodiegram.domain.shopping import AisleGroup, ShoppingItem, shopping_list
@@ -101,6 +102,7 @@ __all__ = [
     "diff_against_recipe",
     "diff_payloads",
     "expand_term",
+    "facets_for",
     "gap_suggestions",
     "kitchen_match",
     "oily_fish_count",

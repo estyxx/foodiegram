@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING
+
 from foodiegram.domain.enums import MedCategory, ProteinTier
+
+if TYPE_CHECKING:
+    from foodiegram.domain.models import Recipe
 
 # Free protein words mapped to their group; keys are lower-cased. Extraction
 # emits a closed English vocabulary today (cheese, eggs, beans, fish, seafood,
@@ -118,6 +123,26 @@ def categories_for(proteins: list[str]) -> set[MedCategory]:
         for raw in proteins
         if (word := raw.strip().lower()) in PROTEIN_WORDS
     }
+
+
+def facets_for(recipe: Recipe) -> set[MedCategory]:
+    """Return the protein groups Browse should match a recipe on.
+
+    The LLM's category servings win: they read the whole recipe, while the
+    protein word list is a thin, closed vocabulary that misses cured meat
+    entirely. PLANT_PROTEIN is the one exception — extraction has never emitted
+    it, so it is filled in from the protein words until re-extraction catches
+    up. Zero-serving entries are skipped, matching what the weekly balance
+    counts.
+    """
+    facets = {
+        serving.category
+        for serving in recipe.mediterranean_categories
+        if serving.servings > 0
+    }
+    if MedCategory.PLANT_PROTEIN in categories_for(recipe.proteins):
+        facets.add(MedCategory.PLANT_PROTEIN)
+    return facets
 
 
 def tier_for(category: MedCategory) -> ProteinTier:
