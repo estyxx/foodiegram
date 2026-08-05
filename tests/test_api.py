@@ -288,6 +288,68 @@ def test_recipe_counts_report_both_segments(client: TestClient, deps: Deps) -> N
     assert favourites_only == {"recipes_only": 1, "all_saves": 1}
 
 
+def _protein_recipe(code: str, proteins: list[str]) -> Recipe:
+    """Build a recipe carrying the given protein words."""
+    return _fish_recipe(code).model_copy(update={"proteins": proteins})
+
+
+def test_protein_category_facet_filters_and_ors(client: TestClient, deps: Deps) -> None:
+    """A protein facet selects its group; repeating the parameter ORs the groups."""
+    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
+    deps.recipes.save(_protein_recipe("SALM", ["salmon"]))
+    deps.recipes.save(_protein_recipe("BEEF", ["beef"]))
+
+    plant = client.get("/api/recipes", params={"protein_category": "plant_protein"})
+    assert [r["code"] for r in plant.json()] == ["TOFU"]
+
+    both = client.get(
+        "/api/recipes",
+        params=[("protein_category", "plant_protein"), ("protein_category", "fish")],
+    )
+    assert [r["code"] for r in both.json()] == ["SALM", "TOFU"]
+
+
+def test_unknown_protein_category_is_ignored(client: TestClient, deps: Deps) -> None:
+    """An invalid facet value is dropped rather than raising a 500."""
+    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
+
+    response = client.get("/api/recipes", params={"protein_category": "unicorn"})
+    assert response.status_code == HTTPStatus.OK
+    assert [r["code"] for r in response.json()] == ["TOFU"]
+
+    # A valid value alongside an invalid one still filters on the valid one.
+    mixed = client.get(
+        "/api/recipes",
+        params=[("protein_category", "unicorn"), ("protein_category", "fish")],
+    )
+    assert mixed.json() == []
+
+
+def test_processed_meat_facet_is_empty_today(client: TestClient, deps: Deps) -> None:
+    """No extraction emits cured-meat words yet, so the facet matches nothing."""
+    deps.recipes.save(_protein_recipe("PORK", ["pork"]))
+
+    response = client.get("/api/recipes", params={"protein_category": "processed_meat"})
+
+    assert response.json() == []
+
+
+def test_recipe_counts_respect_the_protein_facet(client: TestClient, deps: Deps) -> None:
+    """The count endpoint narrows by the same facet the list uses."""
+    deps.recipes.save(_protein_recipe("TOFU", ["tofu"]))
+    deps.recipes.save(_protein_recipe("SALM", ["salmon"]))
+    deps.recipes.save(
+        _protein_recipe("NOTR", ["tofu"]).model_copy(update={"is_recipe": False}),
+    )
+
+    body = client.get(
+        "/api/recipes/count",
+        params={"protein_category": "plant_protein"},
+    ).json()
+
+    assert body == {"recipes_only": 1, "all_saves": 2}
+
+
 def test_recipe_count_route_is_not_read_as_a_code(client: TestClient) -> None:
     """/recipes/count resolves to the count endpoint, not the detail route."""
     response = client.get("/api/recipes/count")

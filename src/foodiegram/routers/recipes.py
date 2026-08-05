@@ -13,7 +13,13 @@ from foodiegram.api_models import (
     ScaleResult,
 )
 from foodiegram.deps import DepsDep
-from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
+from foodiegram.domain.enums import (
+    CuisineType,
+    Difficulty,
+    DishType,
+    MealType,
+    MedCategory,
+)
 from foodiegram.domain.errors import StorageError
 from foodiegram.domain.models import Recipe
 
@@ -47,6 +53,18 @@ def _to_enum[T](cls: type[T], value: str) -> T | None:
         return None
 
 
+def _protein_categories(values: list[str] | None) -> list[MedCategory] | None:
+    """Coerce protein_category values, dropping unknown ones; None if none left."""
+    if not values:
+        return None
+    categories = [
+        category
+        for value in values
+        if (category := _to_enum(MedCategory, value)) is not None
+    ]
+    return categories or None
+
+
 def _detail(recipe: Recipe, *, deps: DepsDep) -> RecipeDetail:
     """Build a RecipeDetail, resolving favourite/notes from user_state."""
     state = deps.user_state.get(recipe.code)
@@ -69,6 +87,7 @@ def _filtered(
     difficulty: str | None,
     dietary_tag: str | None,
     protein: str | None,
+    protein_category: list[str] | None,
     q: str | None,
     is_recipe: bool | None,
     is_favorite: bool | None,
@@ -80,6 +99,7 @@ def _filtered(
         dish_type=_to_enum(DishType, dish_type) if dish_type else None,
         difficulty=_to_enum(Difficulty, difficulty) if difficulty else None,
         is_recipe=is_recipe,
+        protein_categories=_protein_categories(protein_category),
         dietary_tags=[dietary_tag] if dietary_tag else None,
         proteins=[protein] if protein else None,
         q=q,
@@ -98,6 +118,7 @@ async def list_recipes(
     difficulty: Annotated[str | None, Query()] = None,
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
+    protein_category: Annotated[list[str] | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     is_recipe: Annotated[bool | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
@@ -115,6 +136,7 @@ async def list_recipes(
         difficulty=difficulty,
         dietary_tag=dietary_tag,
         protein=protein,
+        protein_category=protein_category,
         q=q,
         is_recipe=is_recipe,
         is_favorite=is_favorite,
@@ -135,6 +157,7 @@ async def count_recipes(
     difficulty: Annotated[str | None, Query()] = None,
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
+    protein_category: Annotated[list[str] | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
 ) -> RecipeCounts:
@@ -148,6 +171,7 @@ async def count_recipes(
         difficulty=difficulty,
         dietary_tag=dietary_tag,
         protein=protein,
+        protein_category=protein_category,
         q=q,
         is_recipe=None,
         is_favorite=is_favorite,

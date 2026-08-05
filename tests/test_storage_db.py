@@ -27,6 +27,7 @@ from foodiegram.storage.user_state_db import UserStateRepository
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5
+_TWO_RECIPES = 2
 
 
 @pytest.fixture
@@ -206,6 +207,57 @@ def test_find_combines_is_recipe_with_other_filters(engine: Engine) -> None:
 
     assert [r.code for r in repo.find(dish_type=DishType.SOUP, is_recipe=True)] == []
     assert [r.code for r in repo.find(dish_type=DishType.SOUP)] == ["SOUP"]
+
+
+def _with_proteins(code: str, proteins: list[str]) -> Recipe:
+    """Build a recipe carrying only the given protein words."""
+    return _full_recipe().model_copy(update={"code": code, "proteins": proteins})
+
+
+def test_find_filters_on_derived_protein_categories(engine: Engine) -> None:
+    """A protein facet matches the groups derived from a recipe's protein words."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_proteins("TOFU", ["tofu"]))
+    repo.save(_with_proteins("FISH", ["salmon"]))
+    repo.save(_with_proteins("NONE", []))
+
+    plant = repo.find(protein_categories=[MedCategory.PLANT_PROTEIN])
+    assert [r.code for r in plant] == ["TOFU"]
+
+
+def test_find_ors_several_protein_categories(engine: Engine) -> None:
+    """Two facets OR together rather than intersecting."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_proteins("TOFU", ["tofu"]))
+    repo.save(_with_proteins("FISH", ["salmon"]))
+    repo.save(_with_proteins("BEEF", ["beef"]))
+
+    matched = repo.find(
+        protein_categories=[MedCategory.PLANT_PROTEIN, MedCategory.FISH],
+    )
+    assert [r.code for r in matched] == ["FISH", "TOFU"]
+
+
+def test_find_without_protein_categories_keeps_everything(engine: Engine) -> None:
+    """None and an empty list both mean no protein filter."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_proteins("TOFU", ["tofu"]))
+    repo.save(_with_proteins("NONE", []))
+
+    assert len(repo.find()) == _TWO_RECIPES
+    assert len(repo.find(protein_categories=[])) == _TWO_RECIPES
+
+
+def test_protein_facet_ignores_llm_assigned_categories(engine: Engine) -> None:
+    """The facet reads protein words, not the stored mediterranean_categories."""
+    repo = RecipeRepository(engine)
+    # _full_recipe carries EGGS and PROCESSED_MEAT servings from the LLM, but no
+    # protein word maps to eggs, so the eggs facet must not match it.
+    repo.save(_with_proteins("LLM", ["tofu"]))
+
+    assert repo.find(protein_categories=[MedCategory.EGGS]) == []
+    plant = repo.find(protein_categories=[MedCategory.PLANT_PROTEIN])
+    assert [r.code for r in plant] == ["LLM"]
 
 
 def test_extraction_append_and_latest_for(engine: Engine) -> None:

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from foodiegram.domain.models import Recipe
+from foodiegram.domain.proteins import categories_for
 from foodiegram.domain.synonyms import expand_term
 from foodiegram.storage._tables import RecipeRow
 from foodiegram.storage.db import ensure_utc, get_session
@@ -11,7 +12,13 @@ from foodiegram.storage.db import ensure_utc, get_session
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
-    from foodiegram.domain.enums import CuisineType, Difficulty, DishType, MealType
+    from foodiegram.domain.enums import (
+        CuisineType,
+        Difficulty,
+        DishType,
+        MealType,
+        MedCategory,
+    )
 
 
 def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> RecipeRow:
@@ -201,6 +208,7 @@ class RecipeRepository:
         dish_type: DishType | None = None,
         difficulty: Difficulty | None = None,
         is_recipe: bool | None = None,
+        protein_categories: list[MedCategory] | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
         q: str | None = None,
@@ -213,6 +221,9 @@ class RecipeRepository:
         q is a case-insensitive substring match on title, caption, and
         ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
         is_recipe=None keeps both real recipes and inspiration-only saves.
+        protein_categories also ANY-matches, against the groups derived from a
+        recipe's protein words — not the LLM-assigned mediterranean_categories.
+        An empty list means no protein filter, as does None.
         """
         results = self.list_all()
 
@@ -226,6 +237,9 @@ class RecipeRepository:
             results = [r for r in results if r.difficulty == difficulty]
         if is_recipe is not None:
             results = [r for r in results if r.is_recipe == is_recipe]
+        if protein_categories:
+            wanted = set(protein_categories)
+            results = [r for r in results if categories_for(r.proteins) & wanted]
         if dietary_tags is not None:
             expanded_tags = {s.lower() for t in dietary_tags for s in expand_term(t)}
             results = [
