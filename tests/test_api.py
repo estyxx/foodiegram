@@ -371,6 +371,48 @@ def test_recipe_counts_respect_the_protein_facet(client: TestClient, deps: Deps)
     assert body == {"recipes_only": 1, "all_saves": 2}
 
 
+def _ingredient_recipe(code: str, ingredients: list[str]) -> Recipe:
+    """Build a recipe carrying the given ingredient lines."""
+    return _fish_recipe(code).model_copy(update={"ingredients": ingredients})
+
+
+def test_ingredient_chips_and_together(client: TestClient, deps: Deps) -> None:
+    """Repeating ingredient requires every term, and expands through synonyms."""
+    deps.recipes.save(_ingredient_recipe("BOTH", ["300g zucca", "200g tofu"]))
+    deps.recipes.save(_ingredient_recipe("PUMP", ["pumpkin puree", "tofu"]))
+    deps.recipes.save(_ingredient_recipe("ONE", ["300g zucca"]))
+
+    response = client.get(
+        "/api/recipes",
+        params=[("ingredient", "zucca"), ("ingredient", "tofu")],
+    )
+
+    assert [r["code"] for r in response.json()] == ["BOTH", "PUMP"]
+
+
+def test_blank_ingredient_values_are_ignored(client: TestClient, deps: Deps) -> None:
+    """An empty chip does not collapse the result set."""
+    deps.recipes.save(_ingredient_recipe("ONE", ["300g zucca"]))
+
+    response = client.get("/api/recipes", params={"ingredient": "  "})
+
+    assert response.status_code == HTTPStatus.OK
+    assert [r["code"] for r in response.json()] == ["ONE"]
+
+
+def test_recipe_counts_respect_ingredient_chips(client: TestClient, deps: Deps) -> None:
+    """The count endpoint narrows by the chips too, so "Show N" tracks them."""
+    deps.recipes.save(_ingredient_recipe("BOTH", ["zucca", "tofu"]))
+    deps.recipes.save(_ingredient_recipe("ONE", ["zucca"]))
+
+    body = client.get(
+        "/api/recipes/count",
+        params=[("ingredient", "zucca"), ("ingredient", "tofu")],
+    ).json()
+
+    assert body == {"recipes_only": 1, "all_saves": 1}
+
+
 def test_recipe_count_route_is_not_read_as_a_code(client: TestClient) -> None:
     """/recipes/count resolves to the count endpoint, not the detail route."""
     response = client.get("/api/recipes/count")

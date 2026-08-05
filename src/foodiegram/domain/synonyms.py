@@ -1,5 +1,8 @@
 SYNONYM_GROUPS: list[frozenset[str]] = [
     frozenset({"zucchini", "courgette", "zucchine", "zucchina"}),
+    # NOTE: "zucca" (winter squash/pumpkin) is a different vegetable from
+    # "zucchine" above, despite the shared root. Keep the two groups apart.
+    frozenset({"zucca", "pumpkin", "squash", "butternut"}),
     frozenset({"eggplant", "aubergine", "melanzana", "melanzane"}),
     # NOTE: "peperoni" (Italian, bell peppers) is a false friend with English
     # "pepperoni" (cured meat sausage). Do NOT merge these into one group —

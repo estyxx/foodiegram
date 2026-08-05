@@ -130,6 +130,46 @@ def _to_domain(row: RecipeRow) -> Recipe:
     )
 
 
+def _matches_term(recipe: Recipe, term: str) -> bool:
+    """Return True if term or a synonym appears in title, ingredients, or caption."""
+    needles = {s.lower() for s in expand_term(term)}
+    return (
+        any(needle in recipe.title.lower() for needle in needles)
+        or any(
+            needle in ingredient.lower()
+            for needle in needles
+            for ingredient in recipe.ingredients
+        )
+        or (
+            recipe.caption is not None
+            and any(needle in recipe.caption.lower() for needle in needles)
+        )
+    )
+
+
+def _filter_attributes(
+    recipes: list[Recipe],
+    *,
+    cuisine: CuisineType | None,
+    meal_type: MealType | None,
+    dish_type: DishType | None,
+    difficulty: Difficulty | None,
+    is_recipe: bool | None,
+) -> list[Recipe]:
+    """Narrow recipes by whichever scalar attribute filters are set."""
+    if cuisine is not None:
+        recipes = [r for r in recipes if r.cuisine_type == cuisine]
+    if meal_type is not None:
+        recipes = [r for r in recipes if r.meal_type == meal_type]
+    if dish_type is not None:
+        recipes = [r for r in recipes if r.dish_type == dish_type]
+    if difficulty is not None:
+        recipes = [r for r in recipes if r.difficulty == difficulty]
+    if is_recipe is not None:
+        recipes = [r for r in recipes if r.is_recipe == is_recipe]
+    return recipes
+
+
 class RecipeRepository:
     """DB-backed store for Recipe objects, keyed by recipe code."""
 
@@ -211,6 +251,7 @@ class RecipeRepository:
         protein_categories: list[MedCategory] | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
+        ingredients: list[str] | None = None,
         q: str | None = None,
     ) -> list[Recipe]:
         """Return recipes matching all non-None criteria.
@@ -220,22 +261,21 @@ class RecipeRepository:
         expansion so e.g. "courgette" matches recipes tagged "zucchini".
         q is a case-insensitive substring match on title, caption, and
         ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
+        ingredients matches the same way but AND-wise: every term must appear,
+        which is what the search chips send. An empty list means no filter.
         is_recipe=None keeps both real recipes and inspiration-only saves.
         protein_categories also ANY-matches, against the groups from
         proteins.facets_for. An empty list means no protein filter, as does None.
         """
-        results = self.list_all()
+        results = _filter_attributes(
+            self.list_all(),
+            cuisine=cuisine,
+            meal_type=meal_type,
+            dish_type=dish_type,
+            difficulty=difficulty,
+            is_recipe=is_recipe,
+        )
 
-        if cuisine is not None:
-            results = [r for r in results if r.cuisine_type == cuisine]
-        if meal_type is not None:
-            results = [r for r in results if r.meal_type == meal_type]
-        if dish_type is not None:
-            results = [r for r in results if r.dish_type == dish_type]
-        if difficulty is not None:
-            results = [r for r in results if r.difficulty == difficulty]
-        if is_recipe is not None:
-            results = [r for r in results if r.is_recipe == is_recipe]
         if protein_categories:
             wanted = set(protein_categories)
             results = [r for r in results if facets_for(r) & wanted]
@@ -249,19 +289,11 @@ class RecipeRepository:
             results = [
                 r for r in results if expanded_proteins & {p.lower() for p in r.proteins}
             ]
-        if q is not None:
-            needles = {s.lower() for s in expand_term(q)}
+        if ingredients:
             results = [
-                r
-                for r in results
-                if any(needle in r.title.lower() for needle in needles)
-                or any(
-                    needle in ing.lower() for needle in needles for ing in r.ingredients
-                )
-                or (
-                    r.caption is not None
-                    and any(needle in r.caption.lower() for needle in needles)
-                )
+                r for r in results if all(_matches_term(r, term) for term in ingredients)
             ]
+        if q is not None:
+            results = [r for r in results if _matches_term(r, q)]
 
         return results

@@ -273,6 +273,75 @@ def test_protein_facet_follows_the_llm_except_for_plant(engine: Engine) -> None:
     assert repo.find(protein_categories=[MedCategory.RED_MEAT]) == []
 
 
+def _with_ingredients(code: str, ingredients: list[str]) -> Recipe:
+    """Build a recipe carrying the given ingredient lines and no caption."""
+    return _full_recipe().model_copy(
+        update={"code": code, "ingredients": ingredients, "caption": None},
+    )
+
+
+def test_find_ands_every_ingredient_term(engine: Engine) -> None:
+    """A recipe must match every chip, not just one of them."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_ingredients("BOTH", ["300g zucca", "200g tofu"]))
+    repo.save(_with_ingredients("ONE", ["300g zucca", "olio"]))
+
+    matched = repo.find(ingredients=["zucca", "tofu"])
+    assert [r.code for r in matched] == ["BOTH"]
+
+
+def test_ingredient_terms_expand_through_synonyms(engine: Engine) -> None:
+    """Zucca finds pumpkin and squash, and does not collide with zucchine."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_ingredients("PUMP", ["500g pumpkin puree"]))
+    repo.save(_with_ingredients("SQSH", ["1 butternut squash"]))
+    repo.save(_with_ingredients("ZUCC", ["2 zucchine"]))
+
+    matched = repo.find(ingredients=["zucca"])
+    assert [r.code for r in matched] == ["PUMP", "SQSH"]
+
+
+def test_ingredient_terms_match_title_and_caption(engine: Engine) -> None:
+    """A term counts if it appears in the title or caption, as q does."""
+    repo = RecipeRepository(engine)
+    repo.save(
+        _with_ingredients("TITL", ["olio"]).model_copy(
+            update={"title": "Vellutata di zucca"},
+        ),
+    )
+    repo.save(
+        _with_ingredients("CAPT", ["olio"]).model_copy(
+            update={"caption": "Con la zucca del mercato"},
+        ),
+    )
+    repo.save(_with_ingredients("NONE", ["olio"]))
+
+    matched = repo.find(ingredients=["zucca"])
+    assert [r.code for r in matched] == ["CAPT", "TITL"]
+
+
+def test_empty_ingredient_list_is_not_a_filter(engine: Engine) -> None:
+    """No chips means no ingredient filter."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_ingredients("ONE", ["olio"]))
+
+    assert len(repo.find(ingredients=[])) == 1
+
+
+def test_ingredients_and_q_combine(engine: Engine) -> None:
+    """The chips and the free-text box narrow together."""
+    repo = RecipeRepository(engine)
+    repo.save(_with_ingredients("A", ["zucca", "tofu"]))
+    repo.save(
+        _with_ingredients("B", ["zucca", "tofu"]).model_copy(
+            update={"title": "Vellutata"},
+        ),
+    )
+
+    matched = repo.find(ingredients=["zucca", "tofu"], q="vellutata")
+    assert [r.code for r in matched] == ["B"]
+
+
 def test_extraction_append_and_latest_for(engine: Engine) -> None:
     """Extractions append with ids; latest_for returns the newest, version-aware."""
     RecipeRepository(engine).save(_full_recipe())

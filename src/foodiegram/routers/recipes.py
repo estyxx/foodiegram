@@ -65,6 +65,14 @@ def _protein_categories(values: list[str] | None) -> list[MedCategory] | None:
     return categories or None
 
 
+def _search_terms(values: list[str] | None) -> list[str] | None:
+    """Trim ingredient chip values, dropping blanks; None if nothing is left."""
+    if not values:
+        return None
+    terms = [term for raw in values if (term := raw.strip())]
+    return terms or None
+
+
 def _detail(recipe: Recipe, *, deps: DepsDep) -> RecipeDetail:
     """Build a RecipeDetail, resolving favourite/notes from user_state."""
     state = deps.user_state.get(recipe.code)
@@ -88,6 +96,7 @@ def _filtered(
     dietary_tag: str | None,
     protein: str | None,
     protein_category: list[str] | None,
+    ingredient: list[str] | None,
     q: str | None,
     is_recipe: bool | None,
     is_favorite: bool | None,
@@ -102,6 +111,7 @@ def _filtered(
         protein_categories=_protein_categories(protein_category),
         dietary_tags=[dietary_tag] if dietary_tag else None,
         proteins=[protein] if protein else None,
+        ingredients=_search_terms(ingredient),
         q=q,
     )
     if is_favorite is None:
@@ -119,6 +129,7 @@ async def list_recipes(
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
     protein_category: Annotated[list[str] | None, Query()] = None,
+    ingredient: Annotated[list[str] | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     is_recipe: Annotated[bool | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
@@ -137,6 +148,7 @@ async def list_recipes(
         dietary_tag=dietary_tag,
         protein=protein,
         protein_category=protein_category,
+        ingredient=ingredient,
         q=q,
         is_recipe=is_recipe,
         is_favorite=is_favorite,
@@ -158,6 +170,7 @@ async def count_recipes(
     dietary_tag: Annotated[str | None, Query()] = None,
     protein: Annotated[str | None, Query()] = None,
     protein_category: Annotated[list[str] | None, Query()] = None,
+    ingredient: Annotated[list[str] | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
 ) -> RecipeCounts:
@@ -172,6 +185,7 @@ async def count_recipes(
         dietary_tag=dietary_tag,
         protein=protein,
         protein_category=protein_category,
+        ingredient=ingredient,
         q=q,
         is_recipe=None,
         is_favorite=is_favorite,
