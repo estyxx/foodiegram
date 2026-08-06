@@ -1,6 +1,6 @@
 // @ts-check
 
-import { hasValue, humanise } from "../lib/format.js";
+import { capitalise, hasValue, humanise } from "../lib/format.js";
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 
@@ -22,10 +22,11 @@ const PLANT_TAGS = new Set(["vegan", "vegetarian", "plant_based", "plant-based"]
  * @property {boolean} [ring] Render the dot as an outline (eggs, processed).
  */
 
-/** The 7-category key mapped to design tokens (see tokens.css). */
+/** The category key mapped to design tokens (see tokens.css). */
 const CATEGORY = /** @type {Record<string, CategoryTokens>} */ ({
   fish: { label: "Fish", dot: "--cat-fish", bg: "--cat-fish-bg", fg: "--cat-fish-fg", tint: "--cat-fish-tint" },
   legumes: { label: "Legumes", dot: "--cat-legumes", bg: "--cat-legumes-bg", fg: "--cat-legumes-fg", tint: "--cat-legumes-tint" },
+  plant_protein: { label: "Plant protein", dot: "--cat-plant", bg: "--cat-plant-bg", fg: "--cat-plant-fg", tint: "--cat-plant-tint", ring: true },
   poultry: { label: "Poultry", dot: "--cat-poultry", bg: "--cat-poultry-bg", fg: "--cat-poultry-fg", tint: "--cat-poultry-tint" },
   eggs: { label: "Eggs", dot: "--cat-eggs", bg: "--cat-eggs-bg", fg: "--cat-eggs-fg", tint: "--cat-eggs-tint", ring: true },
   dairy: { label: "Dairy", dot: "--cat-dairy", bg: "--cat-dairy-bg", fg: "--cat-dairy-fg", tint: "--cat-dairy-tint" },
@@ -347,12 +348,4 @@ function metaText(recipe) {
  */
 function isPlant(recipe) {
   return recipe.dietary_tags.some((tag) => PLANT_TAGS.has(tag.toLowerCase()));
-}
-
-/**
- * @param {string} value
- * @returns {string}
- */
-function capitalise(value) {
-  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
 }

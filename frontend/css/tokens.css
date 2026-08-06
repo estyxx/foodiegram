@@ -71,7 +71,10 @@
   --border-strong: #CDC4AF; /* dashed / emphasised */
   --border-light: #E3DCCB;
 
-  /* ---- The 7-category key (dot = swatch, bg/fg = chip, tint = empty track) ---- */
+  /* ---- The category key (dot = swatch, bg/fg = chip, tint = empty track) ----
+   * One hue per tier, an outlined variant for the second member: poultry/eggs
+   * share ochre, red meat/processed share terracotta, legumes/plant share green.
+   */
   --cat-fish: #3E9D94;
   --cat-fish-bg: #DCEAE7;
   --cat-fish-fg: #1E5E59;
@@ -81,6 +84,12 @@
   --cat-legumes-bg: #DCE7D5;
   --cat-legumes-fg: #345A2E;
   --cat-legumes-tint: #D6DECB;
+
+  --cat-plant: #3F6B38;        /* outlined variant of the legumes hue */
+  --cat-plant-bg: #DCE7D5;
+  --cat-plant-fg: #345A2E;
+  --cat-plant-tint: #D6DECB;
+  --cat-plant-ring: #3F6B38;
 
   --cat-poultry: #C28A1E;
   --cat-poultry-bg: #F4E7C9;

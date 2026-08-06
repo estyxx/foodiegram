@@ -75,6 +75,8 @@
  * @property {string} [difficulty]
  * @property {string} [dietary_tag]
  * @property {string} [protein]
+ * @property {string[]} [protein_category] Repeatable; OR-matched by the server.
+ * @property {string[]} [ingredient] Repeatable; AND-matched by the server.
  * @property {boolean} [is_recipe]
  * @property {boolean} [is_favorite]
  */
@@ -107,13 +109,18 @@ const MAX_PAGE = 500;
 
 /**
  * Serialise filters into query parameters, dropping empty values.
+ * Array values repeat the key, which is how the API reads multi-value facets.
  * @param {RecipeFilters} [filters]
  * @returns {URLSearchParams}
  */
 function toParams(filters) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters ?? {})) {
-    if (value !== "" && value !== undefined && value !== null) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        params.append(key, item);
+      }
+    } else if (value !== "" && value !== undefined && value !== null) {
       params.set(key, String(value));
     }
   }

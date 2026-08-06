@@ -1,37 +1,26 @@
 // @ts-check
 
 import { getAllRecipes, getRecipeCounts, updateRecipe } from "../api/client.js";
+import { FilterPanel, FiltersToggle } from "../components/FilterPanel.js";
 import { RecipeCard } from "../components/RecipeCard.js";
+import { SearchBar } from "../components/SearchBar.js";
+import {
+  activeCount,
+  cleared,
+  emptyFilters,
+  isNarrowed,
+  toQuery,
+  withIngredient,
+  withProteinToggled,
+  withSelect,
+  withoutIngredient,
+} from "../lib/filters.js";
 
 const PAGE_SIZE = 50;
-const SEARCH_DEBOUNCE_MS = 200;
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
-/** @typedef {import("../api/client.js").RecipeFilters} RecipeFilters */
 /** @typedef {import("../api/client.js").RecipeCounts} RecipeCounts */
-
-/**
- * @typedef {object} CategoryChip
- * @property {string} value MedCategory value, or "" for the "All" reset chip.
- * @property {string} label
- * @property {string} [color] CSS custom-property name for the dot swatch.
- * @property {boolean} [ring] Render the dot as an outline (eggs, processed).
- */
-
-/* The category key in Browse order. MedCategory also carries plant_protein,
- * left out here because these chips filter the LLM-assigned categories and no
- * recipe has been tagged plant_protein yet; the Filters panel picks it up from
- * the derived protein facet instead. */
-const CATEGORY_CHIPS = /** @type {CategoryChip[]} */ ([
-  { value: "", label: "All" },
-  { value: "fish", label: "Fish", color: "--cat-fish" },
-  { value: "legumes", label: "Legumes", color: "--cat-legumes" },
-  { value: "poultry", label: "Poultry", color: "--cat-poultry" },
-  { value: "eggs", label: "Eggs", color: "--cat-eggs", ring: true },
-  { value: "dairy", label: "Dairy", color: "--cat-dairy" },
-  { value: "red_meat", label: "Red meat", color: "--cat-red-meat" },
-  { value: "processed_meat", label: "Processed", color: "--cat-processed", ring: true },
-]);
+/** @typedef {import("../lib/filters.js").BrowseFilters} BrowseFilters */
 
 /**
  * Render the browse (or favourites) view into container.
@@ -43,16 +32,44 @@ export async function renderBrowse(container, options) {
   const favourites = options?.favourites ?? false;
   container.replaceChildren();
 
-  let query = "";
-  let category = "";
-  let recipesOnly = true;
+  let filters = emptyFilters();
   /** @type {RecipeCounts} */
   let counts = { recipes_only: 0, all_saves: 0 };
+  // Typing fires a request per keystroke; only the newest answer may land.
+  let latestRequest = 0;
 
-  const chips = document.createElement("div");
-  chips.className = "chip-filters";
-  chips.setAttribute("role", "group");
-  chips.setAttribute("aria-label", "Filter by Mediterranean category");
+  const searchBar = SearchBar({
+    onQueryChange: (text) => void apply({ ...filters, query: text }),
+    onAddIngredient: (term) => void apply(withIngredient(filters, term)),
+    onRemoveIngredient: (term) => void apply(withoutIngredient(filters, term)),
+  });
+
+  const panel = FilterPanel({
+    onToggleProtein: (category) => void apply(withProteinToggled(filters, category)),
+    onSelect: (key, value) => void apply(withSelect(filters, key, value)),
+    onClear: () => void apply(cleared(filters)),
+    onApply: () => setPanelOpen(false),
+  });
+  panel.element.id = "browse-filters";
+
+  let panelOpen = false;
+  const toggle = FiltersToggle(() => setPanelOpen(!panelOpen));
+  toggle.element.setAttribute("aria-controls", panel.element.id);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "browse__toolbar";
+  toolbar.append(searchBar.element, toggle.element);
+
+  const commandBar = document.createElement("div");
+  commandBar.className = "command-bar";
+  commandBar.append(toolbar, panel.element);
+  // Escape from anywhere in the bar, not just inside the panel: on mobile the
+  // sheet covers the page and the search field is where the caret usually is.
+  commandBar.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && panelOpen) {
+      setPanelOpen(false);
+    }
+  });
 
   const summary = document.createElement("p");
   summary.className = "browse__count";
@@ -60,10 +77,10 @@ export async function renderBrowse(container, options) {
 
   // Both segments are built once and only relabelled, so a keyboard toggle keeps
   // its focus on the button that was activated.
-  const recipesSegment = buildSegment("Recipes only", recipesOnly, () => {
+  const recipesSegment = buildSegment("Recipes only", filters.recipesOnly, () => {
     void setRecipesOnly(true);
   });
-  const allSavesSegment = buildSegment("All saves", !recipesOnly, () => {
+  const allSavesSegment = buildSegment("All saves", !filters.recipesOnly, () => {
     void setRecipesOnly(false);
   });
 
@@ -88,28 +105,34 @@ export async function renderBrowse(container, options) {
   loadMoreButton.addEventListener("click", renderMore);
   loadMore.append(loadMoreButton);
 
-  const toolbar = buildToolbar((value) => {
-    query = value;
-    void refetch();
-  });
+  container.append(buildHero(favourites), commandBar, resultsBar, grid, loadMore);
 
-  container.append(buildHero(favourites), toolbar, chips, resultsBar, grid, loadMore);
-
-  /** @type {RecipeSummary[]} Server results reflecting the current query. */
-  let matched = [];
-  /** @type {RecipeSummary[]} matched after category + sort. */
+  /** @type {RecipeSummary[]} Server results under the current filters. */
   let results = [];
   let rendered = 0;
 
+  /**
+   * @param {BrowseFilters} next
+   * @returns {Promise<void>}
+   */
+  async function apply(next) {
+    filters = next;
+    await refetch();
+  }
+
   async function refetch() {
-    const filters = toQuery({ query, favourites, recipesOnly });
+    const query = toQuery(filters, { favourites });
+    const request = (latestRequest += 1);
     const [fetched, fetchedCounts] = await Promise.all([
-      getAllRecipes(filters),
-      getRecipeCounts(filters),
+      getAllRecipes(query),
+      getRecipeCounts(query),
     ]);
-    matched = fetched;
+    if (request !== latestRequest) {
+      return;
+    }
+    results = fetched;
     counts = fetchedCounts;
-    recompute();
+    renderAll();
   }
 
   /**
@@ -117,36 +140,38 @@ export async function renderBrowse(container, options) {
    * @returns {Promise<void>}
    */
   async function setRecipesOnly(next) {
-    if (next === recipesOnly) {
+    if (next === filters.recipesOnly) {
       return;
     }
-    recipesOnly = next;
-    await refetch();
+    await apply({ ...filters, recipesOnly: next });
   }
 
-  function recompute() {
-    results = filterByCategory(matched, category);
-    renderChips();
+  /**
+   * @param {boolean} open
+   */
+  function setPanelOpen(open) {
+    panelOpen = open;
+    panel.element.hidden = !open;
+    toggle.setOpen(open);
+    if (open) {
+      panel.focusFirst();
+    } else if (panel.element.contains(document.activeElement)) {
+      toggle.element.focus();
+    }
+  }
+
+  function renderAll() {
+    searchBar.render(filters.ingredients);
+    toggle.render(activeCount(filters));
+    panel.render(filters, filters.recipesOnly ? counts.recipes_only : counts.all_saves);
     renderSegmented();
     renderResults();
   }
 
   function renderSegmented() {
-    setPressed(recipesSegment, recipesOnly);
-    setPressed(allSavesSegment, !recipesOnly);
+    setPressed(recipesSegment, filters.recipesOnly);
+    setPressed(allSavesSegment, !filters.recipesOnly);
     allSavesSegment.textContent = `All saves \u00b7 ${counts.all_saves.toLocaleString()}`;
-  }
-
-  function renderChips() {
-    chips.replaceChildren();
-    for (const chip of CATEGORY_CHIPS) {
-      chips.append(
-        buildChip(chip, category === chip.value, () => {
-          category = chip.value;
-          recompute();
-        }),
-      );
-    }
   }
 
   function renderResults() {
@@ -155,7 +180,9 @@ export async function renderBrowse(container, options) {
     if (results.length === 0) {
       const empty = document.createElement("p");
       empty.className = "state-msg";
-      empty.textContent = "No recipes match your filters.";
+      empty.textContent = isNarrowed(filters)
+        ? "No recipes match these filters."
+        : "Nothing saved here yet.";
       grid.append(empty);
       updateCount();
       loadMore.hidden = true;
@@ -242,106 +269,6 @@ function withText(el, text) {
   return el;
 }
 
-/* ---- Toolbar: search + sort -------------------------------------------- */
-
-/**
- * @param {(value: string) => void} onSearch
- * @returns {HTMLElement}
- */
-function buildToolbar(onSearch) {
-  const toolbar = document.createElement("div");
-  toolbar.className = "browse__toolbar";
-  toolbar.append(buildSearch(onSearch));
-  return toolbar;
-}
-
-/**
- * @param {(value: string) => void} onInput
- * @returns {HTMLElement}
- */
-function buildSearch(onInput) {
-  const wrap = document.createElement("div");
-  wrap.className = "searchbar";
-  wrap.append(buildSearchIcon());
-
-  const input = document.createElement("input");
-  input.type = "search";
-  input.className = "searchbar__input";
-  input.placeholder = "Search recipes or ingredients\u2026";
-  input.setAttribute("aria-label", "Search recipes or ingredients");
-
-  let timer = 0;
-  input.addEventListener("input", () => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => onInput(input.value.trim()), SEARCH_DEBOUNCE_MS);
-  });
-  wrap.append(input);
-  return wrap;
-}
-
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-/**
- * @returns {SVGSVGElement}
- */
-function buildSearchIcon() {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "searchbar__icon");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "1.6");
-  svg.setAttribute("aria-hidden", "true");
-
-  const circle = document.createElementNS(SVG_NS, "circle");
-  circle.setAttribute("cx", "11");
-  circle.setAttribute("cy", "11");
-  circle.setAttribute("r", "7");
-
-  const handle = document.createElementNS(SVG_NS, "line");
-  handle.setAttribute("x1", "20");
-  handle.setAttribute("y1", "20");
-  handle.setAttribute("x2", "16.5");
-  handle.setAttribute("y2", "16.5");
-  handle.setAttribute("stroke-linecap", "round");
-
-  svg.append(circle, handle);
-  return svg;
-}
-
-/* ---- Category chips ----------------------------------------------------- */
-
-/**
- * @param {CategoryChip} chip
- * @param {boolean} active
- * @param {() => void} onClick
- * @returns {HTMLButtonElement}
- */
-function buildChip(chip, active, onClick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "chip-filter";
-  button.classList.toggle("chip-filter--active", active);
-  button.setAttribute("aria-pressed", String(active));
-
-  if (chip.color) {
-    const dot = document.createElement("span");
-    dot.className = chip.ring
-      ? "chip-filter__dot chip-filter__dot--ring"
-      : "chip-filter__dot";
-    dot.style.setProperty("--dot", `var(${chip.color})`);
-    dot.setAttribute("aria-hidden", "true");
-    button.append(dot);
-  }
-
-  const text = document.createElement("span");
-  text.textContent = chip.label;
-  button.append(text);
-
-  button.addEventListener("click", onClick);
-  return button;
-}
-
 /* ---- Is-recipe segmented control ---------------------------------------- */
 
 /**
@@ -367,39 +294,4 @@ function buildSegment(label, pressed, onClick) {
 function setPressed(button, pressed) {
   button.classList.toggle("segmented__option--active", pressed);
   button.setAttribute("aria-pressed", String(pressed));
-}
-
-/* ---- Filtering / sorting ------------------------------------------------ */
-
-/**
- * @param {RecipeSummary[]} recipes
- * @param {string} category
- * @returns {RecipeSummary[]}
- */
-function filterByCategory(recipes, category) {
-  if (!category) {
-    return recipes;
-  }
-  return recipes.filter((recipe) =>
-    recipe.mediterranean_categories.includes(category),
-  );
-}
-
-/**
- * @param {{ query: string, favourites: boolean, recipesOnly: boolean }} state
- * @returns {RecipeFilters}
- */
-function toQuery(state) {
-  /** @type {RecipeFilters} */
-  const filters = {};
-  if (state.query) {
-    filters.q = state.query;
-  }
-  if (state.favourites) {
-    filters.is_favorite = true;
-  }
-  if (state.recipesOnly) {
-    filters.is_recipe = true;
-  }
-  return filters;
 }
