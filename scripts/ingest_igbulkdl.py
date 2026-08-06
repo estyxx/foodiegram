@@ -33,7 +33,7 @@ class _Item:
     shortcode: str
     pk: str
     caption: str | None
-    title: str
+    title: str | None
     thumbnail_url: str
 
 
@@ -65,7 +65,9 @@ def _parse_items(log_path: Path) -> list[_Item]:
                 shortcode=shortcode,
                 pk=str(entry.get("username", "")),
                 caption=entry.get("caption") or None,
-                title=str(entry.get("title", "")),
+                # A null title used to reach str() and land in the database as
+                # the word "None", which is where the 226 of them came from.
+                title=entry.get("title") or None,
                 thumbnail_url=_thumbnail_url(shortcode),
             ),
         )
@@ -101,8 +103,8 @@ def _process_item(item: _Item, repo: RecipeRepository, stats: _Stats) -> None:
         logger.info("Updated %s (fields: %s)", item.shortcode, list(updates))
         return
 
-    # Recipe.title is required; fall back to the IGbulkDL title field. source
-    # defaults to RecipeSource.INSTAGRAM; model_used records the import provenance.
+    # source defaults to RecipeSource.INSTAGRAM; model_used records the import
+    # provenance. An absent title stays absent until extraction supplies one.
     recipe = Recipe(
         code=item.shortcode,
         pk=item.pk,

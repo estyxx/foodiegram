@@ -1,6 +1,6 @@
 // @ts-check
 
-import { capitalise, hasValue, humanise } from "../lib/format.js";
+import { capitalise, displayTitle, hasValue, humanise } from "../lib/format.js";
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 
@@ -72,7 +72,7 @@ function buildMedia(recipe, primary, onToggleFavourite) {
     const img = document.createElement("img");
     img.className = "recipe-card__img";
     img.src = src;
-    img.alt = recipe.title;
+    img.alt = displayTitle(recipe);
     img.loading = "lazy";
     media.append(img);
   } else {
@@ -207,14 +207,19 @@ function buildFavButton(recipe, onToggleFavourite) {
  * @returns {HTMLElement}
  */
 function buildBody(recipe) {
+  const heading = displayTitle(recipe);
+
   const body = document.createElement("a");
   body.className = "recipe-card__body";
   body.href = `#recipe/${recipe.code}`;
-  body.setAttribute("aria-label", recipe.title);
+  body.setAttribute("aria-label", heading);
 
   const title = document.createElement("h3");
   title.className = "recipe-card__title";
-  title.textContent = recipe.title;
+  title.textContent = heading;
+  if (recipe.title === null) {
+    title.classList.add("recipe-card__title--untitled");
+  }
   body.append(title, buildDescription(recipe));
 
   if (recipe.mediterranean_categories.length > 0) {
@@ -236,9 +241,11 @@ function buildDescription(recipe) {
     return p;
   }
   p.className = "recipe-card__desc recipe-card__desc--empty";
-  p.textContent = recipe.author_username
-    ? `Saved from @${recipe.author_username} \u2014 the original post had no caption.`
-    : "Saved from Instagram \u2014 the original post had no caption.";
+  // The handle is already the heading when there is no title; don't say it twice.
+  p.textContent =
+    recipe.author_username && recipe.title !== null
+      ? `Saved from @${recipe.author_username} \u2014 the original post had no caption.`
+      : "The original post had no caption.";
   return p;
 }
 

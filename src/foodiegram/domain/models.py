@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from foodiegram.domain.enums import (
     Course,
@@ -16,6 +16,11 @@ from foodiegram.domain.enums import (
 
 if TYPE_CHECKING:
     from instagrapi.types import Media
+
+# Titles that are an absence wearing a string: a Python None stringified on its
+# way into storage, or an extraction that gave up. They are not names, and 20%
+# of the library carries one.
+_ABSENT_TITLES = frozenset({"", "none", "unknown"})
 
 
 class CategoryServing(BaseModel):
@@ -114,7 +119,7 @@ class Recipe(BaseModel):
     author_username: str | None = None
 
     # Core content
-    title: str
+    title: str | None
     ingredients: list[str]
     instructions: list[str]
 
@@ -171,6 +176,19 @@ class Recipe(BaseModel):
     extracted_at: datetime | None = None
     model_used: str | None = None
     prompt_version: str | None = None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _absent_title_is_none(cls, value: object) -> object:
+        """Normalise a stringified absence to a real one, whatever the source.
+
+        Repairs the value rather than replacing it: nothing is invented here, so
+        a later re-extraction can still tell "this post has no title" apart from
+        "we guessed one". Display fallbacks belong in the view.
+        """
+        if isinstance(value, str) and value.strip().lower() in _ABSENT_TITLES:
+            return None
+        return value
 
     @classmethod
     def from_extracted(

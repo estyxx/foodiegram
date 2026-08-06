@@ -2,7 +2,7 @@
 
 import { getRecipe, updateRecipe } from "../api/client.js";
 import { Chip } from "../components/Chip.js";
-import { formatQuantity, hasValue, humanise } from "../lib/format.js";
+import { displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
 
 /** @typedef {import("../api/client.js").RecipeDetail} RecipeDetail */
 
@@ -65,7 +65,7 @@ function buildHead(recipe) {
     head.append(eyebrow);
   }
 
-  head.append(buildTitle(recipe.title), buildMeta(recipe));
+  head.append(buildTitle(recipe), buildMeta(recipe));
 
   const fit = buildFit(recipe);
   if (fit) {
@@ -87,7 +87,7 @@ function buildPhoto(recipe) {
     const img = document.createElement("img");
     img.className = "detail__photo-img";
     img.src = src;
-    img.alt = recipe.title;
+    img.alt = displayTitle(recipe);
     img.loading = "lazy";
     figure.append(img);
   } else {
@@ -226,7 +226,7 @@ function buildCopyRecipe(recipe) {
  * @returns {string}
  */
 function formatRecipe(recipe) {
-  const parts = [recipe.title, "", recipe.ingredients.join("\n")];
+  const parts = [displayTitle(recipe), "", recipe.ingredients.join("\n")];
   if (recipe.instructions.length > 0) {
     parts.push("", recipe.instructions.map((step, i) => `${i + 1}. ${step}`).join("\n"));
   }
@@ -235,12 +235,20 @@ function formatRecipe(recipe) {
 
 /**
  * Split a title so the last phrase can be italicised (Italian "all'" aware).
- * @param {string} title
+ * A stand-in for a missing title gets none of that flourish — it is not a name.
+ * @param {RecipeDetail} recipe
  * @returns {HTMLElement}
  */
-function buildTitle(title) {
+function buildTitle(recipe) {
   const h1 = document.createElement("h1");
   h1.className = "detail__title";
+
+  const title = recipe.title;
+  if (title === null) {
+    h1.classList.add("detail__title--untitled");
+    h1.textContent = displayTitle(recipe);
+    return h1;
+  }
 
   const idx = title.indexOf("all'");
   let pre = "";

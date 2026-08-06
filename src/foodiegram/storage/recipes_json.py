@@ -25,8 +25,9 @@ logger = logging.getLogger(__name__)
 def _matches_term(recipe: Recipe, term: str) -> bool:
     """Return True if term or a synonym appears in title, ingredients, or caption."""
     needles = {s.lower() for s in expand_term(term)}
+    title = recipe.title or ""
     return (
-        any(needle in recipe.title.lower() for needle in needles)
+        any(needle in title.lower() for needle in needles)
         or any(
             needle in ingredient.lower()
             for needle in needles

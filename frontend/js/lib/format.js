@@ -10,6 +10,25 @@ export function humanise(value) {
 }
 
 /**
+ * The heading to show for a recipe that may have no title of its own.
+ *
+ * A fifth of the library was saved before extraction ran and has no title. The
+ * account it came from is the most useful thing we can say instead — but it is
+ * only ever said here, in the view. The stored title stays absent, so a later
+ * extraction can tell a missing title from a guessed one.
+ * @param {{ title: string | null, author_username: string | null }} recipe
+ * @returns {string}
+ */
+export function displayTitle(recipe) {
+  if (recipe.title !== null) {
+    return recipe.title;
+  }
+  return recipe.author_username !== null
+    ? `@${recipe.author_username}`
+    : "Untitled save";
+}
+
+/**
  * Upper-case the first letter, leaving the rest alone.
  * @param {string} value
  * @returns {string}

@@ -575,6 +575,11 @@
   gap: var(--space-4);
 }
 
+/* Empty-state copy is a grid child; let it use the whole row, not one column. */
+.recipe-grid .state-msg {
+  grid-column: 1 / -1;
+}
+
 /* ---- Load more ---------------------------------------------------------- */
 .load-more {
   display: flex;
@@ -743,6 +748,15 @@
   color: var(--ink);
 }
 
+/* A handle standing in for a missing title is not a name: don't dress it as one. */
+.recipe-card__title--untitled {
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
 .recipe-card__desc {
   margin: 0;
   font-size: 13.5px;
@@ -839,6 +853,13 @@
 
 .state-msg--error {
   color: var(--state-over);
+}
+
+.state-msg--note {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding-top: 0;
+  font-size: var(--text-sm);
 }
 
 /* ---- Recipe detail (Maiolica) ------------------------------------------- */
@@ -945,6 +966,14 @@
 .detail__title em {
   font-style: italic;
   color: var(--teal);
+}
+
+.detail__title--untitled {
+  font-family: var(--font-mono);
+  font-size: var(--text-h2);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
 }
 
 .detail__meta {

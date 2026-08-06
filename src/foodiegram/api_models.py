@@ -28,7 +28,7 @@ class RecipeSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     code: str
-    title: str
+    title: str | None
     description: str | None
     author_username: str | None
     cuisine_type: str

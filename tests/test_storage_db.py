@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from foodiegram.domain.enums import (
     Course,
@@ -169,6 +169,40 @@ def test_recipe_round_trips_fully(engine: Engine) -> None:
     assert loaded.edited_fields == {"ingredients", "title"}
     assert loaded.mediterranean_categories[1].category is MedCategory.PROCESSED_MEAT
     assert loaded.mediterranean_categories[1].servings == _SECONDARY_SERVINGS
+
+
+def test_missing_title_round_trips_as_missing(engine: Engine) -> None:
+    """The NOT NULL column stores absence as empty and reads it back as None."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe().model_copy(update={"title": None}))
+
+    loaded = repo.get("ABC")
+
+    assert loaded is not None
+    assert loaded.title is None
+
+
+def test_stringified_title_in_storage_reads_back_as_missing(engine: Engine) -> None:
+    """Rows written before the ingest fix hold "None"; reads must not show it."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+    with engine.connect() as connection:
+        connection.execute(text("UPDATE recipes SET title = 'None' WHERE code = 'ABC'"))
+        connection.commit()
+
+    loaded = repo.get("ABC")
+
+    assert loaded is not None
+    assert loaded.title is None
+
+
+def test_search_tolerates_a_missing_title(engine: Engine) -> None:
+    """A recipe with no title is still searchable by its other text."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe().model_copy(update={"title": None}))
+
+    assert [r.code for r in repo.find(q="guanciale")] == ["ABC"]
+    assert repo.find(q="carbonara") == []
 
 
 def test_exists_and_list_all(engine: Engine) -> None:

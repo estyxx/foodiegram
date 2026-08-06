@@ -178,12 +178,7 @@ export async function renderBrowse(container, options) {
     grid.replaceChildren();
     rendered = 0;
     if (results.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "state-msg";
-      empty.textContent = isNarrowed(filters)
-        ? "No recipes match these filters."
-        : "Nothing saved here yet.";
-      grid.append(empty);
+      grid.append(...buildEmptyState(filters));
       updateCount();
       loadMore.hidden = true;
       return;
@@ -221,6 +216,32 @@ export async function renderBrowse(container, options) {
   }
 
   await refetch();
+}
+
+/* ---- Empty state -------------------------------------------------------- */
+
+/**
+ * @param {BrowseFilters} filters
+ * @returns {HTMLElement[]}
+ */
+function buildEmptyState(filters) {
+  const message = document.createElement("p");
+  message.className = "state-msg";
+  message.textContent = isNarrowed(filters)
+    ? "No recipes match these filters."
+    : "Nothing saved here yet.";
+  if (filters.proteins.length === 0) {
+    return [message];
+  }
+
+  // Nearly half the library has no protein tagged at all, so a protein pill
+  // hides more than it looks like it should. Say so rather than let it read
+  // as "you have none of these".
+  const note = document.createElement("p");
+  note.className = "state-msg state-msg--note";
+  note.textContent =
+    "A protein filter also hides every recipe with no protein recorded yet, which is a fair share of them.";
+  return [message, note];
 }
 
 /* ---- Hero --------------------------------------------------------------- */

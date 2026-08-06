@@ -1,3 +1,5 @@
+import pytest
+
 from foodiegram.domain.enums import Course, MedCategory, RecipeSource
 from foodiegram.domain.models import (
     CategoryServing,
@@ -185,6 +187,49 @@ def test_manual_recipe_without_instagram_fields_validates() -> None:
     assert recipe.caption is None
     assert recipe.edited_fields == frozenset()
     assert recipe.archived is False
+
+
+@pytest.mark.parametrize("stored", ["None", "none", "unknown", "Unknown", "", "  "])
+def test_stringified_absence_becomes_a_real_missing_title(stored: str) -> None:
+    """A title that only spells absence is normalised to None, not kept as text."""
+    recipe = Recipe(
+        code="ABC",
+        pk="1",
+        post_url=None,
+        caption=None,
+        title=stored,
+        ingredients=[],
+        instructions=[],
+    )
+
+    assert recipe.title is None
+
+
+def test_a_real_title_survives_normalisation() -> None:
+    """Only the absence words are touched; a genuine title is left alone."""
+    recipe = Recipe(
+        code="ABC",
+        pk="1",
+        post_url=None,
+        caption=None,
+        title="Nonna's unknown pasta",
+        ingredients=[],
+        instructions=[],
+    )
+
+    assert recipe.title == "Nonna's unknown pasta"
+
+
+def test_extraction_that_gave_up_on_the_title_yields_none() -> None:
+    """The LLM saying "unknown" is an absence too, not a name."""
+    mapped = Recipe.from_extracted(
+        code="ABC",
+        pk="1",
+        caption=None,
+        extracted=_extracted().model_copy(update={"title": "unknown"}),
+    )
+
+    assert mapped.recipe.title is None
 
 
 def test_extracted_recipe_without_new_fields_validates() -> None:

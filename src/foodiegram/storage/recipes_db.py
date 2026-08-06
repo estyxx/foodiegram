@@ -31,7 +31,9 @@ def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> Re
         post_url=recipe.post_url,
         caption=recipe.caption,
         author_username=recipe.author_username,
-        title=recipe.title,
+        # The column is NOT NULL on every deployed database; empty is how it
+        # spells absence, and the domain validator reads it back as None.
+        title=recipe.title or "",
         meal_type=recipe.meal_type.value,
         dish_type=recipe.dish_type.value,
         cuisine_type=recipe.cuisine_type.value,
@@ -133,8 +135,9 @@ def _to_domain(row: RecipeRow) -> Recipe:
 def _matches_term(recipe: Recipe, term: str) -> bool:
     """Return True if term or a synonym appears in title, ingredients, or caption."""
     needles = {s.lower() for s in expand_term(term)}
+    title = recipe.title or ""
     return (
-        any(needle in recipe.title.lower() for needle in needles)
+        any(needle in title.lower() for needle in needles)
         or any(
             needle in ingredient.lower()
             for needle in needles

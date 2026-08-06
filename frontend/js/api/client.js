@@ -3,7 +3,7 @@
 /**
  * @typedef {object} RecipeSummary
  * @property {string} code
- * @property {string} title
+ * @property {string | null} title Absent on saves that were never extracted.
  * @property {string | null} description
  * @property {string | null} author_username
  * @property {string} cuisine_type
@@ -32,7 +32,7 @@
  * @typedef {object} RecipeDetail
  * @property {string} code
  * @property {string | null} author_username
- * @property {string} title
+ * @property {string | null} title
  * @property {string[]} ingredients
  * @property {string[]} instructions
  * @property {string} cuisine_type
