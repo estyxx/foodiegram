@@ -78,7 +78,10 @@ function buildMedia(recipe, primary, onToggleFavourite) {
     media.append(buildPlaceholder());
   }
 
-  media.append(buildCollection(recipe, primary));
+  const collection = buildCollection(recipe, primary);
+  if (collection !== null) {
+    media.append(collection);
+  }
 
   const badges = document.createElement("div");
   badges.className = "recipe-card__badges";
@@ -141,12 +144,17 @@ function buildPhotoIcon() {
 }
 
 /**
- * Overlaid collection chip: category dot + a collection label.
+ * Overlaid dish chip: category dot + the dish type, or null when unknown.
  * @param {RecipeSummary} recipe
  * @param {CategoryTokens | null} primary
- * @returns {HTMLElement}
+ * @returns {HTMLElement | null}
  */
 function buildCollection(recipe, primary) {
+  const label = dishLabel(recipe);
+  if (label === null) {
+    return null;
+  }
+
   const chip = document.createElement("span");
   chip.className = "recipe-card__collection";
   applyChipColors(chip, primary);
@@ -155,7 +163,7 @@ function buildCollection(recipe, primary) {
   dot.className = "recipe-card__collection-dot";
 
   const text = document.createElement("span");
-  text.textContent = collectionLabel(recipe);
+  text.textContent = label;
 
   chip.append(dot, text);
   return chip;
@@ -303,17 +311,15 @@ function applyChipColors(el, tokens) {
 }
 
 /**
+ * Return the dish label for the card badge, or null to show no badge.
+ *
+ * Only dish_type: falling back to cuisine or "Recipe" is what made the badge
+ * look random, since a quarter of recipes have no dish type. Empty beats wrong.
  * @param {RecipeSummary} recipe
- * @returns {string}
+ * @returns {string | null}
  */
-function collectionLabel(recipe) {
-  if (hasValue(recipe.dish_type)) {
-    return capitalise(humanise(recipe.dish_type));
-  }
-  if (hasValue(recipe.cuisine_type)) {
-    return capitalise(humanise(recipe.cuisine_type));
-  }
-  return "Recipe";
+function dishLabel(recipe) {
+  return hasValue(recipe.dish_type) ? capitalise(humanise(recipe.dish_type)) : null;
 }
 
 /**

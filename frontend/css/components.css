@@ -205,7 +205,7 @@
 }
 
 .searchbar__input::placeholder {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 /* ---- Category chips ----------------------------------------------------- */
@@ -393,7 +393,7 @@
   place-content: center;
   justify-items: center;
   gap: var(--space-2);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .recipe-card__placeholder-icon {
@@ -509,7 +509,7 @@
 
 .recipe-card__desc--empty {
   font-style: italic;
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 .recipe-card__tracks {
@@ -552,7 +552,7 @@
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: var(--tracking-mono);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
 }
 
 /* ---- Category chip / badge ---------------------------------------------- */
