@@ -13,6 +13,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.115",
     "instagrapi>=2.10.6",
+    "mcp[cli]>=2.0.0",
     "openai>=2.44.0",
     "psycopg2-binary>=2.9.12",
     "pydantic>=2.11.7",
@@ -121,6 +122,7 @@ forbidden_modules = [
     "foodiegram.api_auth",
     "foodiegram.api_models",
     "foodiegram.routers",
+    "foodiegram.mcp_server",
     "foodiegram.deps",
     "foodiegram.settings",
     "instagrapi",
@@ -145,12 +147,14 @@ modules = [
 ]
 
 # api sits above routers (api.py wires the routers in), routers above app, and
-# the adapters form one flat sibling layer above the pure domain.
+# the adapters form one flat sibling layer above the pure domain. mcp_server is
+# an entry point beside api (a sibling of api/scripts): it reaches down through
+# app but is imported by nothing, so it shares the top layer with api.
 [[tool.importlinter.contracts]]
 name = "layers"
 type = "layers"
 layers = [
-    "foodiegram.api",
+    "foodiegram.api | foodiegram.mcp_server",
     "foodiegram.routers",
     "foodiegram.app",
     "foodiegram.storage | foodiegram.ai | foodiegram.images | foodiegram.instagram",
