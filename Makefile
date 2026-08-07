@@ -1,5 +1,5 @@
 .PHONY: ingest submit submit-all status apply promote promote-apply diff \
-        export import backfill serve-api lint test typecheck check
+        export import backfill serve-api lint test typecheck lint-imports check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
 VERSION ?= 2
@@ -67,6 +67,10 @@ test:
 typecheck:
 	npx tsc --noEmit -p frontend/jsconfig.json
 
+# Enforce the layering contracts declared under [tool.importlinter] in pyproject.
+lint-imports:
+	uv run lint-imports
+
 # Full gate: ruff + mypy + pytest + import-linter + frontend types.
 check:
-	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && uv run lint-imports && $(MAKE) typecheck
+	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && $(MAKE) lint-imports && $(MAKE) typecheck

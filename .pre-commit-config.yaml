@@ -34,6 +34,17 @@ repos:
       # Run the formatter
       - id: ruff-format
 
+  # import-linter - enforce the layering contracts in pyproject.toml.
+  # Runs on the whole import graph, so it cannot be scoped to changed files.
+  - repo: local
+    hooks:
+      - id: lint-imports
+        name: lint-imports
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        always_run: true
+
 
 # Configuration for specific hooks
 default_language_version:

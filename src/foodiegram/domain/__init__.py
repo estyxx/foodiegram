@@ -27,7 +27,6 @@ from foodiegram.domain.errors import (
 )
 from foodiegram.domain.models import (
     CategoryServing,
-    Collection,
     ExtractedCategoryServing,
     ExtractedRecipe,
     Extraction,
@@ -71,7 +70,6 @@ __all__ = [
     "CategoryServing",
     "CategoryStatus",
     "CategoryTarget",
-    "Collection",
     "ConfigurationError",
     "Course",
     "CuisineType",

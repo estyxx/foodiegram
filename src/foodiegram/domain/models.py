@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -13,9 +13,6 @@ from foodiegram.domain.enums import (
     MedCategory,
     RecipeSource,
 )
-
-if TYPE_CHECKING:
-    from instagrapi.types import Media
 
 # Titles that are an absence wearing a string: a Python None stringified on its
 # way into storage, or an extraction that gave up. They are not names, and 20%
@@ -323,20 +320,3 @@ class UserState(BaseModel):
     is_favorite: bool = False
     user_notes: str | None = None
     updated_at: datetime
-
-
-class Collection(BaseModel):
-    """Data model for an Instagram collection."""
-
-    id: int | str
-    post_pks: list[str] = []
-    last_media_pk: int = 0
-    name: str = ""
-    type: str = ""
-    media_count: int | None = None
-
-    def append_posts(self, posts: list[Media]) -> None:
-        """Append new posts to the collection."""
-        self.post_pks.extend(str(post.pk) for post in posts)
-        if posts:
-            self.last_media_pk = int(posts[-1].pk)

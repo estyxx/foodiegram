@@ -1,5 +1,4 @@
 from foodiegram.domain import (
-    Collection,
     CuisineType,
     Difficulty,
     DishType,
@@ -9,7 +8,6 @@ from foodiegram.domain import (
 )
 
 __all__ = [
-    "Collection",
     "CuisineType",
     "Difficulty",
     "DishType",

@@ -98,14 +98,15 @@ dev = [
 ]
 
 # ── import-linter ─────────────────────────────────────────────────────────────
-# Two contracts from CLAUDE.md rule 22.
-# Contract 1 ("domain-is-pure") is fully active from Phase 0.
-# Contract 2 ("layers") covers the api→domain boundary now and will be expanded
-# to the full hierarchy (api/scripts→app→storage|ai|instagram|images→domain) in
-# Phase 0.3 once those packages are created.
+# CLAUDE.md rule 22 / PLAN.md D9: api/scripts → app → storage|ai|instagram|images
+# → domain. `include_external_packages` is what lets the domain-is-pure contract
+# see third-party SDK imports, not just first-party ones.
 [tool.importlinter]
 root_packages = ["foodiegram"]
+include_external_packages = true
 
+# Golden rule 5: the domain layer is pure. It imports no sibling layer and no
+# I/O or SDK library. pydantic is deliberately absent — domain models are Pydantic.
 [[tool.importlinter.contracts]]
 name = "domain-is-pure"
 type = "forbidden"
@@ -117,21 +118,41 @@ forbidden_modules = [
     "foodiegram.images",
     "foodiegram.app",
     "foodiegram.api",
+    "foodiegram.api_auth",
+    "foodiegram.api_models",
+    "foodiegram.routers",
+    "foodiegram.deps",
+    "foodiegram.settings",
+    "instagrapi",
+    "openai",
+    "cloudinary",
+    "sqlmodel",
+    "sqlalchemy",
+    "fastapi",
+    "pydantic_ai",
 ]
 
+# Adapters are independent siblings: each wraps one external system and none may
+# reach into another. Cross-adapter orchestration belongs in app/.
+[[tool.importlinter.contracts]]
+name = "adapters-are-independent"
+type = "independence"
+modules = [
+    "foodiegram.storage",
+    "foodiegram.ai",
+    "foodiegram.images",
+    "foodiegram.instagram",
+]
+
+# api sits above routers (api.py wires the routers in), routers above app, and
+# the adapters form one flat sibling layer above the pure domain.
 [[tool.importlinter.contracts]]
 name = "layers"
 type = "layers"
-# api sits at the top; domain is pure at the bottom.
-# Adapter ordering (ai above storage) reflects that ai/batch currently imports
-# from storage; peer adapters at the same conceptual level may import from each
-# other and from anything below them.
 layers = [
     "foodiegram.api",
+    "foodiegram.routers",
     "foodiegram.app",
-    "foodiegram.ai",
-    "foodiegram.storage",
-    "foodiegram.instagram",
-    "foodiegram.images",
+    "foodiegram.storage | foodiegram.ai | foodiegram.images | foodiegram.instagram",
     "foodiegram.domain",
 ]

@@ -1,4 +1,4 @@
-"""Thin CLI wrapper around foodiegram.ai.batch.
+"""Thin CLI wrapper around foodiegram.app.extraction.
 
 Commands:
   submit [--all]     Build and submit an OpenAI batch job (default: only-missing).
@@ -9,8 +9,10 @@ Commands:
 
 import argparse
 import logging
+from datetime import UTC, datetime
 
-from foodiegram.ai.batch import cmd_apply, cmd_smoke, cmd_status, cmd_submit
+from foodiegram.ai.batch import log_batch_status
+from foodiegram.app.extraction import apply_batch, smoke_test, submit_batch
 from foodiegram.settings import Settings
 from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.extractions_db import ExtractionRepository
@@ -76,7 +78,7 @@ def main() -> None:
     settings = Settings()
 
     if args.command == "status":
-        cmd_status(settings, args.batch_id)
+        log_batch_status(settings, args.batch_id)
         return
 
     engine = create_db_engine(settings.database_url)
@@ -85,7 +87,7 @@ def main() -> None:
     extractions = ExtractionRepository(engine)
 
     if args.command == "submit":
-        cmd_submit(
+        submit_batch(
             settings,
             recipes=recipes,
             extractions=extractions,
@@ -93,9 +95,14 @@ def main() -> None:
             limit=args.limit,
         )
     elif args.command == "apply":
-        cmd_apply(settings, args.batch_id, extractions=extractions)
+        apply_batch(
+            settings,
+            args.batch_id,
+            extractions=extractions,
+            applied_at=datetime.now(tz=UTC),
+        )
     elif args.command == "smoke":
-        cmd_smoke(settings, recipes=recipes, extractions=extractions, limit=args.limit)
+        smoke_test(settings, recipes=recipes, extractions=extractions, limit=args.limit)
 
 
 if __name__ == "__main__":

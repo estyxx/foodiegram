@@ -6,17 +6,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from openai import OpenAI, OpenAIError
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from foodiegram.domain.enums import Course, MedCategory
 from foodiegram.domain.errors import ExtractionError, PromptTemplateError
 from foodiegram.domain.models import ExtractedRecipe, Extraction
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from foodiegram.domain.models import Recipe
     from foodiegram.settings import Settings
-    from foodiegram.storage.extractions_db import ExtractionRepository
-    from foodiegram.storage.recipes_db import RecipeRepository
 
 # --- Inputs / constants ---
 # Pin the exact snapshot, never the alias: extraction provenance depends on the
@@ -31,9 +31,17 @@ PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 BATCH_INPUT_PATH = Path("data/batch_input.jsonl")
 BATCH_OUTPUT_PATH = Path("data/batch_output.jsonl")
 LAST_BATCH_ID_PATH = Path("data/last_batch_id.txt")
-MIN_CAPTION_LENGTH = 80
 
 logger = logging.getLogger(__name__)
+
+
+class BatchOutput(BaseModel):
+    """The downloaded results of one completed OpenAI batch."""
+
+    model_config = ConfigDict(frozen=True)
+
+    batch_id: str
+    content: str
 
 
 def _make_strict(node: dict[str, Any]) -> None:
@@ -181,88 +189,14 @@ def _load_batch_id(batch_id: str | None) -> str:
     return LAST_BATCH_ID_PATH.read_text(encoding="utf-8").strip()
 
 
-def _has_usable_caption(recipe: Recipe) -> bool:
-    """Return True if the caption is long enough to be worth extracting."""
-    return (
-        recipe.caption is not None and len(recipe.caption.strip()) >= MIN_CAPTION_LENGTH
-    )
-
-
-def _eligible_for_submit(
-    recipe: Recipe,
-    *,
-    extracted_codes: set[str],
-    only_missing: bool,
-) -> bool:
-    """Return True if recipe should be submitted for extraction.
-
-    only_missing skips recipes that already have an extraction at the current
-    PROMPT_VERSION; only_missing=False (--all) re-submits every captioned,
-    non-edited recipe — use after a prompt or model change.
-    """
-    if recipe.edited_by_user:
-        return False
-    if not _has_usable_caption(recipe):
-        return False
-    return not (only_missing and recipe.code in extracted_codes)
-
-
-def cmd_submit(
-    settings: Settings,
-    *,
-    recipes: RecipeRepository,
-    extractions: ExtractionRepository,
-    only_missing: bool = True,
-    limit: int | None = None,
-) -> None:
-    """Load recipes, build batch_input.jsonl, upload to OpenAI, and create a batch.
-
-    With limit set, submit only the first `limit` eligible recipes — useful for a
-    small, cheap test run before submitting the whole backlog.
-    """
-    all_recipes = recipes.list_all()
-    extracted_codes = {e.recipe_code for e in extractions.for_version(PROMPT_VERSION)}
-
-    to_submit = [
-        r
-        for r in all_recipes
-        if _eligible_for_submit(
-            r,
-            extracted_codes=extracted_codes,
-            only_missing=only_missing,
-        )
-    ]
-    no_caption = [r for r in all_recipes if not _has_usable_caption(r)]
-
-    eligible = len(to_submit)
-    if limit is not None:
-        to_submit = to_submit[:limit]
-
-    mode = "only-missing" if only_missing else "all"
-    logger.info("Total recipes: %d", len(all_recipes))
-    logger.info("Already extracted at v%s: %d", PROMPT_VERSION, len(extracted_codes))
-    logger.info("No caption: %d", len(no_caption))
-    if limit is not None:
-        logger.info(
-            "Will submit: %d of %d eligible (limit=%d, mode=%s)",
-            len(to_submit),
-            eligible,
-            limit,
-            mode,
-        )
-    else:
-        logger.info("Will submit: %d (mode=%s)", len(to_submit), mode)
-
-    if not to_submit:
-        logger.info("Nothing to submit.")
-        return
-
+def write_batch_input(recipes: Sequence[Recipe]) -> Path:
+    """Write one batch request line per recipe and return the input file path."""
     prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
     schema = _extraction_schema()
 
     BATCH_INPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with BATCH_INPUT_PATH.open("w", encoding="utf-8") as fh:
-        for recipe in to_submit:
+        for recipe in recipes:
             line: dict[str, object] = {
                 "custom_id": recipe.code,
                 "method": "POST",
@@ -275,11 +209,15 @@ def cmd_submit(
             }
             fh.write(json.dumps(line, ensure_ascii=False) + "\n")
 
-    logger.info("Wrote %d tasks to %s", len(to_submit), BATCH_INPUT_PATH)
+    logger.info("Wrote %d tasks to %s", len(recipes), BATCH_INPUT_PATH)
+    return BATCH_INPUT_PATH
 
+
+def create_batch(settings: Settings, *, input_path: Path) -> str:
+    """Upload the batch input file, create the batch, and return its id."""
     client = OpenAI(api_key=settings.require_openai_api_key())
 
-    with BATCH_INPUT_PATH.open("rb") as fh:
+    with input_path.open("rb") as fh:
         upload = client.files.create(file=fh, purpose="batch")
 
     logger.info("Uploaded input file: %s", upload.id)
@@ -292,9 +230,10 @@ def cmd_submit(
 
     LAST_BATCH_ID_PATH.write_text(batch.id, encoding="utf-8")
     logger.info("Batch created: %s", batch.id)
+    return batch.id
 
 
-def cmd_status(settings: Settings, batch_id: str | None) -> None:
+def log_batch_status(settings: Settings, batch_id: str | None) -> None:
     """Print the status and request counts of an OpenAI batch job."""
     bid = _load_batch_id(batch_id)
     client = OpenAI(api_key=settings.require_openai_api_key())
@@ -314,17 +253,11 @@ def cmd_status(settings: Settings, batch_id: str | None) -> None:
         logger.info("Batch %s: status=%s", bid, batch.status)
 
 
-def cmd_apply(
-    settings: Settings,
-    batch_id: str | None,
-    *,
-    extractions: ExtractionRepository,
-) -> None:
-    """Download a completed batch and append its results as extraction rows.
+def fetch_batch_output(settings: Settings, batch_id: str | None) -> BatchOutput | None:
+    """Download a completed batch's results, or None if it is not finished yet.
 
-    Writes extraction history only — never touches recipes. Run promote.py to
-    merge these extractions into recipes (honouring user edits). The downloaded
-    batch_output.jsonl is kept so history can be backfilled later.
+    The downloaded batch_output.jsonl is kept on disk so extraction history can
+    be backfilled later.
     """
     bid = _load_batch_id(batch_id)
     client = OpenAI(api_key=settings.require_openai_api_key())
@@ -332,7 +265,7 @@ def cmd_apply(
 
     if batch.status != "completed":
         logger.info("Batch %s is not completed (status=%s)", bid, batch.status)
-        return
+        return None
 
     if not batch.output_file_id:
         logger.error("Batch %s completed but has no output_file_id", bid)
@@ -342,63 +275,27 @@ def cmd_apply(
     BATCH_OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     BATCH_OUTPUT_PATH.write_text(content, encoding="utf-8")
     logger.info("Downloaded output to %s", BATCH_OUTPUT_PATH)
-
-    added = 0
-    errors = 0
-    now = datetime.now(tz=UTC)
-
-    for raw_line in content.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            extraction = result_to_extraction(line=line, batch_id=bid, extracted_at=now)
-            extractions.add(extraction)
-            added += 1
-        except (
-            KeyError,
-            IndexError,
-            TypeError,
-            json.JSONDecodeError,
-            ValidationError,
-            ExtractionError,
-        ):
-            logger.exception("Failed to parse batch result line")
-            errors += 1
-
-    logger.info("Extractions added: %d  Errors: %d", added, errors)
+    return BatchOutput(batch_id=bid, content=content)
 
 
-def cmd_smoke(
-    settings: Settings,
-    *,
-    recipes: RecipeRepository,
-    extractions: ExtractionRepository,
-    limit: int,
-) -> None:
-    """Extract a few captions synchronously to validate model + schema wiring.
+def smoke_extract(settings: Settings, *, recipes: Sequence[Recipe]) -> int:
+    """Extract captions synchronously to validate model + schema wiring.
 
     Uses the same request-body builder as the batch path, calls the Responses API
     directly, validates each result into ExtractedRecipe, and logs a one-line
-    pass/fail plus token usage per caption. Does not write anything to the repo.
+    pass/fail plus token usage per caption. Returns how many validated. Writes
+    nothing.
     """
-    all_recipes = recipes.list_all()
-    extracted_codes = {e.recipe_code for e in extractions.for_version(PROMPT_VERSION)}
-    eligible = [
-        r
-        for r in all_recipes
-        if _eligible_for_submit(r, extracted_codes=extracted_codes, only_missing=True)
-    ][:limit]
-    if not eligible:
+    if not recipes:
         logger.info("No eligible captions to smoke-test.")
-        return
+        return 0
 
     prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
     schema = _extraction_schema()
     client = OpenAI(api_key=settings.require_openai_api_key())
 
     passed = 0
-    for recipe in eligible:
+    for recipe in recipes:
         body = build_extraction_body(
             caption=recipe.caption or "",
             prompt_template=prompt_template,
@@ -430,4 +327,5 @@ def cmd_smoke(
                 usage.total_tokens,
             )
 
-    logger.info("Smoke: %d/%d validated", passed, len(eligible))
+    logger.info("Smoke: %d/%d validated", passed, len(recipes))
+    return passed
