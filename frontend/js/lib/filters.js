@@ -1,6 +1,22 @@
 // @ts-check
 
+import {
+  proteinLabel,
+  segmentCount,
+  segmentLabel,
+  selectLabel,
+  widerThan,
+} from "./facets.js";
+import { capitalise, humanise } from "./format.js";
+
 /** @typedef {import("../api/client.js").RecipeFilters} RecipeFilters */
+/** @typedef {import("../api/client.js").RecipeCounts} RecipeCounts */
+
+/**
+ * Which slice of the library is on screen. The tiers nest: everything complete
+ * is a recipe, and every recipe is a save.
+ * @typedef {"complete" | "recipes" | "all"} Segment
+ */
 
 /**
  * Everything Browse narrows on, in one flat value. Never mutated: a change is
@@ -14,7 +30,7 @@
  * @property {string} cuisine
  * @property {string} difficulty
  * @property {string} dietaryTag
- * @property {boolean} recipesOnly
+ * @property {Segment} segment
  */
 
 /** The panel dropdowns, which all hold a single enum value or "" for Any. */
@@ -23,7 +39,7 @@
 /** @type {SelectKey[]} */
 const SELECT_KEYS = ["dishType", "mealType", "cuisine", "difficulty", "dietaryTag"];
 
-/** The resting state: real recipes, nothing else narrowed. */
+/** The resting state: recipes you can actually cook, nothing else narrowed. */
 export function emptyFilters() {
   return /** @type {BrowseFilters} */ ({
     query: "",
@@ -34,7 +50,7 @@ export function emptyFilters() {
     cuisine: "",
     difficulty: "",
     dietaryTag: "",
-    recipesOnly: true,
+    segment: "complete",
   });
 }
 
@@ -45,7 +61,7 @@ export function emptyFilters() {
  * @returns {BrowseFilters}
  */
 export function cleared(filters) {
-  return { ...emptyFilters(), recipesOnly: filters.recipesOnly };
+  return { ...emptyFilters(), segment: filters.segment };
 }
 
 /**
@@ -127,6 +143,63 @@ export function isNarrowed(filters) {
 }
 
 /**
+ * One way out of an empty result set: what it undoes, and the filters it lands on.
+ * @typedef {object} Relaxation
+ * @property {string} label
+ * @property {BrowseFilters} filters
+ */
+
+/**
+ * The ways out of an empty result set, gentlest first.
+ *
+ * An empty grid should name what emptied it. Dropping one facet comes before
+ * widening the tier, because losing a filter you chose costs less than being
+ * moved to a slice of the library you did not ask for. Every way out leads
+ * somewhere: a tier that is also empty under these facets is not offered.
+ * @param {BrowseFilters} filters
+ * @param {RecipeCounts} counts Totals for each tier under the current facets.
+ * @returns {Relaxation[]}
+ */
+export function relaxations(filters, counts) {
+  /** @type {Relaxation[]} */
+  const ways = [];
+
+  for (const key of SELECT_KEYS) {
+    const value = filters[key];
+    if (value !== "") {
+      ways.push({
+        label: `Remove ${selectLabel(key)}: ${capitalise(humanise(value))}`,
+        filters: withSelect(filters, key, ""),
+      });
+    }
+  }
+
+  if (filters.proteins.length === 1) {
+    ways.push({
+      label: `Remove protein: ${proteinLabel(filters.proteins[0])}`,
+      filters: { ...filters, proteins: [] },
+    });
+  } else if (filters.proteins.length > 1) {
+    ways.push({
+      label: `Remove ${filters.proteins.length} protein filters`,
+      filters: { ...filters, proteins: [] },
+    });
+  }
+
+  const wider = widerThan(filters.segment).find(
+    (segment) => segmentCount(counts, segment) > 0,
+  );
+  if (wider !== undefined) {
+    ways.push({
+      label: `Widen to ${segmentLabel(wider)}`,
+      filters: { ...filters, segment: wider },
+    });
+  }
+
+  return ways;
+}
+
+/**
  * Translate the view's filters into API query parameters.
  * @param {BrowseFilters} filters
  * @param {{ favourites: boolean }} options
@@ -159,8 +232,13 @@ export function toQuery(filters, options) {
   if (filters.dietaryTag !== "") {
     query.dietary_tag = filters.dietaryTag;
   }
-  if (filters.recipesOnly) {
+  // The tiers are compositions of two independent server filters; storage
+  // knows nothing about "segments".
+  if (filters.segment !== "all") {
     query.is_recipe = true;
+  }
+  if (filters.segment === "complete") {
+    query.complete = true;
   }
   if (options.favourites) {
     query.is_favorite = true;

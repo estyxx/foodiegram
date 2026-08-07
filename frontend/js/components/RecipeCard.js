@@ -43,11 +43,15 @@ const CATEGORY = /** @type {Record<string, CategoryTokens>} */ ({
  */
 export function RecipeCard(recipe, handlers) {
   const primary = CATEGORY[recipe.mediterranean_categories[0]] ?? null;
+  const photoOnly = isPhotoOnly(recipe);
 
   const card = document.createElement("article");
-  card.className = "recipe-card";
+  card.className = photoOnly ? "recipe-card recipe-card--photo" : "recipe-card";
 
-  card.append(buildMedia(recipe, primary, handlers.onToggleFavourite), buildBody(recipe));
+  card.append(
+    buildMedia(recipe, primary, handlers.onToggleFavourite),
+    photoOnly ? buildPhotoBody(recipe) : buildBody(recipe),
+  );
   return card;
 }
 
@@ -230,6 +234,42 @@ function buildBody(recipe) {
 }
 
 /**
+ * The body for a save that carries nothing but its photograph.
+ *
+ * A serif title made of a handle, over an apology about a missing caption, read
+ * as a broken recipe. There is no recipe here to break: the picture is the
+ * whole content, so it gets the room and the text stops pretending otherwise.
+ * @param {RecipeSummary} recipe
+ * @returns {HTMLElement}
+ */
+function buildPhotoBody(recipe) {
+  const body = document.createElement("a");
+  body.className = "recipe-card__body recipe-card__body--photo";
+  body.href = `#recipe/${recipe.code}`;
+  body.setAttribute("aria-label", photoCardLabel(recipe));
+
+  if (recipe.author_username) {
+    const handle = document.createElement("p");
+    handle.className = "recipe-card__handle";
+    handle.textContent = `@${recipe.author_username}`;
+    body.append(handle);
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "recipe-card__meta";
+  const parts = metaParts(recipe);
+  if (parts.length > 0) {
+    const left = document.createElement("span");
+    left.className = "recipe-card__meta-left";
+    left.textContent = parts.join(" \u00b7 ");
+    footer.append(left);
+  }
+  footer.append(buildStatusTag(gapLabel(recipe) ?? "Photo only"));
+  body.append(footer);
+  return body;
+}
+
+/**
  * @param {RecipeSummary} recipe
  * @returns {HTMLElement}
  */
@@ -247,6 +287,18 @@ function buildDescription(recipe) {
       ? `Saved from @${recipe.author_username} \u2014 the original post had no caption.`
       : "The original post had no caption.";
   return p;
+}
+
+/**
+ * A quiet mono tag naming what the extraction is missing.
+ * @param {string} label
+ * @returns {HTMLElement}
+ */
+function buildStatusTag(label) {
+  const tag = document.createElement("span");
+  tag.className = "recipe-card__status";
+  tag.textContent = label;
+  return tag;
 }
 
 /**
@@ -287,12 +339,16 @@ function buildMeta(recipe) {
   const meta = document.createElement("div");
   meta.className = "recipe-card__meta";
 
+  const parts = metaParts(recipe);
   const left = document.createElement("span");
   left.className = "recipe-card__meta-left";
-  left.textContent = metaText(recipe);
+  left.textContent = parts.length > 0 ? parts.join(" \u00b7 ") : "from Instagram";
   meta.append(left);
 
-  if (SHOW_PANTRY_COUNTS) {
+  const gap = gapLabel(recipe);
+  if (gap !== null) {
+    meta.append(buildStatusTag(gap));
+  } else if (SHOW_PANTRY_COUNTS) {
     const right = document.createElement("span");
     right.className = "recipe-card__meta-right";
     meta.append(right);
@@ -332,9 +388,9 @@ function dishLabel(recipe) {
 
 /**
  * @param {RecipeSummary} recipe
- * @returns {string}
+ * @returns {string[]}
  */
-function metaText(recipe) {
+function metaParts(recipe) {
   /** @type {string[]} */
   const parts = [];
   if (hasValue(recipe.total_time)) {
@@ -346,7 +402,42 @@ function metaText(recipe) {
   if (hasValue(recipe.difficulty)) {
     parts.push(capitalise(humanise(recipe.difficulty)));
   }
-  return parts.length > 0 ? parts.join(" \u00b7 ") : "from Instagram";
+  return parts;
+}
+
+/**
+ * True when the save has no words of its own — no title, no caption.
+ * @param {RecipeSummary} recipe
+ * @returns {boolean}
+ */
+function isPhotoOnly(recipe) {
+  return recipe.title === null && !recipe.description;
+}
+
+/**
+ * Name what the extraction is missing, or null when it is whole.
+ * @param {RecipeSummary} recipe
+ * @returns {string | null}
+ */
+function gapLabel(recipe) {
+  if (recipe.has_ingredients && recipe.has_instructions) {
+    return null;
+  }
+  if (recipe.has_ingredients) {
+    return "No method";
+  }
+  return recipe.has_instructions ? "No ingredients" : "Photo only";
+}
+
+/**
+ * @param {RecipeSummary} recipe
+ * @returns {string}
+ */
+function photoCardLabel(recipe) {
+  const gap = (gapLabel(recipe) ?? "Photo only").toLowerCase();
+  return recipe.author_username
+    ? `${gap} save from @${recipe.author_username}`
+    : `${gap} save`;
 }
 
 /**

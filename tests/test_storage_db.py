@@ -28,6 +28,7 @@ from foodiegram.storage.user_state_db import UserStateRepository
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5
 _TWO_RECIPES = 2
+_THREE_RECIPES = 3
 
 
 @pytest.fixture
@@ -241,6 +242,27 @@ def test_find_combines_is_recipe_with_other_filters(engine: Engine) -> None:
 
     assert [r.code for r in repo.find(dish_type=DishType.SOUP, is_recipe=True)] == []
     assert [r.code for r in repo.find(dish_type=DishType.SOUP)] == ["SOUP"]
+
+
+def test_find_filters_on_completeness(engine: Engine) -> None:
+    """Complete keeps recipes with both a shopping list and a method."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+    repo.save(_full_recipe().model_copy(update={"code": "NOIN", "instructions": []}))
+    repo.save(_full_recipe().model_copy(update={"code": "NOIG", "ingredients": []}))
+
+    assert [r.code for r in repo.find(complete=True)] == ["ABC"]
+    assert [r.code for r in repo.find(complete=False)] == ["NOIG", "NOIN"]
+    assert len(repo.find()) == _THREE_RECIPES
+
+
+def test_completeness_is_independent_of_is_recipe(engine: Engine) -> None:
+    """The two axes compose: a save can be cookable without being a recipe."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe().model_copy(update={"code": "SAVE", "is_recipe": False}))
+
+    assert [r.code for r in repo.find(complete=True)] == ["SAVE"]
+    assert repo.find(complete=True, is_recipe=True) == []
 
 
 def _faceted(code: str, *, proteins: list[str], assigned: MedCategory | None) -> Recipe:

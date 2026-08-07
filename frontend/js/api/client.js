@@ -18,6 +18,7 @@
  * @property {string | null} thumbnail_url
  * @property {string | null} cloudinary_url
  * @property {boolean} is_favorite
+ * @property {boolean} has_ingredients
  * @property {boolean} has_instructions
  */
 
@@ -78,12 +79,15 @@
  * @property {string[]} [protein_category] Repeatable; OR-matched by the server.
  * @property {string[]} [ingredient] Repeatable; AND-matched by the server.
  * @property {boolean} [is_recipe]
+ * @property {boolean} [complete] Has both ingredients and a method.
  * @property {boolean} [is_favorite]
  */
 
 /**
+ * Segment totals, nested widest last: complete ⊆ recipes ⊆ all_saves.
  * @typedef {object} RecipeCounts
- * @property {number} recipes_only
+ * @property {number} complete
+ * @property {number} recipes
  * @property {number} all_saves
  */
 
@@ -164,14 +168,15 @@ export async function getAllRecipes(filters) {
 }
 
 /**
- * Fetch both is-recipe segment totals under the given filters.
- * is_recipe is ignored: the endpoint always reports both segments.
+ * Fetch all three segment totals under the given filters.
+ * The segment parameters are ignored: the endpoint always reports every tier.
  * @param {RecipeFilters} [filters]
  * @returns {Promise<RecipeCounts>}
  */
 export async function getRecipeCounts(filters) {
   const params = toParams(filters);
   params.delete("is_recipe");
+  params.delete("complete");
   const query = params.toString();
   const result = await apiFetch(
     query ? `/recipes/count?${query}` : "/recipes/count",

@@ -174,6 +174,17 @@ class Recipe(BaseModel):
     model_used: str | None = None
     prompt_version: str | None = None
 
+    @property
+    def is_complete(self) -> bool:
+        """True when there is enough here to cook from: a shopping list and a method.
+
+        Derived on read, never stored: a column would be one more thing to keep
+        in step with the data it describes. is_recipe answers "is this a
+        recipe?"; this answers "did we get enough of it?". A missing title does
+        not count against it — ingredients and a method are still cookable.
+        """
+        return bool(self.ingredients) and bool(self.instructions)
+
     @field_validator("title", mode="before")
     @classmethod
     def _absent_title_is_none(cls, value: object) -> object:

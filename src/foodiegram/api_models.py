@@ -43,6 +43,7 @@ class RecipeSummary(BaseModel):
     thumbnail_url: str | None
     cloudinary_url: str | None
     is_favorite: bool
+    has_ingredients: bool
     has_instructions: bool
 
     @classmethod
@@ -67,16 +68,22 @@ class RecipeSummary(BaseModel):
             thumbnail_url=recipe.thumbnail_url,
             cloudinary_url=recipe.cloudinary_url,
             is_favorite=is_favorite,
+            has_ingredients=bool(recipe.ingredients),
             has_instructions=bool(recipe.instructions),
         )
 
 
 class RecipeCounts(BaseModel):
-    """Both is-recipe segment totals under the current Browse facets."""
+    """The three Browse segment totals under the current facets.
+
+    Nested, widest last: every complete recipe is a recipe, and every recipe is
+    a save. The gap between complete and recipes is the re-extraction backlog.
+    """
 
     model_config = ConfigDict(frozen=True)
 
-    recipes_only: int
+    complete: int
+    recipes: int
     all_saves: int
 
 

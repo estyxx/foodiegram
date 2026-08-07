@@ -270,22 +270,65 @@ def test_list_recipes_filters_on_is_recipe(client: TestClient, deps: Deps) -> No
     assert {r["code"] for r in everything} == {"F1", "N1"}
 
 
-def test_recipe_counts_report_both_segments(client: TestClient, deps: Deps) -> None:
+def test_recipe_counts_report_every_segment(client: TestClient, deps: Deps) -> None:
     """The count endpoint returns each segment total under the active facets."""
     deps.recipes.save(_fish_recipe("F1"))
     deps.recipes.save(_fish_recipe("F2"))
     deps.recipes.save(_inspiration_recipe("N1"))
 
     body = client.get("/api/recipes/count").json()
-    assert body == {"recipes_only": 2, "all_saves": 3}
+    assert body == {"complete": 2, "recipes": 2, "all_saves": 3}
 
-    # A facet shared with /recipes narrows both totals the same way.
+    # A facet shared with /recipes narrows every total the same way.
     client.patch("/api/recipes/F1", json={"is_favorite": True})
     favourites_only = client.get(
         "/api/recipes/count",
         params={"is_favorite": "true"},
     ).json()
-    assert favourites_only == {"recipes_only": 1, "all_saves": 1}
+    assert favourites_only == {"complete": 1, "recipes": 1, "all_saves": 1}
+
+
+def test_complete_filter_separates_cookable_from_half_extracted(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """Complete keeps recipes with both a shopping list and a method."""
+    deps.recipes.save(_fish_recipe("FULL"))
+    deps.recipes.save(_fish_recipe("NOMETHOD").model_copy(update={"instructions": []}))
+    deps.recipes.save(_fish_recipe("EMPTY").model_copy(update={"ingredients": []}))
+
+    cookable = client.get("/api/recipes", params={"complete": "true"}).json()
+    assert [r["code"] for r in cookable] == ["FULL"]
+
+    gaps = client.get("/api/recipes", params={"complete": "false"}).json()
+    assert {r["code"] for r in gaps} == {"NOMETHOD", "EMPTY"}
+
+    everything = client.get("/api/recipes").json()
+    assert {r["code"] for r in everything} == {"FULL", "NOMETHOD", "EMPTY"}
+
+
+def test_segment_counts_nest(client: TestClient, deps: Deps) -> None:
+    """Each tier is a subset of the next: complete, then recipes, then saves."""
+    deps.recipes.save(_fish_recipe("FULL"))
+    deps.recipes.save(_fish_recipe("NOMETHOD").model_copy(update={"instructions": []}))
+    deps.recipes.save(_inspiration_recipe("N1"))
+
+    body = client.get("/api/recipes/count").json()
+
+    assert body == {"complete": 1, "recipes": 2, "all_saves": 3}
+
+
+def test_summary_reports_both_halves_of_completeness(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """A card can tell "no method recorded" from "nothing recorded"."""
+    deps.recipes.save(_fish_recipe("NOMETHOD").model_copy(update={"instructions": []}))
+
+    summary = client.get("/api/recipes").json()[0]
+
+    assert summary["has_ingredients"] is True
+    assert summary["has_instructions"] is False
 
 
 def _protein_recipe(
@@ -368,7 +411,7 @@ def test_recipe_counts_respect_the_protein_facet(client: TestClient, deps: Deps)
         params={"protein_category": "plant_protein"},
     ).json()
 
-    assert body == {"recipes_only": 1, "all_saves": 2}
+    assert body == {"complete": 1, "recipes": 1, "all_saves": 2}
 
 
 def _ingredient_recipe(code: str, ingredients: list[str]) -> Recipe:
@@ -410,7 +453,7 @@ def test_recipe_counts_respect_ingredient_chips(client: TestClient, deps: Deps) 
         params=[("ingredient", "zucca"), ("ingredient", "tofu")],
     ).json()
 
-    assert body == {"recipes_only": 1, "all_saves": 1}
+    assert body == {"complete": 1, "recipes": 1, "all_saves": 1}
 
 
 def test_recipe_count_route_is_not_read_as_a_code(client: TestClient) -> None:
@@ -418,7 +461,7 @@ def test_recipe_count_route_is_not_read_as_a_code(client: TestClient) -> None:
     response = client.get("/api/recipes/count")
 
     assert response.status_code == HTTPStatus.OK
-    assert "recipes_only" in response.json()
+    assert "complete" in response.json()
 
 
 def _credentialed_client(engine: Engine, creds: Sequence[str]) -> TestClient:

@@ -1,97 +1,13 @@
 // @ts-check
 
+import { SELECTS, TIERS } from "../lib/facets.js";
 import { capitalise, humanise } from "../lib/format.js";
 
 /** @typedef {import("../lib/filters.js").BrowseFilters} BrowseFilters */
 /** @typedef {import("../lib/filters.js").SelectKey} SelectKey */
-
-/**
- * @typedef {object} ProteinPill
- * @property {string} value MedCategory value sent as `protein_category`.
- * @property {string} label
- * @property {string} color CSS custom property naming the swatch colour.
- * @property {boolean} [ring] Draw the dot as an outline (the second hue member).
- */
-
-/**
- * @typedef {object} Tier
- * @property {string} id
- * @property {string} label
- * @property {ProteinPill[]} pills
- */
-
-/**
- * @typedef {object} SelectSpec
- * @property {SelectKey} key
- * @property {string} label
- * @property {string[]} values Enum values, in enum order; "" (Any) is added.
- */
-
-/** The protein key grouped by how often it belongs in a week (domain/proteins.py). */
-const TIERS = /** @type {Tier[]} */ ([
-  {
-    id: "tier-eat-freely",
-    label: "Eat freely",
-    pills: [
-      { value: "fish", label: "Fish", color: "--cat-fish" },
-      { value: "legumes", label: "Legumes", color: "--cat-legumes" },
-      { value: "plant_protein", label: "Plant protein", color: "--cat-plant", ring: true },
-    ],
-  },
-  {
-    id: "tier-moderate",
-    label: "Moderate",
-    pills: [
-      { value: "poultry", label: "Poultry", color: "--cat-poultry" },
-      { value: "eggs", label: "Eggs", color: "--cat-eggs", ring: true },
-      { value: "dairy", label: "Dairy", color: "--cat-dairy" },
-    ],
-  },
-  {
-    id: "tier-occasional",
-    label: "Occasional",
-    pills: [
-      { value: "red_meat", label: "Red meat", color: "--cat-red-meat" },
-      { value: "processed_meat", label: "Processed", color: "--cat-processed", ring: true },
-    ],
-  },
-]);
-
-/* The closed sets mirror domain/enums.py, minus "unknown" — filtering by "we do
- * not know" is not a question anyone asks. Dietary tags are an open list, so
- * these are the ones extraction actually emits. */
-const SELECTS = /** @type {SelectSpec[]} */ ([
-  {
-    key: "dishType",
-    label: "Dish type",
-    values: [
-      "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread",
-      "sauce", "snack", "pasta", "risotto", "pizza", "sandwich", "pastry",
-    ],
-  },
-  {
-    key: "mealType",
-    label: "Meal",
-    values: ["breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"],
-  },
-  {
-    key: "cuisine",
-    label: "Cuisine",
-    values: [
-      "italian", "asian", "korean", "mexican", "mediterranean", "american",
-      "french", "fusion", "other",
-    ],
-  },
-  { key: "difficulty", label: "Difficulty", values: ["easy", "medium", "hard"] },
-  {
-    key: "dietaryTag",
-    label: "Dietary",
-    values: [
-      "vegetarian", "vegan", "pescatarian", "gluten_free", "dairy_free",
-      "low_carb", "keto", "paleo",
-    ],
-  },
-]);
+/** @typedef {import("../lib/facets.js").SelectSpec} SelectSpec */
+/** @typedef {import("../lib/facets.js").Tier} Tier */
+/** @typedef {import("../lib/facets.js").ProteinPill} ProteinPill */
 
 /**
  * @typedef {object} FilterPanelHandlers
@@ -175,9 +91,13 @@ export function FilterPanel(handlers) {
       for (const [key, select] of selects) {
         select.value = filters[key];
       }
-      apply.textContent = `Show ${shown.toLocaleString()} ${
-        shown === 1 ? "recipe" : "recipes"
-      }`;
+      // "Show 0 recipes" invites a tap that does nothing. Say so instead, and
+      // let the empty state below offer the way out.
+      apply.disabled = shown === 0;
+      apply.textContent =
+        shown === 0
+          ? "No matches"
+          : `Show ${shown.toLocaleString()} ${shown === 1 ? "recipe" : "recipes"}`;
     },
 
     focusFirst() {

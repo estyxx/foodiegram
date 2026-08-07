@@ -99,6 +99,7 @@ def _filtered(
     ingredient: list[str] | None,
     q: str | None,
     is_recipe: bool | None,
+    complete: bool | None,
     is_favorite: bool | None,
 ) -> list[Recipe]:
     """Resolve raw query parameters into the recipes they match."""
@@ -108,6 +109,7 @@ def _filtered(
         dish_type=_to_enum(DishType, dish_type) if dish_type else None,
         difficulty=_to_enum(Difficulty, difficulty) if difficulty else None,
         is_recipe=is_recipe,
+        complete=complete,
         protein_categories=_protein_categories(protein_category),
         dietary_tags=[dietary_tag] if dietary_tag else None,
         proteins=[protein] if protein else None,
@@ -132,6 +134,7 @@ async def list_recipes(
     ingredient: Annotated[list[str] | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
     is_recipe: Annotated[bool | None, Query()] = None,
+    complete: Annotated[bool | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -151,6 +154,7 @@ async def list_recipes(
         ingredient=ingredient,
         q=q,
         is_recipe=is_recipe,
+        complete=complete,
         is_favorite=is_favorite,
     )
     page = recipes[offset : offset + limit]
@@ -174,7 +178,7 @@ async def count_recipes(
     q: Annotated[str | None, Query()] = None,
     is_favorite: Annotated[bool | None, Query()] = None,
 ) -> RecipeCounts:
-    """Return both is-recipe segment totals under the given facets."""
+    """Return all three segment totals under the given facets."""
     matched = _filtered(
         deps=deps,
         favourites=set(deps.user_state.all_favorites()),
@@ -188,12 +192,14 @@ async def count_recipes(
         ingredient=ingredient,
         q=q,
         is_recipe=None,
+        complete=None,
         is_favorite=is_favorite,
     )
-    # The recipes-only segment is a subset of all saves under the same facets,
-    # so one pass answers both totals.
+    # The segments nest, so the widest query answers all three in one pass.
+    recipes = [recipe for recipe in matched if recipe.is_recipe]
     return RecipeCounts(
-        recipes_only=sum(1 for recipe in matched if recipe.is_recipe),
+        complete=sum(1 for recipe in recipes if recipe.is_complete),
+        recipes=len(recipes),
         all_saves=len(matched),
     )
 

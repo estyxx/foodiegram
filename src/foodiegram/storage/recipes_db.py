@@ -158,6 +158,7 @@ def _filter_attributes(
     dish_type: DishType | None,
     difficulty: Difficulty | None,
     is_recipe: bool | None,
+    complete: bool | None,
 ) -> list[Recipe]:
     """Narrow recipes by whichever scalar attribute filters are set."""
     if cuisine is not None:
@@ -170,6 +171,8 @@ def _filter_attributes(
         recipes = [r for r in recipes if r.difficulty == difficulty]
     if is_recipe is not None:
         recipes = [r for r in recipes if r.is_recipe == is_recipe]
+    if complete is not None:
+        recipes = [r for r in recipes if r.is_complete == complete]
     return recipes
 
 
@@ -251,6 +254,7 @@ class RecipeRepository:
         dish_type: DishType | None = None,
         difficulty: Difficulty | None = None,
         is_recipe: bool | None = None,
+        complete: bool | None = None,
         protein_categories: list[MedCategory] | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
@@ -266,7 +270,10 @@ class RecipeRepository:
         ingredients, expanded via synonyms so "courgette" finds "zucchini" too.
         ingredients matches the same way but AND-wise: every term must appear,
         which is what the search chips send. An empty list means no filter.
-        is_recipe=None keeps both real recipes and inspiration-only saves.
+        is_recipe=None keeps both real recipes and inspiration-only saves, and
+        complete=None keeps both cookable recipes and half-extracted ones. The
+        two are independent here; composing them into segments is the caller's
+        job.
         protein_categories also ANY-matches, against the groups from
         proteins.facets_for. An empty list means no protein filter, as does None.
         """
@@ -277,6 +284,7 @@ class RecipeRepository:
             dish_type=dish_type,
             difficulty=difficulty,
             is_recipe=is_recipe,
+            complete=complete,
         )
 
         if protein_categories:

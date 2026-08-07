@@ -4,11 +4,13 @@ import { getAllRecipes, getRecipeCounts, updateRecipe } from "../api/client.js";
 import { FilterPanel, FiltersToggle } from "../components/FilterPanel.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 import { SearchBar } from "../components/SearchBar.js";
+import { SEGMENTS, segmentCount, segmentHint } from "../lib/facets.js";
 import {
   activeCount,
   cleared,
   emptyFilters,
   isNarrowed,
+  relaxations,
   toQuery,
   withIngredient,
   withProteinToggled,
@@ -21,6 +23,7 @@ const PAGE_SIZE = 50;
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 /** @typedef {import("../api/client.js").RecipeCounts} RecipeCounts */
 /** @typedef {import("../lib/filters.js").BrowseFilters} BrowseFilters */
+/** @typedef {import("../lib/filters.js").Segment} Segment */
 
 /**
  * Render the browse (or favourites) view into container.
@@ -34,7 +37,7 @@ export async function renderBrowse(container, options) {
 
   let filters = emptyFilters();
   /** @type {RecipeCounts} */
-  let counts = { recipes_only: 0, all_saves: 0 };
+  let counts = { complete: 0, recipes: 0, all_saves: 0 };
   // Typing fires a request per keystroke; only the newest answer may land.
   let latestRequest = 0;
 
@@ -75,24 +78,34 @@ export async function renderBrowse(container, options) {
   summary.className = "browse__count";
   summary.setAttribute("aria-live", "polite");
 
-  // Both segments are built once and only relabelled, so a keyboard toggle keeps
-  // its focus on the button that was activated.
-  const recipesSegment = buildSegment("Recipes only", filters.recipesOnly, () => {
-    void setRecipesOnly(true);
-  });
-  const allSavesSegment = buildSegment("All saves", !filters.recipesOnly, () => {
-    void setRecipesOnly(false);
-  });
+  // Built once and only relabelled, so a keyboard press keeps its focus on the
+  // button that was activated.
+  const segmentButtons = SEGMENTS.map((segment) =>
+    buildSegment(segment, segment.value === filters.segment, () => {
+      void setSegment(segment.value);
+    }),
+  );
 
   const segmented = document.createElement("div");
   segmented.className = "segmented";
   segmented.setAttribute("role", "group");
   segmented.setAttribute("aria-label", "Which saves to show");
-  segmented.append(recipesSegment, allSavesSegment);
+  segmented.append(...segmentButtons);
+
+  // The tier names are a ladder, and a ladder needs a rung label: on its own
+  // "All recipes" does not admit that it includes the half-extracted ones.
+  const segmentHintText = document.createElement("p");
+  segmentHintText.className = "segmented__hint";
+  segmentHintText.id = "browse-segment-hint";
+  segmented.setAttribute("aria-describedby", segmentHintText.id);
+
+  const tiers = document.createElement("div");
+  tiers.className = "browse__tiers";
+  tiers.append(segmented, segmentHintText);
 
   const resultsBar = document.createElement("div");
   resultsBar.className = "browse__results-bar";
-  resultsBar.append(summary, segmented);
+  resultsBar.append(summary, tiers);
 
   const grid = document.createElement("div");
   grid.className = "recipe-grid";
@@ -136,14 +149,23 @@ export async function renderBrowse(container, options) {
   }
 
   /**
-   * @param {boolean} next
+   * @param {Segment} next
    * @returns {Promise<void>}
    */
-  async function setRecipesOnly(next) {
-    if (next === filters.recipesOnly) {
+  async function setSegment(next) {
+    if (next === filters.segment) {
       return;
     }
-    await apply({ ...filters, recipesOnly: next });
+    await apply({ ...filters, segment: next });
+  }
+
+  /**
+   * How many recipes a segment holds under the filters now in force.
+   * @param {Segment} segment
+   * @returns {number}
+   */
+  function countFor(segment) {
+    return segmentCount(counts, segment);
   }
 
   /**
@@ -163,22 +185,33 @@ export async function renderBrowse(container, options) {
   function renderAll() {
     searchBar.render(filters.ingredients);
     toggle.render(activeCount(filters));
-    panel.render(filters, filters.recipesOnly ? counts.recipes_only : counts.all_saves);
+    panel.render(filters, countFor(filters.segment));
     renderSegmented();
     renderResults();
   }
 
   function renderSegmented() {
-    setPressed(recipesSegment, filters.recipesOnly);
-    setPressed(allSavesSegment, !filters.recipesOnly);
-    allSavesSegment.textContent = `All saves \u00b7 ${counts.all_saves.toLocaleString()}`;
+    SEGMENTS.forEach((segment, index) => {
+      const button = segmentButtons[index];
+      setPressed(button, segment.value === filters.segment);
+      const total = countFor(segment.value);
+      const count = button.querySelector(".segmented__count");
+      if (count) {
+        count.textContent = total.toLocaleString();
+      }
+      button.setAttribute(
+        "aria-label",
+        `${segment.label}, ${total.toLocaleString()} recipes`,
+      );
+    });
+    segmentHintText.textContent = segmentHint(filters.segment);
   }
 
   function renderResults() {
     grid.replaceChildren();
     rendered = 0;
     if (results.length === 0) {
-      grid.append(...buildEmptyState(filters));
+      grid.append(...buildEmptyState(filters, counts, apply));
       updateCount();
       loadMore.hidden = true;
       return;
@@ -222,26 +255,55 @@ export async function renderBrowse(container, options) {
 
 /**
  * @param {BrowseFilters} filters
+ * @param {RecipeCounts} counts
+ * @param {(next: BrowseFilters) => void} onRelax
  * @returns {HTMLElement[]}
  */
-function buildEmptyState(filters) {
+function buildEmptyState(filters, counts, onRelax) {
   const message = document.createElement("p");
   message.className = "state-msg";
   message.textContent = isNarrowed(filters)
     ? "No recipes match these filters."
     : "Nothing saved here yet.";
-  if (filters.proteins.length === 0) {
-    return [message];
+
+  /** @type {HTMLElement[]} */
+  const parts = [message];
+
+  if (filters.proteins.length > 0) {
+    // A protein pill also hides every recipe with no protein recorded, which
+    // is a quarter of the complete ones. Say so rather than let it read as
+    // "you have none of these".
+    const note = document.createElement("p");
+    note.className = "state-msg state-msg--note";
+    note.textContent =
+      "A protein filter also hides every recipe with no protein recorded yet.";
+    parts.push(note);
   }
 
-  // Nearly half the library has no protein tagged at all, so a protein pill
-  // hides more than it looks like it should. Say so rather than let it read
-  // as "you have none of these".
-  const note = document.createElement("p");
-  note.className = "state-msg state-msg--note";
-  note.textContent =
-    "A protein filter also hides every recipe with no protein recorded yet, which is a fair share of them.";
-  return [message, note];
+  const ways = relaxations(filters, counts);
+  if (ways.length > 0) {
+    parts.push(buildRelaxations(ways, onRelax));
+  }
+  return parts;
+}
+
+/**
+ * @param {import("../lib/filters.js").Relaxation[]} ways
+ * @param {(next: BrowseFilters) => void} onRelax
+ * @returns {HTMLElement}
+ */
+function buildRelaxations(ways, onRelax) {
+  const wrap = document.createElement("div");
+  wrap.className = "state-actions";
+  for (const way of ways) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "state-action";
+    button.textContent = way.label;
+    button.addEventListener("click", () => onRelax(way.filters));
+    wrap.append(button);
+  }
+  return wrap;
 }
 
 /* ---- Hero --------------------------------------------------------------- */
@@ -293,16 +355,30 @@ function withText(el, text) {
 /* ---- Is-recipe segmented control ---------------------------------------- */
 
 /**
- * @param {string} label
+ * A segment carries both label lengths; CSS picks one by width, so the control
+ * narrows without a resize listener. The count is the same either way.
+ * @param {import("../lib/facets.js").SegmentSpec} spec
  * @param {boolean} pressed
  * @param {() => void} onClick
  * @returns {HTMLButtonElement}
  */
-function buildSegment(label, pressed, onClick) {
+function buildSegment(spec, pressed, onClick) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "segmented__option";
-  button.textContent = label;
+
+  const full = document.createElement("span");
+  full.className = "segmented__label segmented__label--full";
+  full.textContent = spec.label;
+
+  const short = document.createElement("span");
+  short.className = "segmented__label segmented__label--short";
+  short.textContent = spec.short;
+
+  const count = document.createElement("span");
+  count.className = "segmented__count";
+
+  button.append(full, short, count);
   setPressed(button, pressed);
   button.addEventListener("click", onClick);
   return button;

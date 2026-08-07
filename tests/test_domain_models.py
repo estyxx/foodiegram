@@ -232,6 +232,66 @@ def test_extraction_that_gave_up_on_the_title_yields_none() -> None:
     assert mapped.recipe.title is None
 
 
+@pytest.mark.parametrize(
+    ("ingredients", "instructions", "expected"),
+    [
+        (["farina"], ["mescola"], True),
+        (["farina"], [], False),
+        ([], ["mescola"], False),
+        ([], [], False),
+    ],
+)
+def test_completeness_needs_both_a_list_and_a_method(
+    ingredients: list[str],
+    instructions: list[str],
+    *,
+    expected: bool,
+) -> None:
+    """Half an extraction is not something you can cook from."""
+    recipe = Recipe(
+        code="ABC",
+        pk="1",
+        post_url=None,
+        caption=None,
+        title="Torta",
+        ingredients=ingredients,
+        instructions=instructions,
+    )
+
+    assert recipe.is_complete is expected
+
+
+def test_a_missing_title_does_not_make_a_recipe_incomplete() -> None:
+    """Completeness is about the cooking, not the label on the card."""
+    recipe = Recipe(
+        code="ABC",
+        pk="1",
+        post_url=None,
+        caption=None,
+        title=None,
+        ingredients=["farina"],
+        instructions=["mescola"],
+    )
+
+    assert recipe.is_complete is True
+
+
+def test_completeness_stays_out_of_the_serialised_shape() -> None:
+    """Derived on read: it must not become a field that round-trips."""
+    recipe = Recipe(
+        code="ABC",
+        pk="1",
+        post_url=None,
+        caption=None,
+        title="Torta",
+        ingredients=["farina"],
+        instructions=["mescola"],
+    )
+
+    assert "is_complete" not in recipe.model_dump()
+    assert Recipe.model_validate(recipe.model_dump()) == recipe
+
+
 def test_extracted_recipe_without_new_fields_validates() -> None:
     """A pre-v2 extraction payload without the new fields validates via defaults."""
     payload = _extracted().model_dump()
