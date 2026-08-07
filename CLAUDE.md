@@ -34,8 +34,8 @@ Personal project. Bias hard toward **simple, robust, readable** over clever.
 - **ruff** with `select = ["ALL"]` (current config). Don't silence a rule inline;
   if a rule is genuinely wrong for us, add it to `ignore` in `pyproject.toml` with
   a comment, repo-wide.
-- **mypy** strict. **pytest** for tests. **pre-commit** runs ruff + mypy on commit.
-- Python **3.13+** (bump to 3.14 only after confirming instagrapi/openai support).
+- **mypy** strict. **pytest** for tests. **pre-commit** runs ruff + import-linter on commit.
+- Python **3.14+** (`requires-python = ">=3.14"`, ruff `target-version = "py314"`).
 
 ## Typing & style
 
@@ -126,23 +126,49 @@ Dependencies point **inward only**: interfaces → app → adapters → domain.
 Domain depends on nothing.
 
 ```
-domain/               pure models, enums, errors. No I/O. No SDKs.
-  enums.py            StrEnum for MealType, DishType, CuisineType, Difficulty
-  models.py           ExtractedRecipe, Recipe, Collection (Pydantic, frozen)
+domain/               pure models, enums, errors + pure logic. No I/O. No SDKs.
+  enums.py            StrEnum: MealType, DishType, CuisineType, Difficulty, Course, MedCategory…
+  models.py           Recipe, ExtractedRecipe, Extraction, CategoryServing,
+                      ExtractedCategoryServing, MappedRecipe, UserState (Pydantic, frozen)
   errors.py           FoodiegramError hierarchy
-instagram/            instagrapi adapter + caching. Knows about Media; maps to domain.
-ai/                   LLM extraction: prompts (.txt), schema, batch + interactive.
-images/               Cloudinary adapter. Download → upload → return durable URL.
-repository.py         RecipeRepository — JSON now, SQLite later, same interface.
-api.py                FastAPI: /recipes CRUD + /scale convenience endpoint.
+  editing.py          promote() + user-owned-field rules
+  diffing.py          field-level diff between extraction payloads
+  planning.py         WeekPlan, PlannedMeal, targets, balance math
+  pantry.py shopping.py proteins.py synonyms.py   more pure logic
+app/                  use-cases as module-level functions: extraction, promotion,
+                      plan_week, export, import_json, diff_batch, review_categories…
+storage/              SQLModel-backed repositories (see below). Rows never leave here.
+ai/                   LLM extraction: batch.py (Batch API), repair.py (pydantic-ai),
+                      prompts/*.txt.
+images/               Cloudinary adapter (durable image URLs). Placeholder package today.
+instagram/            instagrapi adapter: _auth, extractor, cache_manager, collection.
+                      Knows about Media; the Collection model lives here.
+routers/              FastAPI routers: recipes, plans, pantry, targets, meta.
+api.py                create_app() factory: wires the routers, Basic auth, gzip, CORS,
+                      and serves the SPA. main() runs uvicorn.
+api_auth.py           Basic auth middleware.
 api_models.py         API-layer response models (RecipeSummary, RecipeDetail, etc.)
+deps.py               builds the repositories from settings; injected into routers.
 settings.py           pydantic-settings BaseSettings. Env prefix FOODIEGRAM_.
                       Never log the settings object itself.
 ```
 
-`RecipeRepository` interface **must not change** when we swap JSON for SQLite.
-Method signatures (`get`, `save`, `list_all`, `delete`, `find`) are the stable API;
-all callers import `RecipeRepository`, never the storage implementation.
+There is no `cli.py`: the CLIs are thin `scripts/*.py` argparse wrappers over `app/`,
+plus `foodiegram.api:main` for the server.
+
+Storage is **SQLModel** (SQLite locally; Neon Postgres in prod via `DATABASE_URL`,
+deploy pending — PLAN.md D5.3) behind hand-written
+repositories, one per aggregate: `recipes_db.RecipeRepository`,
+`extractions_db.ExtractionRepository` (append-only), `plans_db.PlanRepository`,
+`pantry_db.PantryRepository`, `targets_db.TargetRepository`,
+`user_state_db.UserStateRepository`. `storage/db.py` owns the engine/session and
+`_tables.py` holds the SQLModel rows, which **never leave `storage/`** —
+repositories accept and return domain models. `recipes_json.py` is legacy JSON,
+kept for import/export only.
+
+`RecipeRepository`'s interface is the stable API and must not change out from under
+callers: `get`, `exists`, `list_all`, `save`, `delete`, `find`. Callers import the
+repository, never the table classes.
 
 The `/scale` endpoint is a **convenience** — it is not the source of truth for the
 scaling widget. The browser JS (`extractNumber` / `scaleIngredient`) does the same
@@ -169,7 +195,9 @@ don't write the abstraction — write the function.
 - **Bulk first pass** (hundreds of posts): OpenAI **Batch API** (≈50% cheaper).
 - **Interactive re-analysis / repairs** (one post, on demand): use **Pydantic AI**
   (we already depend on `pydantic-ai-slim`) so validation + retries are automatic.
-- `temperature=0` (or near) for extraction — we want determinism, not creativity.
+- The pinned extraction model (`gpt-5.4-mini-…`) is a **reasoning** model and
+  **rejects `temperature`** — never set it. Get determinism from low reasoning
+  effort (`reasoning={"effort": "low"}`), not from a sampling temperature.
 
 ## Secrets
 

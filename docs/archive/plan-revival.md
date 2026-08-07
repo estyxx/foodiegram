@@ -1,3 +1,5 @@
+> SUPERSEDED. Current plan lives in docs/PLAN.md. Kept for history.
+
 # Foodiegram — Revival Plan
 
 A staged roadmap from the current (working but messy) state to a clean,
