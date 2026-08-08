@@ -122,18 +122,21 @@ on it. Never run Instagram-facing code on the server.
 
 ## Deploy (FastAPI Cloud + Neon)
 
-One `fastapi deploy` ships the API, the SPA, and the Bearer-gated MCP endpoint
+One `fastapi deploy` ships the API, the SPA, and the OAuth-protected MCP endpoint
 together (D1). The served app is the composition root `foodiegram.asgi:app`
 (declared under `[tool.fastapi]` in `pyproject.toml`), which mounts the
-Basic-authed API at `/` and the MCP transport at `/mcp` behind its own bearer
-token. The deploy artifact is **code only** — data reaches prod via a local
-`import_json` against Neon (D2), and the filesystem is ephemeral (nothing mutable
-on disk in prod).
+Basic-authed API at `/` and the MCP transport at `/mcp` behind OAuth 2.1. The
+deploy artifact is **code only** — data reaches prod via a local `import_json`
+against Neon (D2), and the filesystem is ephemeral (nothing mutable on disk in
+prod).
 
 The MCP endpoint is served at the exact path `https://<host>/mcp` (no trailing
 slash — give clients that URL verbatim to avoid a redirect that would drop the
 `Authorization` header). It runs stateless with single-shot JSON responses, so it
-survives autoscaling.
+survives autoscaling. Auth is bearer-JWT: an unauthenticated request gets a `401`
+with `WWW-Authenticate: Bearer resource_metadata="…"`, and the protected-resource
+metadata is published at `https://<host>/.well-known/oauth-protected-resource/mcp`
+(naming the IdP). Tokens must carry the `/mcp` URL as their audience (RFC 8707).
 
 **Prerequisites**
 - The app serves fine with only `DATABASE_URL` set; ingestion secrets are optional.
@@ -153,11 +156,13 @@ DATABASE_URL='<neon-pooled-url>' make import
 uvx fastapi deploy        # or: fastapi deploy
 
 # 4. In the FastAPI Cloud dashboard, set env vars:
-#      DATABASE_URL        = <neon-pooled-url>
-#      BASIC_AUTH_USERNAME = <you>
-#      BASIC_AUTH_PASSWORD = <strong-password>
-#      MCP_AUTH_TOKEN      = <strong-random-token>   # gates /mcp; boot fails if unset
-#      CORS_ALLOW_ORIGINS  = (leave empty — the SPA is same-origin)
+#      DATABASE_URL          = <neon-pooled-url>
+#      BASIC_AUTH_USERNAME   = <you>
+#      BASIC_AUTH_PASSWORD   = <strong-password>
+#      MCP_OAUTH_ISSUER      = <idp-issuer-url>            # gates /mcp; boot fails if any unset
+#      MCP_OAUTH_JWKS_URI    = <idp-jwks-uri>
+#      MCP_OAUTH_RESOURCE_URL= https://<host>/mcp         # token audience (RFC 8707)
+#      CORS_ALLOW_ORIGINS    = (leave empty — the SPA is same-origin)
 ```
 
 **Smoke test after deploy:** open the URL (expect a Basic-auth prompt), load a recipe,

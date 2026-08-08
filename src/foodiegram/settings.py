@@ -68,10 +68,15 @@ class Settings(BaseSettings):
     basic_auth_username: str = ""
     basic_auth_password: str = ""
 
-    # Bearer token gating the HTTP MCP endpoint (/mcp). No default on purpose: the
-    # composed ASGI app refuses to build when this is empty, so an unauthenticated
-    # MCP surface can never ship. The local stdio server never reads it.
-    mcp_auth_token: str = ""
+    # OAuth 2.1 for the HTTP MCP endpoint (/mcp). The composed ASGI app refuses to
+    # build unless issuer, JWKS URI, and resource URL are all set, so an
+    # unauthenticated MCP write surface can never ship. The local stdio server
+    # reads none of these. resource_url is the endpoint's PUBLIC /mcp URL and is
+    # also the token audience (RFC 8707); scopes are optional and space-separated.
+    mcp_oauth_issuer: str = ""
+    mcp_oauth_jwks_uri: str = ""
+    mcp_oauth_resource_url: str = ""
+    mcp_oauth_required_scopes: str = ""
 
     # Comma-separated cross-origin allowlist. Empty (default) = no CORS: the SPA is
     # served same-origin, so cross-origin access is off unless explicitly enabled.
