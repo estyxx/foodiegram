@@ -122,9 +122,18 @@ on it. Never run Instagram-facing code on the server.
 
 ## Deploy (FastAPI Cloud + Neon)
 
-One `fastapi deploy` ships the API and the SPA together (D1). The deploy artifact is
-**code only** — data reaches prod via a local `import_json` against Neon (D2), and the
-filesystem is ephemeral (nothing mutable on disk in prod).
+One `fastapi deploy` ships the API, the SPA, and the Bearer-gated MCP endpoint
+together (D1). The served app is the composition root `foodiegram.asgi:app`
+(declared under `[tool.fastapi]` in `pyproject.toml`), which mounts the
+Basic-authed API at `/` and the MCP transport at `/mcp` behind its own bearer
+token. The deploy artifact is **code only** — data reaches prod via a local
+`import_json` against Neon (D2), and the filesystem is ephemeral (nothing mutable
+on disk in prod).
+
+The MCP endpoint is served at the exact path `https://<host>/mcp` (no trailing
+slash — give clients that URL verbatim to avoid a redirect that would drop the
+`Authorization` header). It runs stateless with single-shot JSON responses, so it
+survives autoscaling.
 
 **Prerequisites**
 - The app serves fine with only `DATABASE_URL` set; ingestion secrets are optional.
@@ -147,6 +156,7 @@ uvx fastapi deploy        # or: fastapi deploy
 #      DATABASE_URL        = <neon-pooled-url>
 #      BASIC_AUTH_USERNAME = <you>
 #      BASIC_AUTH_PASSWORD = <strong-password>
+#      MCP_AUTH_TOKEN      = <strong-random-token>   # gates /mcp; boot fails if unset
 #      CORS_ALLOW_ORIGINS  = (leave empty — the SPA is same-origin)
 ```
 

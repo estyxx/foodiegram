@@ -1,5 +1,6 @@
 .PHONY: ingest submit submit-all status apply promote promote-apply diff \
-        export import backfill serve-api lint test typecheck lint-imports check
+        export import backfill serve-api serve-all lint test typecheck \
+        lint-imports check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
 VERSION ?= 2
@@ -56,6 +57,11 @@ backfill:
 
 serve-api:
 	uv run uvicorn foodiegram.api:app --reload --port 8000
+
+# Serve the composed app (API + Bearer-gated /mcp) via the [tool.fastapi]
+# entrypoint, exactly as FastAPI Cloud does. Requires MCP_AUTH_TOKEN in the env.
+serve-all:
+	uv run fastapi dev
 
 lint:
 	uv run ruff check --fix src/ scripts/ && uv run ruff format src/ scripts/ && uv run mypy --strict src/

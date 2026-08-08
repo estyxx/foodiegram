@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     basic_auth_username: str = ""
     basic_auth_password: str = ""
 
+    # Bearer token gating the HTTP MCP endpoint (/mcp). No default on purpose: the
+    # composed ASGI app refuses to build when this is empty, so an unauthenticated
+    # MCP surface can never ship. The local stdio server never reads it.
+    mcp_auth_token: str = ""
+
     # Comma-separated cross-origin allowlist. Empty (default) = no CORS: the SPA is
     # served same-origin, so cross-origin access is off unless explicitly enabled.
     cors_allow_origins: str = ""

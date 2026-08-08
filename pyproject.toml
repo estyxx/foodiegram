@@ -27,6 +27,12 @@ dependencies = [
 [project.scripts]
 foodiegram-api = "foodiegram.api:main"
 
+# What `fastapi run`/`fastapi deploy` (and FastAPI Cloud) serve: the composition
+# root that mounts the Basic-authed API and the Bearer-gated /mcp together. Plain
+# `foodiegram.api:app` still serves the API alone for local dev without a token.
+[tool.fastapi]
+entrypoint = "foodiegram.asgi:app"
+
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]
 build-backend = "uv_build"
@@ -123,6 +129,7 @@ forbidden_modules = [
     "foodiegram.api_models",
     "foodiegram.routers",
     "foodiegram.mcp_server",
+    "foodiegram.asgi",
     "foodiegram.deps",
     "foodiegram.settings",
     "instagrapi",
@@ -146,14 +153,17 @@ modules = [
     "foodiegram.instagram",
 ]
 
-# api sits above routers (api.py wires the routers in), routers above app, and
-# the adapters form one flat sibling layer above the pure domain. mcp_server is
-# an entry point beside api (a sibling of api/scripts): it reaches down through
-# app but is imported by nothing, so it shares the top layer with api.
+# asgi.py is the composition root: the one module allowed to import both entry
+# siblings (api and mcp_server) to mount them together. Below it, api sits above
+# routers (api.py wires the routers in), routers above app, and the adapters form
+# one flat sibling layer above the pure domain. mcp_server is an entry point
+# beside api: it reaches down through app but is imported only by asgi, so it
+# shares that sibling layer with api.
 [[tool.importlinter.contracts]]
 name = "layers"
 type = "layers"
 layers = [
+    "foodiegram.asgi",
     "foodiegram.api | foodiegram.mcp_server",
     "foodiegram.routers",
     "foodiegram.app",
