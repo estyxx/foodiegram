@@ -25,7 +25,7 @@ MODEL = "gpt-5.4-mini-2026-03-17"
 # gpt-5.4-mini is a reasoning model; its default effort "none" disables reasoning,
 # so request "low" for the category-judgment calls.
 REASONING_EFFORT = "low"
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 CAPTION_MARKER = "{caption}"
 PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 BATCH_INPUT_PATH = Path("data/batch_input.jsonl")

@@ -12,6 +12,7 @@ from foodiegram.domain.models import (
 )
 from foodiegram.settings import Settings
 from foodiegram.storage.db import (
+    _ensure_schema_patches,
     _seed_targets,
     create_db_engine,
     truncate_all_tables,
@@ -112,6 +113,7 @@ def postgres_engine() -> Generator[Engine]:
     ensure_database(database_url=test_url)
     engine = create_db_engine(test_url)
     SQLModel.metadata.create_all(engine)
+    _ensure_schema_patches(engine)
     yield engine
     engine.dispose()
 

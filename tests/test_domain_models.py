@@ -297,8 +297,45 @@ def test_extracted_recipe_without_new_fields_validates() -> None:
     payload = _extracted().model_dump()
     del payload["course"]
     del payload["mediterranean_categories"]
+    del payload["time_is_estimated"]
 
     extracted = ExtractedRecipe.model_validate(payload)
 
     assert extracted.course == "unknown"
     assert extracted.mediterranean_categories == []
+    assert extracted.time_is_estimated is False
+
+
+def test_extracted_recipe_accepts_yogurt_and_estimated_time() -> None:
+    """v3 payloads may carry yogurt as a protein and a flagged time estimate."""
+    extracted = _extracted().model_copy(
+        update={
+            "proteins": ["yogurt"],
+            "meal_type": "breakfast",
+            "dish_type": "pastry",
+            "total_time": "30-60 min",
+            "time_is_estimated": True,
+        },
+    )
+
+    assert extracted.proteins == ["yogurt"]
+    assert extracted.meal_type == "breakfast"
+    assert extracted.total_time == "30-60 min"
+    assert extracted.time_is_estimated is True
+
+
+def test_from_extracted_maps_time_is_estimated() -> None:
+    """time_is_estimated survives mapping into the domain Recipe."""
+    extracted = _extracted().model_copy(
+        update={"total_time": "<30 min", "time_is_estimated": True},
+    )
+
+    mapped = Recipe.from_extracted(
+        code="ABC",
+        pk="1",
+        caption=None,
+        extracted=extracted,
+    )
+
+    assert mapped.recipe.total_time == "<30 min"
+    assert mapped.recipe.time_is_estimated is True

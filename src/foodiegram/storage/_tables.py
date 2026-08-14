@@ -26,6 +26,7 @@ class RecipeRow(SQLModel, table=True):
     prep_time: str | None = None
     cook_time: str | None = None
     total_time: str | None = None
+    time_is_estimated: bool = False
     servings: str | None = None
     base_servings: int | None = None
     temperature: str | None = None

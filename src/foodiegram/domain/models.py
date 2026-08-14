@@ -76,6 +76,7 @@ class ExtractedRecipe(BaseModel):
     prep_time: str
     cook_time: str
     total_time: str
+    time_is_estimated: bool = False
     servings: str
 
     # Experience tags
@@ -142,6 +143,7 @@ class Recipe(BaseModel):
     prep_time: str | None = None
     cook_time: str | None = None
     total_time: str | None = None
+    time_is_estimated: bool = False
     servings: str | None = None
     base_servings: int | None = None
 
@@ -279,6 +281,7 @@ class Recipe(BaseModel):
             prep_time=extracted.prep_time or None,
             cook_time=extracted.cook_time or None,
             total_time=extracted.total_time or None,
+            time_is_estimated=extracted.time_is_estimated,
             servings=extracted.servings or None,
             base_servings=base_servings,
             temperature=extracted.temperature or None,

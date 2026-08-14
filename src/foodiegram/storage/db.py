@@ -38,7 +38,20 @@ def get_session(engine: Engine) -> Session:
 def init_db(engine: Engine) -> None:
     """Create all tables and seed default targets when the table is empty."""
     SQLModel.metadata.create_all(engine)
+    _ensure_schema_patches(engine)
     _seed_targets(engine)
+
+
+def _ensure_schema_patches(engine: Engine) -> None:
+    """Apply additive schema changes that create_all does not backfill."""
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE recipes "
+                "ADD COLUMN IF NOT EXISTS time_is_estimated "
+                "BOOLEAN NOT NULL DEFAULT FALSE",
+            ),
+        )
 
 
 def truncate_all_tables(engine: Engine) -> None:

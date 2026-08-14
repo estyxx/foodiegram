@@ -26,12 +26,29 @@ All of the following fields use English canonical values regardless of caption l
 
 ### Classifications (English values only):
 - **dish_type**: "soup", "salad", "main_course", "side_dish", "dessert", "beverage", "bread", "sauce", "snack", "pasta", "risotto", "pizza", "sandwich", "pastry"
-- **meal_type**: "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
+  - Pick the SINGLE most specific dish_type. Baked sweet loafs/cakes with leavening
+    (plumcake, muffin, banana bread, yogurt cake): use **pastry**, not dessert.
+    Reserve **dessert** for plated sweets, ice cream, pudding, or items clearly
+    served as dolce. Do not split near-identical items across dessert/pastry.
+- **meal_type**: ONE value from "breakfast", "lunch", "dinner", "snack", "dessert", "appetizer"
+  - When a sweet is commonly eaten at breakfast AND could also be dessert
+    (plumcake, pancake, muffin, chia pudding, porridge, yogurt pots), prefer
+    **breakfast** over dessert unless the caption clearly positions it as an
+    after-dinner sweet.
 - **cuisine_type**: "italian", "asian", "korean", "mexican", "mediterranean", "american", "french", "other"
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
 
 ### Ingredient Breakdown (English values only):
-- **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "beans", "nuts"]
+- **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "yogurt", "milk", "beans", "nuts"]
+  - EVIDENCE RULE: list a protein ONLY if that ingredient is actually named in the
+    caption. Do not infer proteins from the dish type or from what the recipe
+    "usually" contains. If unsure, omit it.
+  - yogurt and milk are distinct from cheese — caption names "yogurt" → ["yogurt"],
+    not ["cheese"]. Caption names "latte" / "milk" → ["milk"], not ["cheese"].
+  - Positive: carbonara caption names guanciale, uova, pecorino → include "eggs"
+    and "cheese" because they are named.
+  - Negative: a cocoa cake caption with no eggs or cheese named → proteins must
+    NOT include "eggs" or "cheese" just because cakes often contain them.
 - **vegetables**: ["tomato", "onion", "garlic", "zucchini", "spinach", "broccoli", "carrot", "bell pepper"]
 - **grains_starches**: ["pasta", "rice", "bread", "potato", "quinoa", "couscous", "noodles"]
 - **herbs_spices**: ["basil", "oregano", "thyme", "paprika", "cumin", "black pepper", "red pepper", "chili pepper"]
@@ -41,9 +58,14 @@ All of the following fields use English canonical values regardless of caption l
 - **equipment**: ["oven", "stovetop", "pan", "pot", "grill", "blender", "processor", "air_fryer", "slow_cooker"]
 
 ### Time and Serving:
-- **prep_time**: "10 minutes", "30 minutes", "1 hour", "unknown"
-- **cook_time**: "15 minutes", "45 minutes", "2 hours", "unknown"
-- **total_time**: "25 minutes", "1.5 hours", "unknown"
+- **prep_time**: "10 minutes", "30 minutes", "1 hour", "unknown" — verbatim when stated
+- **cook_time**: "15 minutes", "45 minutes", "2 hours", "unknown" — verbatim when stated
+- **total_time**: verbatim when stated (e.g. "25 minutes", "1.5 hours"). When NO time
+  is stated in the caption, ESTIMATE a coarse band from ingredients and steps —
+  exactly one of "<30 min", "30-60 min", ">60 min" — and do NOT invent a precise
+  figure (never "45 minutes" unless the caption says so).
+- **time_is_estimated**: true when total_time is a coarse estimate band; false when
+  total_time is copied verbatim from the caption.
 - **servings**: "1-2", "3-4", "6-8", "unknown"
 
 ### Experience Tags (English values only):
@@ -75,6 +97,7 @@ All of the following fields use English canonical values regardless of caption l
 - If no clear difficulty: "medium"
 - Use "year_round" for season if not seasonal-specific
 - Use "home_cooking" for style if unclear
+- time_is_estimated: false when total_time is stated verbatim; true only for coarse bands
 
 ### Mediterranean categories (English values only):
 - **mediterranean_categories**: list of {category, servings, is_oily_fish} objects.

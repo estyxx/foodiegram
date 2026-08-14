@@ -37,6 +37,7 @@ EXTRACTION_FIELDS: frozenset[str] = frozenset(
         "prep_time",
         "cook_time",
         "total_time",
+        "time_is_estimated",
         "servings",
         "base_servings",
         "temperature",
