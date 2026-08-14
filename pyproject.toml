@@ -85,6 +85,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 "src/foodiegram/storage/maintenance.py" = ["S603", "S607", "S105", "C901", "TRY301", "TC003"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
 "src/foodiegram/settings.py" = ["S104"]
+# Sequence is the public parameter type for cosine_similarity.
+"src/foodiegram/domain/similarity.py" = ["TC003"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

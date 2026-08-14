@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from foodiegram.domain.models import Recipe
 from foodiegram.domain.proteins import facets_for
+from foodiegram.domain.similarity import cosine_similarity
 from foodiegram.domain.synonyms import expand_term
-from foodiegram.storage._tables import RecipeRow
+from foodiegram.storage._tables import RecipeEmbeddingRow, RecipeRow
 from foodiegram.storage.db import ensure_utc, get_session
 
 if TYPE_CHECKING:
@@ -308,3 +309,83 @@ class RecipeRepository:
             results = [r for r in results if _matches_term(r, q)]
 
         return results
+
+    def save_embedding(
+        self,
+        recipe_code: str,
+        embedding: list[float],
+        *,
+        model: str,
+    ) -> None:
+        """Insert or replace the embedding row for recipe_code."""
+        now = datetime.now(tz=UTC)
+        with get_session(self._engine) as session:
+            existing = session.get(RecipeEmbeddingRow, recipe_code)
+            created_at = existing.created_at if existing is not None else now
+            session.merge(
+                RecipeEmbeddingRow(
+                    recipe_code=recipe_code,
+                    model=model,
+                    embedding=embedding,
+                    created_at=created_at,
+                ),
+            )
+            session.commit()
+
+    def get_embedding(self, recipe_code: str) -> list[float] | None:
+        """Return the stored embedding for recipe_code, or None when absent."""
+        with get_session(self._engine) as session:
+            row = session.get(RecipeEmbeddingRow, recipe_code)
+            return list(row.embedding) if row is not None else None
+
+    def find_similar(
+        self,
+        query_vector: list[float],
+        *,
+        cuisine: CuisineType | None = None,
+        meal_type: MealType | None = None,
+        dish_type: DishType | None = None,
+        difficulty: Difficulty | None = None,
+        is_recipe: bool | None = None,
+        complete: bool | None = None,
+        protein_categories: list[MedCategory] | None = None,
+        dietary_tags: list[str] | None = None,
+        proteins: list[str] | None = None,
+        ingredients: list[str] | None = None,
+        limit: int = 8,
+    ) -> list[tuple[Recipe, float]]:
+        """Return the closest embedded recipes to query_vector, filtered like find()."""
+        candidates = self.find(
+            cuisine=cuisine,
+            meal_type=meal_type,
+            dish_type=dish_type,
+            difficulty=difficulty,
+            is_recipe=is_recipe,
+            complete=complete,
+            protein_categories=protein_categories,
+            dietary_tags=dietary_tags,
+            proteins=proteins,
+            ingredients=ingredients,
+            q=None,
+        )
+        if not candidates:
+            return []
+
+        codes = [recipe.code for recipe in candidates]
+        with get_session(self._engine) as session:
+            rows = session.exec(
+                select(RecipeEmbeddingRow).where(
+                    col(RecipeEmbeddingRow.recipe_code).in_(codes),
+                ),
+            ).all()
+            embeddings_by_code = {row.recipe_code: row.embedding for row in rows}
+
+        scored: list[tuple[Recipe, float]] = []
+        for recipe in candidates:
+            stored = embeddings_by_code.get(recipe.code)
+            if stored is None:
+                continue
+            scored.append((recipe, cosine_similarity(query_vector, stored)))
+
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored[:limit]

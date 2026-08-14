@@ -80,6 +80,21 @@ class ExtractionRow(SQLModel, table=True):
     payload: dict[str, object] = Field(sa_column=Column(JSON))
 
 
+class RecipeEmbeddingRow(SQLModel, table=True):
+    """One embedding vector per recipe for semantic similarity search."""
+
+    __tablename__ = "recipe_embeddings"
+
+    recipe_code: str = Field(
+        primary_key=True,
+        foreign_key="recipes.code",
+        ondelete="CASCADE",
+    )
+    model: str
+    embedding: list[float] = Field(sa_column=Column(JSON))
+    created_at: datetime
+
+
 class PostRow(SQLModel, table=True):
     """Staging row for an ingested Instagram post."""
 
