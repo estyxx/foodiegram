@@ -3,7 +3,9 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from mcp.server import MCPServer
+from openai import OpenAI
 
+from foodiegram.app.search_recipes import search_recipes_semantic
 from foodiegram.deps import build_deps
 from foodiegram.mcp_server.serializers import to_mcp_view
 from foodiegram.settings import Settings
@@ -30,31 +32,44 @@ def _deps() -> Deps:
     return build_deps(Settings().database_url)
 
 
+@cache
+def _openai_client() -> OpenAI:
+    """Create one OpenAI client per process for query embeddings."""
+    return OpenAI(api_key=Settings().require_openai_api_key())
+
+
 @mcp.tool()
 def search_recipes(
     *,
     query: str = "",
     limit: int = _DEFAULT_SEARCH_LIMIT,
 ) -> list[dict[str, Any]]:
-    """Search the recipe library by text and return slim recipe views.
+    """Search the recipe library by meaning and return slim recipe views.
 
-    query is matched against the title, caption, and ingredients (synonym
-    expanded, both languages). Only real recipes are returned, never photo-only
-    saves. An empty query lists the library, capped at limit.
+    query is embedded and matched semantically against stored recipe documents.
+    Only real recipes are returned, never photo-only saves. An empty query
+    returns no results; use get_recipe or a facet browse path to list the library.
     """
     logger.info("search_recipes: query=%r limit=%d", query, limit)
     deps = _deps()
     favourites = set(deps.user_state.all_favorites())
-    matches = deps.recipes.find(q=query or None, is_recipe=True)
-    capped = matches[: min(max(limit, 1), _MAX_SEARCH_LIMIT)]
+    capped_limit = min(max(limit, 1), _MAX_SEARCH_LIMIT)
+    matches = search_recipes_semantic(
+        recipes=deps.recipes,
+        client=_openai_client(),
+        query=query,
+        is_recipe=True,
+        limit=capped_limit,
+    )
     logger.info(
         "search_recipes: %d match(es), returning %d for query=%r",
         len(matches),
-        len(capped),
+        len(matches),
         query,
     )
     return [
-        to_mcp_view(recipe, is_favorite=recipe.code in favourites) for recipe in capped
+        to_mcp_view(recipe, is_favorite=recipe.code in favourites, score=score)
+        for recipe, score in matches
     ]
 
 

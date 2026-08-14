@@ -117,7 +117,7 @@ def postgres_engine() -> Generator[Engine]:
 
 
 @pytest.fixture
-def db_engine(postgres_engine: Engine) -> Generator[Engine]:
+def db_engine(postgres_engine: Engine) -> Engine:
     """Return a clean Postgres test database for one test function."""
     truncate_all_tables(postgres_engine)
     _seed_targets(postgres_engine)
