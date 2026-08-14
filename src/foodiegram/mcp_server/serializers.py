@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
+from foodiegram.api_models import RecipeDetail
+
 if TYPE_CHECKING:
     from foodiegram.domain.models import Recipe
 
@@ -30,3 +32,20 @@ def to_mcp_view(
     if score is not None:
         view["score"] = score
     return view
+
+
+def to_mcp_detail(
+    recipe: Recipe,
+    *,
+    is_favorite: bool = False,
+    user_notes: str | None = None,
+) -> dict[str, Any]:
+    """Return the full recipe detail for MCP get_recipe, reusing RecipeDetail."""
+    detail = RecipeDetail.model_validate(
+        {
+            **recipe.model_dump(),
+            "is_favorite": is_favorite,
+            "user_notes": user_notes,
+        },
+    )
+    return detail.model_dump(mode="json")

@@ -8,7 +8,7 @@ from pydantic import Field
 
 from foodiegram.app.search_recipes import search_recipes_semantic
 from foodiegram.deps import build_deps
-from foodiegram.mcp_server.serializers import to_mcp_view
+from foodiegram.mcp_server.serializers import to_mcp_detail, to_mcp_view
 from foodiegram.settings import Settings
 
 if TYPE_CHECKING:
@@ -110,13 +110,13 @@ def get_recipe(
         ),
     ],
 ) -> dict[str, Any] | None:
-    """Return one recipe summary by its `code`.
+    """Return the full stored recipe for its `code`.
 
-    Same slim fields as a search hit: title, dish_type, meal_type, cuisine_type,
-    proteins, total_time, is_favorite, and post_url. The `code` is taken verbatim
-    from a `search_recipes` result (e.g. 'C0EUIAZKPkf'). Use this after searching,
-    when the user wants to open one shortlisted option rather than browse the ranked
-    list. Handles one recipe per call — to open several, call it once per `code`.
+    Same summary fields as a search hit, plus ingredients, instructions, times,
+    servings, difficulty, tag lists, and mediterranean_categories — everything
+    needed to cook from the stored data. The `code` is taken verbatim from a
+    `search_recipes` result (e.g. 'C0EUIAZKPkf'). Use this after searching when
+    the user wants the actual recipe. Handles one recipe per call.
     """
     logger.info("get_recipe: code=%r", code)
     deps = _deps()
@@ -125,4 +125,8 @@ def get_recipe(
         logger.info("get_recipe: %r not found", code)
         return None
     state = deps.user_state.get(code)
-    return to_mcp_view(recipe, is_favorite=bool(state and state.is_favorite))
+    return to_mcp_detail(
+        recipe,
+        is_favorite=bool(state and state.is_favorite),
+        user_notes=state.user_notes if state else None,
+    )
