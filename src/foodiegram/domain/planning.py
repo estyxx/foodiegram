@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from foodiegram.domain.enums import MedCategory
+from foodiegram.domain.proteins import category_servings_for
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -29,6 +30,9 @@ class CategoryTarget(BaseModel):
 DEFAULT_TARGETS: tuple[CategoryTarget, ...] = (
     CategoryTarget(category=MedCategory.FISH, min_servings=2, max_servings=3),
     CategoryTarget(category=MedCategory.LEGUMES, min_servings=2, max_servings=3),
+    # PLACEHOLDER: ester to set real weekly plant_protein target.
+    # Matches legumes min/max until then.
+    CategoryTarget(category=MedCategory.PLANT_PROTEIN, min_servings=2, max_servings=3),
     CategoryTarget(category=MedCategory.POULTRY, min_servings=1, max_servings=2),
     CategoryTarget(category=MedCategory.EGGS, min_servings=2, max_servings=4),
     CategoryTarget(category=MedCategory.DAIRY, min_servings=0, max_servings=7),
@@ -109,10 +113,8 @@ def week_balance(
         recipe = recipes.get(meal.recipe_code)
         if recipe is None:
             continue
-        for serving in recipe.mediterranean_categories:
-            totals[serving.category] = (
-                totals.get(serving.category, 0.0) + serving.servings
-            )
+        for category, servings in category_servings_for(recipe).items():
+            totals[category] = totals.get(category, 0.0) + servings
 
     return [
         CategoryStatus(
@@ -142,10 +144,7 @@ def oily_fish_count(plan: WeekPlan, recipes: Mapping[str, Recipe]) -> float:
 
 def _counts_toward(recipe: Recipe, category: MedCategory) -> bool:
     """Return True if recipe contributes positive servings to category."""
-    return any(
-        serving.category == category and serving.servings > 0
-        for serving in recipe.mediterranean_categories
-    )
+    return category_servings_for(recipe).get(category, 0.0) > 0
 
 
 def gap_suggestions(

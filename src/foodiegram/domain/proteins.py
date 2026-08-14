@@ -115,6 +115,8 @@ _TIER_BY_CATEGORY: dict[MedCategory, ProteinTier] = {
     category: tier for tier, categories in TIERS.items() for category in categories
 }
 
+_FALLBACK_PLANT_PROTEIN_SERVINGS = 1.0
+
 
 def categories_for(proteins: list[str]) -> set[MedCategory]:
     """Return the protein groups these words belong to, skipping unknown ones."""
@@ -125,22 +127,46 @@ def categories_for(proteins: list[str]) -> set[MedCategory]:
     }
 
 
+def category_servings_for(recipe: Recipe) -> dict[MedCategory, float]:
+    """Return per-category servings for balance and gap math.
+
+    LLM-emitted mediterranean_categories are authoritative. Plant protein is the
+    sole fallback: when extraction omitted the category but protein words name
+    tofu/tempeh/edamame/seitan/soy, inject one serving so legacy rows still
+    count. Emitted plant_protein is never doubled.
+    """
+    servings: dict[MedCategory, float] = {}
+    for serving in recipe.mediterranean_categories:
+        if serving.servings > 0:
+            servings[serving.category] = (
+                servings.get(serving.category, 0.0) + serving.servings
+            )
+
+    if (
+        MedCategory.PLANT_PROTEIN not in servings
+        and MedCategory.PLANT_PROTEIN in categories_for(recipe.proteins)
+    ):
+        servings[MedCategory.PLANT_PROTEIN] = _FALLBACK_PLANT_PROTEIN_SERVINGS
+
+    return servings
+
+
 def facets_for(recipe: Recipe) -> set[MedCategory]:
     """Return the protein groups Browse should match a recipe on.
 
-    The LLM's category servings win: they read the whole recipe, while the
-    protein word list is a thin, closed vocabulary that misses cured meat
-    entirely. PLANT_PROTEIN is the one exception — extraction has never emitted
-    it, so it is filled in from the protein words until re-extraction catches
-    up. Zero-serving entries are skipped, matching what the weekly balance
-    counts.
+    The LLM's category servings win. PLANT_PROTEIN is filled in from protein
+    words only when extraction did not already assign a positive serving.
+    Zero-serving entries are skipped, matching what the weekly balance counts.
     """
     facets = {
         serving.category
         for serving in recipe.mediterranean_categories
         if serving.servings > 0
     }
-    if MedCategory.PLANT_PROTEIN in categories_for(recipe.proteins):
+    if (
+        MedCategory.PLANT_PROTEIN not in facets
+        and MedCategory.PLANT_PROTEIN in categories_for(recipe.proteins)
+    ):
         facets.add(MedCategory.PLANT_PROTEIN)
     return facets
 

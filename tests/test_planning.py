@@ -20,12 +20,15 @@ _MONDAY = date(2024, 1, 1)
 _TUESDAY = date(2024, 1, 2)
 _FISH_TARGET = CategoryTarget(category=MedCategory.FISH, min_servings=2, max_servings=3)
 _LEGUMES_SERVINGS = 2.0
+_EMITTED_PLANT_PROTEIN_SERVINGS = 1.5
+_DOUBLE_GUARD_PLANT_PROTEIN_SERVINGS = 2.0
 
 
 def _recipe(
     code: str,
     *,
     categories: Sequence[CategoryServing] = (),
+    proteins: list[str] | None = None,
     is_recipe: bool = True,
     archived: bool = False,
     confidence: float = 0.8,
@@ -39,6 +42,7 @@ def _recipe(
         title=f"Recipe {code}",
         ingredients=["water"],
         instructions=["cook"],
+        proteins=proteins or [],
         mediterranean_categories=list(categories),
         is_recipe=is_recipe,
         archived=archived,
@@ -178,6 +182,79 @@ def test_gap_suggestions_ranks_and_filters() -> None:
     )
 
     assert [r.code for r in result[MedCategory.FISH]] == ["F1", "F2", "F3"]
+
+
+_PLANT_PROTEIN_TARGET = CategoryTarget(
+    category=MedCategory.PLANT_PROTEIN,
+    min_servings=2,
+    max_servings=3,
+)
+
+
+def test_week_balance_counts_emitted_plant_protein() -> None:
+    """Balance includes LLM-emitted plant_protein servings."""
+    recipe = _recipe(
+        "TOFU",
+        categories=[
+            CategoryServing(
+                category=MedCategory.PLANT_PROTEIN,
+                servings=_EMITTED_PLANT_PROTEIN_SERVINGS,
+            )
+        ],
+    )
+    plan = WeekPlan(
+        week_start=_MONDAY,
+        meals=(PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="TOFU"),),
+    )
+
+    statuses = {
+        s.category: s
+        for s in week_balance(plan, {"TOFU": recipe}, (_PLANT_PROTEIN_TARGET,))
+    }
+
+    assert statuses[MedCategory.PLANT_PROTEIN].planned == _EMITTED_PLANT_PROTEIN_SERVINGS
+
+
+def test_week_balance_falls_back_to_protein_words_for_plant_protein() -> None:
+    """Legacy tofu recipes without an emitted category still count once."""
+    recipe = _recipe("TOFU", proteins=["tofu"])
+    plan = WeekPlan(
+        week_start=_MONDAY,
+        meals=(PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="TOFU"),),
+    )
+
+    statuses = {
+        s.category: s
+        for s in week_balance(plan, {"TOFU": recipe}, (_PLANT_PROTEIN_TARGET,))
+    }
+
+    assert statuses[MedCategory.PLANT_PROTEIN].planned == 1.0
+
+
+def test_week_balance_does_not_double_count_plant_protein() -> None:
+    """Emitted plant_protein plus tofu words count plant_protein exactly once."""
+    recipe = _recipe(
+        "TOFU",
+        proteins=["tofu"],
+        categories=[
+            CategoryServing(
+                category=MedCategory.PLANT_PROTEIN,
+                servings=_DOUBLE_GUARD_PLANT_PROTEIN_SERVINGS,
+            ),
+        ],
+    )
+    plan = WeekPlan(
+        week_start=_MONDAY,
+        meals=(PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="TOFU"),),
+    )
+
+    statuses = {
+        s.category: s
+        for s in week_balance(plan, {"TOFU": recipe}, (_PLANT_PROTEIN_TARGET,))
+    }
+
+    planned = statuses[MedCategory.PLANT_PROTEIN].planned
+    assert planned == _DOUBLE_GUARD_PLANT_PROTEIN_SERVINGS
 
 
 def test_gap_suggestions_skips_non_under_categories() -> None:

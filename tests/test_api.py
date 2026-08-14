@@ -19,7 +19,7 @@ from foodiegram.storage.user_state_db import UserStateRepository
 
 _MONDAY = "2024-01-01"
 _TUESDAY = "2024-01-02"
-_SEEDED_TARGETS = 7
+_SEEDED_TARGETS = 8
 _TWO_SERVINGS = 2.0
 _UPDATED_MIN = 3.0
 _UPDATED_SERVINGS = 4

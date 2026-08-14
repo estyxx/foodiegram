@@ -47,5 +47,5 @@ def test_real_prompt_file_renders() -> None:
 
     rendered = render_prompt(template=template, caption="dummy caption")
 
-    assert 'Caption: "dummy caption"' in rendered
+    assert "<caption>\ndummy caption\n</caption>" in rendered
     assert CAPTION_MARKER not in rendered

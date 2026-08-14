@@ -53,7 +53,8 @@ All of the following fields use English canonical values regardless of caption l
 - **difficulty**: "easy" (simple prep), "medium" (moderate skill), "hard" (complex techniques)
 
 ### Ingredient Breakdown (English values only):
-- **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs", "cheese", "yogurt", "milk", "beans", "nuts"]
+- **proteins**: ["chicken", "beef", "pork", "fish", "seafood", "tofu", "eggs",
+  "cheese", "yogurt", "milk", "beans", "nuts"]
   - EVIDENCE RULE: list a protein ONLY if that ingredient is actually named in the
     caption. Do not infer proteins from the dish type or from what the recipe
     "usually" contains. If unsure, omit it.
@@ -134,7 +135,7 @@ All of the following fields use English canonical values regardless of caption l
 
 ### Mediterranean categories (English values only):
 - **mediterranean_categories**: list of {category, servings, is_oily_fish} objects.
-  Categories: "fish", "legumes", "poultry", "eggs", "dairy", "red_meat", "processed_meat".
+  Categories: "fish", "legumes", "poultry", "eggs", "dairy", "red_meat", "processed_meat", "plant_protein".
   Rules:
   - A recipe may count toward MULTIPLE categories (lentil-parmesan soup = legumes + dairy;
     carbonara = eggs + processed_meat + dairy).
@@ -151,9 +152,11 @@ All of the following fields use English canonical values regardless of caption l
     * manzo, vitello, maiale (fresh cuts), agnello → "red_meat"
     * pollo, tacchino, coniglio → "poultry"
     * ceci, lenticchie, fagioli, fave, piselli, cicerchie, lupini → "legumes"
-    * tofu, tempeh, edamame, seitan → do NOT count as legumes here. They are plant
-      proteins, captured in the `proteins` field and mapped to plant_protein
-      downstream — leave them OUT of mediterranean_categories.
+    * tofu, tempeh, edamame, seitan, soia / proteine della soia → "plant_protein"
+      (NOT "legumes"). Legumes are whole pulses (ceci, lenticchie, fagioli, fave,
+      piselli, cicerchie, lupini); soy-based and other processed plant proteins are
+      their own category. Apply the same serving rule: a tofu/tempeh/seitan MAIN
+      (stir-fry, tofu scramble, seitan roast) = 1.0; a scattered garnish = 0.5.
     * pesce, frutti di mare, molluschi, crostacei → "fish";
       is_oily_fish=true for: salmone, sgombro, sardine, alici/acciughe, tonno, aringa, trota
     * formaggi, latte, yogurt, ricotta, burrata, mozzarella → "dairy"

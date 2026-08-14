@@ -8,6 +8,7 @@ from foodiegram.domain.proteins import (
     PROTEIN_WORDS,
     TIERS,
     categories_for,
+    category_servings_for,
     facets_for,
     tier_for,
 )
@@ -152,7 +153,7 @@ def test_facets_come_from_the_llm_categories() -> None:
 
 
 def test_plant_protein_is_filled_in_from_the_protein_words() -> None:
-    """Extraction never emits plant_protein, so the word list supplies it."""
+    """Legacy rows without an emitted plant_protein still match the facet."""
     recipe = _recipe(
         proteins=["tofu"],
         assigned=[CategoryServing(category=MedCategory.LEGUMES)],
@@ -189,3 +190,45 @@ def test_a_recipe_with_nothing_tagged_has_no_facets() -> None:
 def test_mapping_keys_are_normalised() -> None:
     """Every key is lower-cased and trimmed, or lookups would silently miss."""
     assert all(word == word.strip().lower() for word in PROTEIN_WORDS)
+
+
+def test_med_category_plant_protein_resolves() -> None:
+    """The enum accepts the extraction prompt's plant_protein string."""
+    assert MedCategory("plant_protein") is MedCategory.PLANT_PROTEIN
+
+
+def test_category_servings_emitted_plant_protein_counts_once() -> None:
+    """An emitted plant_protein serving is counted from mediterranean_categories."""
+    recipe = _recipe(
+        proteins=[],
+        assigned=[CategoryServing(category=MedCategory.PLANT_PROTEIN, servings=1.5)],
+    )
+
+    assert category_servings_for(recipe) == {MedCategory.PLANT_PROTEIN: 1.5}
+
+
+def test_category_servings_falls_back_from_protein_words() -> None:
+    """Tofu without an emitted category still yields one plant_protein serving."""
+    recipe = _recipe(proteins=["tofu"], assigned=[])
+
+    assert category_servings_for(recipe) == {MedCategory.PLANT_PROTEIN: 1.0}
+
+
+def test_category_servings_does_not_double_count_plant_protein() -> None:
+    """Emitted plant_protein plus a tofu word still counts exactly once."""
+    recipe = _recipe(
+        proteins=["tofu"],
+        assigned=[CategoryServing(category=MedCategory.PLANT_PROTEIN, servings=2.0)],
+    )
+
+    assert category_servings_for(recipe) == {MedCategory.PLANT_PROTEIN: 2.0}
+
+
+def test_ceci_maps_to_legumes_not_plant_protein() -> None:
+    """Pulses stay in legumes; plant_protein is only for soy foods."""
+    recipe = _recipe(
+        proteins=["ceci"],
+        assigned=[CategoryServing(category=MedCategory.LEGUMES)],
+    )
+
+    assert category_servings_for(recipe) == {MedCategory.LEGUMES: 1.0}

@@ -37,10 +37,8 @@ class MedCategory(StrEnum):
     """Mediterranean protein group — the colour key, the facets, and the balance.
 
     One vocabulary for all three readings: the LLM assigns these per recipe with
-    servings, proteins.py derives them from a recipe's free protein words, and
-    the weekly balance grades the ones that have a target. PLANT_PROTEIN is
-    newer than the rest and has no weekly target yet, so the balance leaves it
-    untracked while the Browse facets already filter on it.
+    servings, proteins.py derives plant_protein from protein words when missing,
+    and the weekly balance grades every category that has a target.
     """
 
     FISH = "fish"
