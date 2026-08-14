@@ -1,6 +1,5 @@
 import time
 from http import HTTPStatus
-from pathlib import Path
 from types import SimpleNamespace
 
 import anyio
@@ -125,37 +124,37 @@ class _FakeVerifier(TokenVerifier):
         return None
 
 
-def _settings(tmp_path: Path, *, oauth: bool = True) -> Settings:
-    """Build Settings pointing at a tmp DB, with or without the OAuth env."""
+def _settings(*, oauth: bool = True) -> Settings:
+    """Build Settings with OAuth env and the Postgres test database."""
+    defaults = Settings(_env_file=None)
     return Settings(
+        _env_file=None,
         mcp_oauth_issuer=_ISSUER if oauth else "",
         mcp_oauth_jwks_uri="https://idp.example.com/jwks" if oauth else "",
         mcp_oauth_resource_url=_RESOURCE if oauth else "",
         mcp_oauth_required_scopes="",
-        database_url=f"sqlite:///{tmp_path / 'dispensa.db'}",
+        database_url=defaults.database_url_test,
     )
 
 
-def _app(tmp_path: Path) -> TestClient:
+def _app() -> TestClient:
     """Build the composed app with a fake verifier accepting 'good-token'."""
     app = build_asgi_app(
-        settings=_settings(tmp_path),
+        settings=_settings(),
         token_verifier=_FakeVerifier(good="good-token"),
     )
     return TestClient(app)
 
 
-def test_build_asgi_app_requires_oauth_env(tmp_path: Path) -> None:
+def test_build_asgi_app_requires_oauth_env() -> None:
     """Assembling the composed app fails fast when the OAuth env is unset."""
     with pytest.raises(ConfigurationError, match="MCP_OAUTH"):
-        build_asgi_app(settings=_settings(tmp_path, oauth=False))
+        build_asgi_app(settings=_settings(oauth=False))
 
 
-def test_unauthenticated_request_gets_resource_metadata_challenge(
-    tmp_path: Path,
-) -> None:
+def test_unauthenticated_request_gets_resource_metadata_challenge() -> None:
     """No token yields 401 with a WWW-Authenticate resource_metadata pointer."""
-    with _app(tmp_path) as client:
+    with _app() as client:
         response = client.post(
             "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"}
         )
@@ -165,9 +164,9 @@ def test_unauthenticated_request_gets_resource_metadata_challenge(
         assert _WELL_KNOWN in challenge
 
 
-def test_protected_resource_metadata_is_published(tmp_path: Path) -> None:
+def test_protected_resource_metadata_is_published() -> None:
     """The PRM document is served at the origin root and names the IdP."""
-    with _app(tmp_path) as client:
+    with _app() as client:
         response = client.get(_WELL_KNOWN)
         assert response.status_code == HTTPStatus.OK
         doc = response.json()
@@ -176,9 +175,9 @@ def test_protected_resource_metadata_is_published(tmp_path: Path) -> None:
         assert _ISSUER in servers
 
 
-def test_valid_token_reaches_the_mcp_transport(tmp_path: Path) -> None:
+def test_valid_token_reaches_the_mcp_transport() -> None:
     """A valid token passes the auth gate and the MCP server handles the request."""
-    with _app(tmp_path) as client:
+    with _app() as client:
         response = client.post(
             "/mcp",
             headers={
@@ -200,7 +199,7 @@ def test_valid_token_reaches_the_mcp_transport(tmp_path: Path) -> None:
         assert response.status_code == HTTPStatus.OK
 
 
-def test_api_surface_needs_no_bearer(tmp_path: Path) -> None:
+def test_api_surface_needs_no_bearer() -> None:
     """The API/SPA surface stays reachable without an MCP bearer token."""
-    with _app(tmp_path) as client:
+    with _app() as client:
         assert client.get("/").status_code == HTTPStatus.OK

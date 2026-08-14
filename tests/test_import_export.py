@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
+from sqlalchemy import Engine
+
 from foodiegram.app.export import export_recipes
 from foodiegram.app.import_json import import_recipes
 from foodiegram.domain.models import Recipe
-from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.recipes_db import RecipeRepository
 from foodiegram.storage.user_state_db import UserStateRepository
 
@@ -34,7 +35,10 @@ def _recipe_json(
     return json.dumps(payload)
 
 
-def test_import_migrates_user_state_and_round_trips(tmp_path: Path) -> None:
+def test_import_migrates_user_state_and_round_trips(
+    tmp_path: Path,
+    db_engine: Engine,
+) -> None:
     """Import loads recipes, migrates legacy favourite/notes, and exports cleanly."""
     src = tmp_path / "src"
     src.mkdir()
@@ -44,10 +48,8 @@ def test_import_migrates_user_state_and_round_trips(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    engine = create_db_engine(f"sqlite:///{tmp_path}/db.sqlite")
-    init_db(engine)
-    recipes = RecipeRepository(engine)
-    user_state = UserStateRepository(engine)
+    recipes = RecipeRepository(db_engine)
+    user_state = UserStateRepository(db_engine)
 
     stats = import_recipes(data_dir=src, recipes=recipes, user_state=user_state)
 

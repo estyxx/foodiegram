@@ -1,5 +1,5 @@
 .PHONY: ingest submit submit-all status apply promote promote-apply diff \
-        export import backfill serve-api serve-all lint test typecheck \
+        export import backfill db-init serve-api serve-all lint test typecheck \
         lint-imports check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
@@ -54,6 +54,12 @@ backfill:
 	uv run python scripts/backfill_extractions.py
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
+
+# Create local Postgres databases (working + test) and schema.
+db-init:
+	uv run foodiegram db create-database
+	uv run foodiegram db create-database --test
+	uv run foodiegram db create-tables
 
 serve-api:
 	uv run uvicorn foodiegram.api:app --reload --port 8000

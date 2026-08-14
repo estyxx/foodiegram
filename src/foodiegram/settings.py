@@ -50,7 +50,10 @@ class Settings(BaseSettings):
 
     # --- Runtime (needed to serve the app) ---
     data_dir: Path = Path("data/recipes")
-    database_url: str = "sqlite:///data/dispensa.db"
+    database_url: str = "postgresql+psycopg2://dispensa:dispensa@localhost:5432/dispensa"
+    database_url_test: str = (
+        "postgresql+psycopg2://dispensa:dispensa@localhost:5432/dispensa_test"
+    )
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 

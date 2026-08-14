@@ -1,9 +1,11 @@
 from collections.abc import Callable
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
+from sqlmodel import Session
 
 from foodiegram.app.promotion import promote_version
 from foodiegram.domain.models import ExtractedRecipe, Extraction, Recipe
+from foodiegram.storage._tables import ExtractionRow
 from foodiegram.storage.extractions_db import ExtractionRepository
 from foodiegram.storage.recipes_db import RecipeRepository
 
@@ -96,7 +98,21 @@ def test_promote_counts_extractions_without_a_recipe(
 ) -> None:
     """An extraction whose recipe is absent is reported, not promoted."""
     extractions = ExtractionRepository(db_engine)
-    extractions.add(make_extraction(code="GHOST", payload=make_extracted()))
+    orphan = make_extraction(code="GHOST", payload=make_extracted())
+    with Session(db_engine) as session:
+        session.connection().execute(text("SET session_replication_role = replica"))
+        session.add(
+            ExtractionRow(
+                recipe_code=orphan.recipe_code,
+                prompt_version=orphan.prompt_version,
+                model=orphan.model,
+                batch_id=orphan.batch_id,
+                kind=orphan.kind,
+                extracted_at=orphan.extracted_at,
+                payload=orphan.payload.model_dump(mode="json"),
+            ),
+        )
+        session.commit()
 
     report = promote_version(
         recipes=RecipeRepository(db_engine),

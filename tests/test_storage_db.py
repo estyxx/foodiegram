@@ -1,8 +1,6 @@
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Literal
 
-import pytest
 from sqlalchemy import Engine, text
 
 from foodiegram.domain.enums import (
@@ -20,7 +18,6 @@ from foodiegram.domain.models import (
     Extraction,
     Recipe,
 )
-from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.extractions_db import ExtractionRepository
 from foodiegram.storage.recipes_db import RecipeRepository
 from foodiegram.storage.user_state_db import UserStateRepository
@@ -29,14 +26,6 @@ _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5
 _TWO_RECIPES = 2
 _THREE_RECIPES = 3
-
-
-@pytest.fixture
-def engine(tmp_path: Path) -> Engine:
-    """Create a fresh, initialised SQLite database in a temp directory."""
-    eng = create_db_engine(f"sqlite:///{tmp_path}/test.db")
-    init_db(eng)
-    return eng
 
 
 def _full_recipe() -> Recipe:

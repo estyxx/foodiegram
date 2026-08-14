@@ -22,11 +22,13 @@ dependencies = [
     "pyjwt[crypto]>=2.13",
     "python-multipart>=0.0.9",
     "sqlmodel>=0.0.39",
+    "typer>=0.15.0",
     "uvicorn[standard]>=0.30",
 ]
 
 [project.scripts]
 foodiegram-api = "foodiegram.api:main"
+foodiegram = "foodiegram.cli:main"
 
 # What `fastapi run`/`fastapi deploy` (and FastAPI Cloud) serve: the composition
 # root that mounts the Basic-authed API and the Bearer-gated /mcp together. Plain
@@ -77,6 +79,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 "src/foodiegram/routers/*" = ["TC001", "TC002", "TC003"]
 # deps: Request is a FastAPI dependency marker resolved at runtime by identity.
 "src/foodiegram/deps.py" = ["TC002"]
+# CLI signatures use Path at runtime via typer annotations.
+"src/foodiegram/cli.py" = ["TC003"]
+# pg_dump/pg_restore are intentional maintenance subprocess calls.
+"src/foodiegram/storage/maintenance.py" = ["S603", "S607", "S105", "C901", "TRY301", "TC003"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
 "src/foodiegram/settings.py" = ["S104"]
 
@@ -164,7 +170,7 @@ modules = [
 name = "layers"
 type = "layers"
 layers = [
-    "foodiegram.asgi",
+    "foodiegram.asgi | foodiegram.cli",
     "foodiegram.api | foodiegram.mcp_server",
     "foodiegram.routers",
     "foodiegram.app",

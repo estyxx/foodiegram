@@ -1,18 +1,29 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine
+from sqlmodel import SQLModel
 
 from foodiegram.domain.models import (
     ExtractedCategoryServing,
     ExtractedRecipe,
     Extraction,
 )
-from foodiegram.storage.db import create_db_engine, init_db
+from foodiegram.settings import Settings
+from foodiegram.storage.db import (
+    _seed_targets,
+    create_db_engine,
+    truncate_all_tables,
+)
+from foodiegram.storage.maintenance import ensure_database
 
 _FIXTURE_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
+
+
+def _test_database_url() -> str:
+    """Return the Postgres test URL without reading a local .env override."""
+    return Settings(_env_file=None).database_url_test
 
 
 def _sample_extracted(
@@ -94,9 +105,26 @@ def make_extraction() -> Callable[..., Extraction]:
     return _sample_extraction
 
 
+@pytest.fixture(scope="session")
+def postgres_engine() -> Generator[Engine]:
+    """Return a session-scoped engine bound to DATABASE_URL_TEST only."""
+    test_url = _test_database_url()
+    ensure_database(database_url=test_url)
+    engine = create_db_engine(test_url)
+    SQLModel.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
 @pytest.fixture
-def db_engine(tmp_path: Path) -> Engine:
-    """Return an initialised SQLite engine backed by a temp file."""
-    engine = create_db_engine(f"sqlite:///{tmp_path}/test.db")
-    init_db(engine)
-    return engine
+def db_engine(postgres_engine: Engine) -> Generator[Engine]:
+    """Return a clean Postgres test database for one test function."""
+    truncate_all_tables(postgres_engine)
+    _seed_targets(postgres_engine)
+    return postgres_engine
+
+
+@pytest.fixture
+def engine(db_engine: Engine) -> Engine:
+    """Alias for storage tests that expect an engine fixture."""
+    return db_engine

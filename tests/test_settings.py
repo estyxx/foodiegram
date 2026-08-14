@@ -58,7 +58,9 @@ def test_boots_with_no_pipeline_secrets() -> None:
     assert settings.openai_api_key == ""
     assert settings.cloudinary_cloud_name == ""
     assert settings.instagram_username == ""
-    assert settings.database_url == "sqlite:///data/dispensa.db"
+    assert settings.database_url == (
+        "postgresql+psycopg2://dispensa:dispensa@localhost:5432/dispensa"
+    )
 
 
 def test_require_openai_api_key_raises_when_unset() -> None:

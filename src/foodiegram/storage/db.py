@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from foodiegram.domain.planning import DEFAULT_TARGETS
@@ -10,41 +11,23 @@ from foodiegram.storage._tables import TargetRow
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
-_SQLITE_PREFIX = "sqlite:///"
+_PROD_HOST_MARKERS = ("neon.tech", "neon.build")
 
 
 def ensure_utc(value: datetime | None) -> datetime | None:
     """Re-attach UTC to a naive datetime read from storage.
 
-    SQLite cannot persist tzinfo; every datetime we store is UTC, so we restore
-    the marker at the read boundary rather than leak a naive value to the domain.
+    Every datetime we store is UTC; restore the marker at the read boundary
+    rather than leak a naive value to the domain.
     """
     if value is None or value.tzinfo is not None:
         return value
     return value.replace(tzinfo=UTC)
 
 
-def _ensure_sqlite_parent(database_url: str) -> None:
-    """Create the parent directory for a file-backed SQLite database if needed."""
-    if not database_url.startswith(_SQLITE_PREFIX):
-        return
-    path = database_url.removeprefix(_SQLITE_PREFIX)
-    if not path or path == ":memory:":
-        return
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-
-
 def create_db_engine(database_url: str) -> Engine:
     """Create a SQLModel engine for database_url with connection pre-ping."""
-    _ensure_sqlite_parent(database_url)
-    connect_args = (
-        {"check_same_thread": False} if database_url.startswith(_SQLITE_PREFIX) else {}
-    )
-    return create_engine(
-        database_url,
-        pool_pre_ping=True,
-        connect_args=connect_args,
-    )
+    return create_engine(database_url, pool_pre_ping=True)
 
 
 def get_session(engine: Engine) -> Session:
@@ -56,6 +39,17 @@ def init_db(engine: Engine) -> None:
     """Create all tables and seed default targets when the table is empty."""
     SQLModel.metadata.create_all(engine)
     _seed_targets(engine)
+
+
+def truncate_all_tables(engine: Engine) -> None:
+    """Truncate every application table (test isolation only)."""
+    table_names = ", ".join(
+        table.name for table in reversed(SQLModel.metadata.sorted_tables)
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"),
+        )
 
 
 def _seed_targets(engine: Engine) -> None:
@@ -72,3 +66,18 @@ def _seed_targets(engine: Engine) -> None:
                 ),
             )
         session.commit()
+
+
+def database_label(database_url: str) -> str:
+    """Return host:port/database for human-readable CLI output."""
+    parsed = make_url(database_url)
+    host = parsed.host or "localhost"
+    port = parsed.port or 5432
+    database = parsed.database or ""
+    return f"{host}:{port}/{database}"
+
+
+def looks_like_prod(database_url: str) -> bool:
+    """Return True when the URL host looks like a Neon production database."""
+    host = (make_url(database_url).host or "").lower()
+    return any(marker in host for marker in _PROD_HOST_MARKERS)

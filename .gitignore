@@ -53,6 +53,7 @@ cookstagram-data/
 # Runtime / scratch files
 post.json
 session.json
+backups/
 PASSWORD_SETUP.md
 REPOSITORY_MIGRATION.md
 
