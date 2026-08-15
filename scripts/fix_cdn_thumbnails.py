@@ -1,44 +1,50 @@
 import logging
 import time
+from typing import TYPE_CHECKING
 
-import cloudinary
-import cloudinary.uploader
-
+from foodiegram.domain.errors import ImageUploadError
+from foodiegram.images import configure, is_expired_cdn_url, upload_thumbnail
 from foodiegram.settings import Settings
 from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.recipes_db import RecipeRepository
 
+if TYPE_CHECKING:
+    from foodiegram.domain.models import Recipe
+
 # --- Inputs / constants ---
-CDN_PREFIX = "https://scontent-man2-1.cdninstagram."
 INSTAGRAM_MEDIA_URL = "https://www.instagram.com/p/{code}/media/?size=l"
-CLOUDINARY_FOLDER = "foodiegram"
 UPLOAD_DELAY_SECONDS = 0.3
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
+def is_broken(recipe: Recipe) -> bool:
+    """Return True when the recipe's thumbnail is an expired Instagram CDN URL."""
+    return recipe.thumbnail_url is not None and is_expired_cdn_url(recipe.thumbnail_url)
+
+
+def with_uploaded(recipe: Recipe, *, stable_url: str, secure_url: str) -> Recipe:
+    """Return a copy with the stable source thumbnail and durable Cloudinary URL."""
+    return recipe.model_copy(
+        update={
+            "thumbnail_url": stable_url,
+            "cloudinary_url": secure_url,
+        },
+    )
+
+
 def main() -> None:
     """Fix expired CDN thumbnail URLs and re-upload to Cloudinary."""
     settings = Settings()
-
-    cloudinary_config = settings.require_cloudinary()
-    cloudinary.config(
-        cloud_name=cloudinary_config.cloud_name,
-        api_key=cloudinary_config.api_key,
-        api_secret=cloudinary_config.api_secret,
-    )
+    configure(config=settings.require_cloudinary())
 
     engine = create_db_engine(settings.database_url)
     init_db(engine)
     repo = RecipeRepository(engine)
     recipes = repo.list_all()
 
-    affected = [
-        r
-        for r in recipes
-        if r.thumbnail_url is not None and r.thumbnail_url.startswith(CDN_PREFIX)
-    ]
+    affected = [recipe for recipe in recipes if is_broken(recipe)]
 
     if not affected:
         logger.info("No recipes with CDN thumbnail URLs found.")
@@ -54,27 +60,20 @@ def main() -> None:
         logger.info("Fixing %s  %s -> %s", recipe.code, recipe.thumbnail_url, stable_url)
 
         try:
-            result: dict[str, object] = cloudinary.uploader.upload(
-                stable_url,
-                public_id=recipe.code,
-                folder=CLOUDINARY_FOLDER,
+            result = upload_thumbnail(
+                shortcode=recipe.code,
+                source_url_or_path=stable_url,
                 overwrite=True,
-                resource_type="image",
             )
-            cloudinary_url = str(result["secure_url"])
-        except Exception as exc:  # noqa: BLE001  # reason: cloudinary SDK raises heterogeneous errors
+        except ImageUploadError as exc:
             logger.warning("Cloudinary upload failed for %s: %s", recipe.code, exc)
             errors += 1
             continue
 
-        updated = recipe.model_copy(
-            update={
-                "thumbnail_url": stable_url,
-                "cloudinary_url": cloudinary_url,
-            },
+        repo.save(
+            with_uploaded(recipe, stable_url=stable_url, secure_url=result.secure_url),
         )
-        repo.save(updated)
-        logger.info("Saved %s  cloudinary_url=%s", recipe.code, cloudinary_url)
+        logger.info("Saved %s  cloudinary_url=%s", recipe.code, result.secure_url)
         fixed += 1
         time.sleep(UPLOAD_DELAY_SECONDS)
 

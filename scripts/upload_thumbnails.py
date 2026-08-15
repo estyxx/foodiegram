@@ -1,31 +1,45 @@
 import logging
 import time
+from typing import TYPE_CHECKING
 
-import cloudinary
-import cloudinary.uploader
-
+from foodiegram.domain.errors import ImageUploadError
+from foodiegram.images import configure, upload_thumbnail
 from foodiegram.settings import Settings
 from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.recipes_db import RecipeRepository
 
+if TYPE_CHECKING:
+    from foodiegram.domain.models import Recipe
+
 # --- Inputs / constants ---
 UPLOAD_DELAY_SECONDS = 0.3
-CLOUDINARY_FOLDER = "foodiegram"
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
+def upload_source(recipe: Recipe) -> str | None:
+    """Return the thumbnail to upload, or None when the recipe should be skipped.
+
+    Preserves the original filter: only captionless recipes that already have a
+    source thumbnail but no durable Cloudinary URL are uploaded.
+    """
+    if recipe.cloudinary_url is not None:
+        return None
+    if recipe.caption:
+        return None
+    return recipe.thumbnail_url
+
+
+def with_uploaded(recipe: Recipe, *, secure_url: str) -> Recipe:
+    """Return a copy of recipe carrying the durable Cloudinary URL."""
+    return recipe.model_copy(update={"cloudinary_url": secure_url})
+
+
 def main() -> None:
     """Upload missing thumbnails to Cloudinary and update recipes with durable URLs."""
     settings = Settings()
-
-    cloudinary_config = settings.require_cloudinary()
-    cloudinary.config(
-        cloud_name=cloudinary_config.cloud_name,
-        api_key=cloudinary_config.api_key,
-        api_secret=cloudinary_config.api_secret,
-    )
+    configure(config=settings.require_cloudinary())
 
     engine = create_db_engine(settings.database_url)
     init_db(engine)
@@ -37,34 +51,23 @@ def main() -> None:
     errors = 0
 
     for recipe in recipes:
-        if recipe.cloudinary_url is not None:
-            skipped += 1
-            continue
-
-        if recipe.thumbnail_url is None:
-            skipped += 1
-            continue
-
-        if recipe.caption:
+        source_url = upload_source(recipe)
+        if source_url is None:
             skipped += 1
             continue
 
         try:
-            result: dict[str, object] = cloudinary.uploader.upload(
-                recipe.thumbnail_url,
-                public_id=recipe.code,
-                folder=CLOUDINARY_FOLDER,
+            result = upload_thumbnail(
+                shortcode=recipe.code,
+                source_url_or_path=source_url,
                 overwrite=False,
-                resource_type="image",
             )
-            cloudinary_url = str(result["secure_url"])
-        except Exception as exc:  # noqa: BLE001  # reason: cloudinary SDK raises heterogeneous errors
+        except ImageUploadError as exc:
             logger.warning("Failed to upload %s: %s", recipe.code, exc)
             errors += 1
             continue
 
-        updated = recipe.model_copy(update={"cloudinary_url": cloudinary_url})
-        repo.save(updated)
+        repo.save(with_uploaded(recipe, secure_url=result.secure_url))
 
         print(f"✓ {recipe.code}")
         uploaded += 1
