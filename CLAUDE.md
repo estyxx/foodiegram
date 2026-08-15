@@ -1,32 +1,118 @@
-# CLAUDE.md — Working agreement for AI coding agents
+# Dispensa (foodiegram)
 
-> Drop this at the repo root. Cursor, Claude Code, and most agents read a root
-> `CLAUDE.md` / `AGENTS.md` automatically. Keep it short enough that it actually
-> gets followed. This is the contract: when in doubt, match what's here.
+A personal Mediterranean-diet recipe library + weekly meal planner. Ingests Instagram
+saves, extracts structured recipe data from the Instagram's caption with OpenAI, exposes it to Claude via an MCP
+server for meal planning and serves a browsable site for searching recipes and planning a week of meals. Solo hobby project, personal use, ADHD-friendly by design.
 
-## What this project is
 
-Foodiegram extracts saved Instagram posts from specific collections, uses an LLM
-to turn captions into structured, richly tagged recipes, hosts the images durably,
-and serves a browsable site for searching recipes and planning a week of meals.
+## Architecture — layered, enforced by import-linter
 
-Personal project. Bias hard toward **simple, robust, readable** over clever.
+```
+routers/api → app → storage | ai | images | instagram → domain
+```
 
-## Golden rules (non-negotiable)
+- `domain/` — pure models, enums, business rules. Imports nothing above it. **Domain is pure.** Files in `domain/` do no I/O — no network, no disk, no env, no SDK clients. If you're importing `openai` or `instagrapi` there, stop.
+- `app/` — use-cases as module-level functions. The ONLY layer that may combine
+  siblings (e.g. ai + storage). Composition point.
+- `storage/` — persistence. SQLModel row classes are PRIVATE here and never cross the
+  boundary; repositories return/accept domain objects.
+- `ai/` — OpenAI (extraction, embeddings). `images/` — Cloudinary adapter.
+  `instagram/` — scrape/cache (see "Instagram" below).
+- Respect the boundaries. If a change seems to need reaching past a layer, STOP and ask.
 
-1. **No `**kwargs` in our own code.** Every function signature is explicit and typed.
-   (LLM/SDK boundary objects are the only exception, and even there, unpack into
-   named fields immediately.)
-2. **Type everything.** Code must pass `mypy --strict`. No bare `Any` unless
-   genuinely unavoidable, and then with a `# reason:` comment.
-3. **Never `print`.** Use the module `logger`. Never `traceback.print_exc()`.
-4. **No bare `except Exception: pass`.** Catch the narrowest thing, log it, and
-   either re-raise a typed error or return a typed result. See "Errors" below.
-5. **Domain is pure.** Files in `domain/` do no I/O — no network, no disk, no env,
-   no SDK clients. If you're importing `openai` or `instagrapi` there, stop.
-6. **Don't add a dependency without asking.** We already have what we need.
-7. **Before you call a task done:** `ruff check --fix . && ruff format . && mypy . && pytest`.
-   Green or it isn't finished.
+## Green gate — must pass before any change is "done"
+
+```
+uv run ruff check --fix .
+uv run ruff format .
+uv run mypy src
+uv run pytest -q
+uv run lint-imports
+```
+
+Run it, fix what breaks, re-run until clean. Don't skip a check. (Also available as `/green`.)
+
+## Python conventions
+
+- Target Python 3.14. **Never** `from __future__ import annotations`; put annotation-only
+  imports under `if TYPE_CHECKING:`.
+
+- Keyword-only arguments after the first parameter. Explicit return annotations on every function. Use-cases are module-level functions, not service classes.
+
+- **No `**kwargs` in our own code.** Every function signature is explicit and typed. (LLM/SDK boundary objects are the only exception, and even there, unpack into
+   named fields immediately.) Type with `object` instead of `Any`.
+
+- **Type everything.** Code must pass `mypy --strict`. No bare `Any` unless genuinely unavoidable, and then with a `# reason:` comment.
+
+- **Never `print`.** Use the module `logger`. Never `traceback.print_exc()`.
+
+- **No bare `except Exception: pass`.** Catch the narrowest thing, log it, and either re-raise a typed error or return a typed result. See "Errors" below.
+
+- `StrEnum` with an `UNKNOWN` fallback member is the enum convention.
+
+- OpenAI: pinned model snapshots; `max_completion_tokens` not `max_tokens`; no `temperature` on reasoning-model requests.
+
+- **Don't add a dependency without asking.** We already have what we need.
+
+## Working principles
+
+- **Empty beats wrong.** Show nothing rather than a fabricated or corrupted value. A missing field is `None`/`[]`/`""`, never a placeholder or a guess.
+- **STOP and report — no silent workaround.** If the real tree contradicts an instruction, or an assumption turns out false, stop and surface it. Don't paper over.
+- **Verify against real data.** Confirm hypotheses with a SQL query or probe script before acting on them. Don't infer schema/behaviour from filenames.
+- **Domain logic lives in the app, not in prompts.** Claude proposes; the app validates. The Mediterranean balance engine, weekly targets, and weighting rules are the source
+  of truth and are never reimplemented in an LLM prompt.
+- **Data ops are additive and idempotent.** `db dump` before any write. Print the target host/DB; refuse a prod host (`neon.tech`/`neon.build`) unless `--yes`.
+
+
+## Data & environments
+
+- **Local Postgres is the source of truth.** Neon is downstream (prod). Extraction and batch processing run locally, then promote to Neon deliberately.
+
+- `extractions` is append-only (reversible history). `promote()` merges extractions → `recipes` and NEVER overwrites a field listed in `edited_fields` (user-owned).
+
+
+## Domain facts
+
+- **Language split:** `title`, `ingredients`, `instructions` stay VERBATIM in the caption's original language (mostly Italian). All tag/classification fields use canonical English. A synonym layer handles cross-language search.
+- **Mediterranean categories (8, first-class):** fish, legumes, poultry, eggs, dairy, red_meat, processed_meat, **plant_protein**. tofu/tempeh/edamame/seitan → plant_protein (NOT legumes; legumes are whole pulses). Cured meats → processed_meat at full weight.
+- **Two hashes drive change-detection:**
+  - `recipes.caption_hash` = sha256(normalized caption) → "caption changed?" → re-extract.
+  - `recipe_embeddings.embedding_source_hash` = sha256(`recipe_document(recipe)`) →
+    "embedded document changed?" → re-embed. Moves on re-extraction even when the caption
+    is identical. These are different sources; don't collapse them.
+- **RAG:** semantic search via `RecipeRepository.find_similar` — JSON embeddings + Python
+  cosine (pgvector deferred until ~10k rows). Returns `list[tuple[Recipe, float]]`; the
+  score rides to the MCP/UI boundary. **No absolute similarity threshold** — correct
+  cross-language hits land near 0.50; any fixed cutoff silently drops them.
+- **Extraction prompt:** `ai/prompts/extract_recipe_details.txt`. `PROMPT_VERSION` lives
+  in `ai/batch.py`. Bump it when the prompt changes so re-extracted rows are distinguishable.
+
+
+## The `sync` workflow (Stage B — offline, idempotent)
+
+`sync` reconciles a downloaded `food.json` against the DB, doing only needed work:
+`dedupe-links · ingest · extract · promote · embed --changed · all`.
+- `ingest`: per shortcode, independent flags — new? / caption changed? / image missing or
+  broken? — acting via the app use-cases and the `images/` Cloudinary adapter.
+- `embed --changed`: re-embed only stale (document_hash ≠ stored) or embedding-less rows.
+- `all`: ingest → extract → promote → embed, in order, stop on first error. Does NOT
+  scrape or dedupe.
+
+
+## Instagram — account risk, keep isolated
+
+Stage A (getting saves) is the **IGbulkCollector browser extension → IGbulkDL → food.json**
+path. The instagrapi login is flagged/frozen; do not casually script Instagram. `sync`
+never touches Instagram — it reads a `food.json` that already exists.
+
+
+## Don't
+
+- Don't add pgvector yet (deferred until ~10k rows).
+- Don't reimplement the balance engine or targets in a prompt.
+- Don't let SQLModel rows leak out of `storage/`.
+- Don't scrape Instagram from automation without explicit intent.
+
 
 ## Tooling
 
@@ -39,17 +125,11 @@ Personal project. Bias hard toward **simple, robust, readable** over clever.
 
 ## Typing & style
 
-- **Inputs at the top.** Module-level inputs, constants, and config go at the top
-  of the file, above the functions and classes that use them.
-- `from __future__ import annotations` **only when you actually need it** (a forward
-  reference or a self-referential model). On 3.13 our syntax already works at
-  runtime, and a blanket future-import forces `# noqa: TC003` on imports Pydantic
-  needs at runtime — so don't add it by default.
+- **Inputs at the top.** Module-level inputs, constants, and config go at the top of the file, above the functions and classes that use them.
+- **Never** `from __future__ import annotations`. On Python 3.14 (PEP 649) lazy annotations are the default, so it is never needed; keep annotation-only imports under `if TYPE_CHECKING:`. (Supersedes the older 3.13-era "only when you need it" guidance that used to live here.)
 - Modern syntax: `str | None`, `list[str]`, `X | Y`. Never `Optional`, `List`, `Union`.
 - Line length 89 (ruff config). Let the formatter win; don't hand-wrap.
-- Public functions and classes get a one-line docstring, imperative mood, ending
-  with a period (PEP 257). **No module-level docstrings** (`D100`/`D104` are
-  ignored). Never write a docstring or comment that just restates the code —
+- Public functions and classes get a one-line docstring, imperative mood, ending with a period (PEP 257). **No module-level docstrings** (`D100`/`D104` are ignored). Never write a docstring or comment that just restates the code —
   comments explain *why*, not *what*.
 - **No `# type: ignore`** — fix the root cause; if genuinely unavoidable, add a
   `# reason:`. No `assert x is not None` in non-test code when the type already
@@ -119,11 +199,10 @@ boundaries (Instagram SDK, LLM JSON output, persisted files/API). Don't mix in
   domain field, no parameter that defaults to `None` and resolves to `now()` inside
   a domain function. Make `extracted_at` and similar required at the boundary.
 
-## Architecture (layered, DDD-lite — not full DDD)
+## Package layout
 
-Package: `foodiegram`. Module root: `src/foodiegram/`.
-Dependencies point **inward only**: interfaces → app → adapters → domain.
-Domain depends on nothing.
+The file map that accompanies the Architecture section above (same layering; DDD-lite,
+not full DDD). Package: `foodiegram`. Module root: `src/foodiegram/`.
 
 ```
 domain/               pure models, enums, errors + pure logic. No I/O. No SDKs.
@@ -140,7 +219,8 @@ app/                  use-cases as module-level functions: extraction, promotion
 storage/              SQLModel-backed repositories (see below). Rows never leave here.
 ai/                   LLM extraction: batch.py (Batch API), repair.py (pydantic-ai),
                       prompts/*.txt.
-images/               Cloudinary adapter (durable image URLs). Placeholder package today.
+images/               Cloudinary adapter: upload_thumbnail +
+                      is_valid_image_ref (the missing-or-broken predicate).
 instagram/            instagrapi adapter: _auth, extractor, cache_manager, collection.
                       Knows about Media; the Collection model lives here.
 routers/              FastAPI routers: recipes, plans, pantry, targets, meta.
@@ -153,11 +233,13 @@ settings.py           pydantic-settings BaseSettings. Env prefix FOODIEGRAM_.
                       Never log the settings object itself.
 ```
 
-There is no `cli.py`: the CLIs are thin `scripts/*.py` argparse wrappers over `app/`,
-plus `foodiegram.api:main` for the server.
+`cli.py` exposes typer command groups over `app/` (`db` for local-DB maintenance,
+`sync` for Stage-B ingestion); `scripts/*.py` are thin wrappers; `foodiegram.api:main`
+runs the server.
 
-Storage is **SQLModel** (SQLite locally; Neon Postgres in prod via `DATABASE_URL`,
-deploy pending — PLAN.md D5.3) behind hand-written
+Storage is **SQLModel** on Postgres everywhere (local working DB, a separate test DB,
+and Neon in prod, via `DATABASE_URL` / `DATABASE_URL_TEST`; SQLite fully removed, the
+cutover and Neon deploy done) behind hand-written
 repositories, one per aggregate: `recipes_db.RecipeRepository`,
 `extractions_db.ExtractionRepository` (append-only), `plans_db.PlanRepository`,
 `pantry_db.PantryRepository`, `targets_db.TargetRepository`,
@@ -167,8 +249,9 @@ repositories accept and return domain models. `recipes_json.py` is legacy JSON,
 kept for import/export only.
 
 `RecipeRepository`'s interface is the stable API and must not change out from under
-callers: `get`, `exists`, `list_all`, `save`, `delete`, `find`. Callers import the
-repository, never the table classes.
+callers: `get`, `exists`, `list_all`, `save`, `delete`, `find`, plus the RAG methods
+`find_similar`, `save_embedding`, `get_embedding`, and (read-only)
+`embedding_source_hashes`. Callers import the repository, never the table classes.
 
 The `/scale` endpoint is a **convenience** — it is not the source of truth for the
 scaling widget. The browser JS (`extractNumber` / `scaleIngredient`) does the same
@@ -243,61 +326,60 @@ We follow Kraken-flavoured Python conventions where applicable to a solo FastAPI
 project. These extend (never replace) the existing rules in this file.
 
 ### Runtime
-19. Target **Python 3.14** (latest patch). `.python-version`, `requires-python
+- Target **Python 3.14** (latest patch). `.python-version`, `requires-python
     ">=3.14"`, ruff `target-version = "py314"`, and mypy/ruff/pytest bumped to their
     latest versions. If any dependency lacks 3.14 support at `uv sync`, STOP and
     report — do not pin workarounds silently.
-20. Rule 9 is retired: PEP 649 lazy annotations are the default in 3.14, so
+- Rule 9 is retired: PEP 649 lazy annotations are the default in 3.14, so
     `from __future__ import annotations` is never needed. Never add it.
-21. t-strings (PEP 750) and other 3.14 features: use only where they make code
+- t-strings (PEP 750) and other 3.14 features: use only where they make code
     plainly clearer. No novelty for its own sake.
 
 ### Architecture (Kraken layering)
-22. Layered monolith, dependencies point inward ONLY:
-    `api / scripts → app → storage | ai | instagram | images → domain`.
-    Enforced by **import-linter** (dev dependency, approved) with two contracts:
-    a "layers" contract for the chain above, and a "forbidden" contract: `domain`
-    may not import from any sibling package. `lint-imports` runs in `make check`
-    alongside ruff/mypy/pytest. (This replaces the hand-rolled
-    tests/test_architecture.py once green.)
-23. Use-cases are **module-level functions, one concern per module** in `app/`
+- Layered monolith, dependencies point inward ONLY — see the Architecture and
+    Package-layout sections above for the canonical chain. Enforced by
+    **import-linter**: `lint-imports` reports **3 contracts** today (a "layers"
+    contract, a "forbidden" contract barring `domain` from importing any sibling,
+    plus one more — confirm the third in `.importlinter`). Runs in `make check`
+    alongside ruff/mypy/pytest; it has replaced the old tests/test_architecture.py.
+- Use-cases are **module-level functions, one concern per module** in `app/`
     (`plan_week.py`, `promotion.py`) — never service classes, never managers.
-24. The API layer only translates: parse request → call one app function → shape
+- The API layer only translates: parse request → call one app function → shape
     response. Zero business logic in routers, zero domain logic in api_models.
-25. SQLModel rows never cross the `storage/` boundary — repositories accept and
+- SQLModel rows never cross the `storage/` boundary — repositories accept and
     return domain models. The ORM is an implementation detail.
 
 ### Functions (Kraken style)
-26. **Keyword-only arguments** (`*,`) for every function with more than one
+- **Keyword-only arguments** (`*,`) for every function with more than one
     parameter, except where positional reads naturally (e.g. `diff_payloads(a, b)`).
-27. Prefer pure functions and immutable values (frozen Pydantic models, tuples,
+- Prefer pure functions and immutable values (frozen Pydantic models, tuples,
     frozensets). Side effects live at the edges (app/storage/scripts), never in
     domain.
-28. No inheritance for code reuse — composition only. No mixins, no abstract base
+- No inheritance for code reuse — composition only. No mixins, no abstract base
     ceremony; a `Protocol` where a second implementation actually exists.
-29. Narrow, typed exceptions from the FoodiegramError hierarchy; raise early,
+- Narrow, typed exceptions from the FoodiegramError hierarchy; raise early,
     catch at the edge that can act on it.
 
 ### Tests (Kraken style)
-30. Domain: pure unit tests, no mocks, no fixtures beyond plain constructors.
-31. App/storage: test through the public use-case function against a tmp SQLite
-    engine — do not mock internal collaborators.
-32. Never mock what you own except at true external boundaries (OpenAI, Cloudinary,
+- Domain: pure unit tests, no mocks, no fixtures beyond plain constructors.
+- App/storage: test through the public use-case function against the Postgres test
+    DB (`DATABASE_URL_TEST`) — do not mock internal collaborators.
+- Never mock what you own except at true external boundaries (OpenAI, Cloudinary,
     Instagram) — and there, fake the adapter, not the SDK internals.
 
 ### Frontend
-33. JS rules live in docs/PLAN.md Part VI §15 and are equally binding
+- JS rules live in docs/PLAN.md Part VI §15 and are equally binding
     (`// @ts-check`, pure function components, `textContent` only, a11y as a
     review gate, `tsc --noEmit` in make check).
 
 ### Workflow
-34. Work from docs/PLAN.md Part VIII **one checklist item at a time**, strictly in
+- Work from docs/PLAN.md Part VIII **one checklist item at a time**, strictly in
     order. Before coding, restate the item's acceptance criteria in one sentence.
     After coding, run the full gate: `ruff check --fix . && ruff format . && mypy .
     && pytest && lint-imports` (+ `tsc --noEmit` once frontend/ exists). Red = not
     done.
-35. If an MCP tool for the Notion board is available in this workspace, mark the
+- If an MCP tool for the Notion board is available in this workspace, mark the
     matching task complete when a checklist item lands; otherwise end the session
     with a one-line status I can paste into Notion.
-36. When a decision is not covered by docs/PLAN.md or this file: STOP and ask.
+- When a decision is not covered by docs/PLAN.md or this file: STOP and ask.
     Do not invent scope. Deferred list = D16.
