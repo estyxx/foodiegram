@@ -25,6 +25,11 @@ from foodiegram.domain.errors import (
     InstagramFetchError,
     StorageError,
 )
+from foodiegram.domain.hashing import (
+    caption_hash,
+    document_hash,
+    normalize_caption,
+)
 from foodiegram.domain.models import (
     CategoryServing,
     ExtractedCategoryServing,
@@ -96,13 +101,16 @@ __all__ = [
     "UserState",
     "WeekPlan",
     "canonical_term",
+    "caption_hash",
     "categories_for",
     "diff_against_recipe",
     "diff_payloads",
+    "document_hash",
     "expand_term",
     "facets_for",
     "gap_suggestions",
     "kitchen_match",
+    "normalize_caption",
     "oily_fish_count",
     "promote",
     "shopping_list",

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import col, select
 
+from foodiegram.domain.hashing import caption_hash
 from foodiegram.domain.models import Recipe
 from foodiegram.domain.proteins import facets_for
 from foodiegram.domain.similarity import cosine_similarity
@@ -31,6 +32,7 @@ def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> Re
         pk=recipe.pk,
         post_url=recipe.post_url,
         caption=recipe.caption,
+        caption_hash=caption_hash(recipe.caption),
         author_username=recipe.author_username,
         # The column is NOT NULL on every deployed database; empty is how it
         # spells absence, and the domain validator reads it back as None.
@@ -318,8 +320,13 @@ class RecipeRepository:
         embedding: list[float],
         *,
         model: str,
+        source_hash: str | None = None,
     ) -> None:
-        """Insert or replace the embedding row for recipe_code."""
+        """Insert or replace the embedding row for recipe_code.
+
+        source_hash is the document_hash of the recipe_document text the vector
+        was built from; storing it lets a later stage detect a stale embedding.
+        """
         now = datetime.now(tz=UTC)
         with get_session(self._engine) as session:
             existing = session.get(RecipeEmbeddingRow, recipe_code)
@@ -329,6 +336,7 @@ class RecipeRepository:
                     recipe_code=recipe_code,
                     model=model,
                     embedding=embedding,
+                    embedding_source_hash=source_hash,
                     created_at=created_at,
                 ),
             )

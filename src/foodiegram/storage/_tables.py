@@ -15,6 +15,9 @@ class RecipeRow(SQLModel, table=True):
     post_url: str | None = None
     caption: str | None = None
     author_username: str | None = None
+    # sha256 of the normalized caption; lets `sync ingest` detect a changed
+    # caption and re-extract. Nullable until backfilled / set on next save.
+    caption_hash: str | None = None
 
     title: str
     meal_type: str
@@ -93,6 +96,9 @@ class RecipeEmbeddingRow(SQLModel, table=True):
     )
     model: str
     embedding: list[float] = Field(sa_column=Column(JSON))
+    # sha256 of the recipe_document() text this vector was built from; lets
+    # `embed --changed` detect a stale embedding. Nullable until backfilled.
+    embedding_source_hash: str | None = None
     created_at: datetime
 
 

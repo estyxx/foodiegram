@@ -52,6 +52,15 @@ def _ensure_schema_patches(engine: Engine) -> None:
                 "BOOLEAN NOT NULL DEFAULT FALSE",
             ),
         )
+        connection.execute(
+            text("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS caption_hash TEXT"),
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE recipe_embeddings "
+                "ADD COLUMN IF NOT EXISTS embedding_source_hash TEXT",
+            ),
+        )
 
 
 def truncate_all_tables(engine: Engine) -> None:

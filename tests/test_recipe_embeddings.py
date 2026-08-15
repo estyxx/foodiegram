@@ -2,10 +2,13 @@ import math
 
 from sqlalchemy import Engine, func, select
 
+from foodiegram.ai.embeddings import recipe_document
 from foodiegram.domain.enums import MealType
+from foodiegram.domain.hashing import document_hash
 from foodiegram.domain.models import Recipe
 from foodiegram.domain.similarity import cosine_similarity
 from foodiegram.storage._tables import RecipeEmbeddingRow
+from foodiegram.storage.db import get_session
 from foodiegram.storage.recipes_db import RecipeRepository
 
 _MODEL = "text-embedding-3-small"
@@ -58,6 +61,21 @@ def test_save_embedding_upserts_one_row_per_recipe(engine: Engine) -> None:
             select(func.count()).select_from(RecipeEmbeddingRow),
         ).scalar_one()
     assert count == 1
+
+
+def test_save_embedding_stores_source_hash(engine: Engine) -> None:
+    """The embedding write path persists the document hash alongside the vector."""
+    repo = RecipeRepository(engine)
+    recipe = _recipe("A1")
+    repo.save(recipe)
+    expected = document_hash(recipe_document(recipe))
+
+    repo.save_embedding("A1", [1.0, 0.0, 0.0], model=_MODEL, source_hash=expected)
+
+    with get_session(engine) as session:
+        row = session.get(RecipeEmbeddingRow, "A1")
+    assert row is not None
+    assert row.embedding_source_hash == expected
 
 
 def test_find_similar_orders_by_closeness_with_descending_scores(engine: Engine) -> None:

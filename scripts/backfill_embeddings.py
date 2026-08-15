@@ -19,6 +19,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from foodiegram.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
+from foodiegram.domain.hashing import document_hash
 from foodiegram.settings import Settings
 from foodiegram.storage._tables import RecipeEmbeddingRow
 from foodiegram.storage.db import create_db_engine, get_session
@@ -116,8 +117,13 @@ def backfill_embeddings(
         if len(vectors) != len(to_embed):
             msg = f"Expected {len(to_embed)} vectors after batching, got {len(vectors)}"
             raise ValueError(msg)
-        for (recipe, _document), vector in zip(to_embed, vectors, strict=True):
-            repo.save_embedding(recipe.code, vector, model=EMBEDDING_MODEL)
+        for (recipe, document), vector in zip(to_embed, vectors, strict=True):
+            repo.save_embedding(
+                recipe.code,
+                vector,
+                model=EMBEDDING_MODEL,
+                source_hash=document_hash(document),
+            )
             newly_embedded += 1
 
     return BackfillReport(
