@@ -65,11 +65,16 @@ def submit_batch(
     extractions: ExtractionRepository,
     only_missing: bool = True,
     limit: int | None = None,
-) -> None:
+    only_codes: set[str] | None = None,
+    dry_run: bool = False,
+) -> int:
     """Select recipes, build the batch input file, and create the OpenAI batch.
 
     With limit set, submit only the first `limit` eligible recipes — useful for a
-    small, cheap test run before submitting the whole backlog.
+    small, cheap test run before submitting the whole backlog. only_codes further
+    restricts the selection to the given recipe codes. dry_run selects and logs
+    but neither writes the input file nor creates the batch. Returns the number
+    of recipes submitted (or that would be, under dry_run).
     """
     all_recipes = recipes.list_all()
     extracted_codes = _extracted_codes(extractions)
@@ -81,6 +86,7 @@ def submit_batch(
             extracted_codes=extracted_codes,
             only_missing=only_missing,
         )
+        and (only_codes is None or r.code in only_codes)
     ]
     no_caption = [r for r in all_recipes if not _has_usable_caption(r)]
 
@@ -105,9 +111,14 @@ def submit_batch(
 
     if not to_submit:
         logger.info("Nothing to submit.")
-        return
+        return 0
+
+    if dry_run:
+        logger.info("Dry-run: not creating a batch.")
+        return len(to_submit)
 
     create_batch(settings, input_path=write_batch_input(to_submit))
+    return len(to_submit)
 
 
 def apply_batch(

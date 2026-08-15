@@ -342,6 +342,16 @@ class RecipeRepository:
             )
             session.commit()
 
+    def embedding_source_hashes(self) -> dict[str, str | None]:
+        """Return {recipe_code: embedding_source_hash} for every embedding row.
+
+        Lets the embed use-case detect stale vectors by comparing the stored
+        hash against a freshly computed document hash.
+        """
+        with get_session(self._engine) as session:
+            rows = session.exec(select(RecipeEmbeddingRow)).all()
+            return {row.recipe_code: row.embedding_source_hash for row in rows}
+
     def get_embedding(self, recipe_code: str) -> list[float] | None:
         """Return the stored embedding for recipe_code, or None when absent."""
         with get_session(self._engine) as session:
