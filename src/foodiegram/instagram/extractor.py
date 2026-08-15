@@ -104,6 +104,36 @@ class InstagramExtractor:
         else:
             return medias
 
+    def fetch_collection_page(
+        self,
+        *,
+        collection_id: str,
+        limit: int = 100,
+        last_media_pk: int = 0,
+    ) -> list[Media]:
+        """Fetch one collection page, raising InstagramFetchError on API failure."""
+        logger.info(
+            "Fetching up to %d posts from collection %s (after pk %d)",
+            limit,
+            collection_id,
+            last_media_pk,
+        )
+        try:
+            medias: list[Media] = self.client.collection_medias(
+                collection_pk=collection_id,
+                amount=limit,
+                last_media_pk=last_media_pk,
+            )
+        except Exception as exc:
+            logger.exception("Error fetching collection page")
+            msg = (
+                f"Failed to fetch collection {collection_id} "
+                f"page after pk {last_media_pk}"
+            )
+            raise InstagramFetchError(msg) from exc
+        else:
+            return medias
+
     @staticmethod
     def _make_public_client() -> Client:
         """Return an unauthenticated Client for public endpoint calls."""
