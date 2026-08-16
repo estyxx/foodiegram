@@ -3,7 +3,7 @@
         lint-imports check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
-VERSION ?= 2
+VERSION ?= 3
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 

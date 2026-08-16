@@ -49,6 +49,7 @@ class ExtractedRecipe(BaseModel):
     title: str
     ingredients: list[str]
     instructions: list[str]
+    summary: str = ""
 
     # Primary classifications
     dish_type: str
@@ -99,7 +100,7 @@ class ExtractedRecipe(BaseModel):
 
     # Recipe confidence
     is_recipe: bool
-    confidence: float
+    confidence: float = 0.0
 
 
 class Recipe(BaseModel):

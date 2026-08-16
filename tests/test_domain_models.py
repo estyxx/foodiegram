@@ -306,6 +306,26 @@ def test_extracted_recipe_without_new_fields_validates() -> None:
     assert extracted.time_is_estimated is False
 
 
+def test_extracted_recipe_without_summary_validates() -> None:
+    """A pre-v3 payload without summary still validates, defaulting to empty."""
+    payload = _extracted().model_dump()
+    del payload["summary"]
+
+    extracted = ExtractedRecipe.model_validate(payload)
+
+    assert extracted.summary == ""
+
+
+def test_extracted_recipe_without_confidence_defaults_low_not_high() -> None:
+    """A stub payload missing confidence must default to 0.0, never high trust."""
+    payload = _extracted().model_dump()
+    del payload["confidence"]
+
+    extracted = ExtractedRecipe.model_validate(payload)
+
+    assert extracted.confidence == 0.0
+
+
 def test_extracted_recipe_accepts_yogurt_and_estimated_time() -> None:
     """v3 payloads may carry yogurt as a protein and a flagged time estimate."""
     extracted = _extracted().model_copy(
@@ -322,6 +342,15 @@ def test_extracted_recipe_accepts_yogurt_and_estimated_time() -> None:
     assert extracted.meal_type == "breakfast"
     assert extracted.total_time == "30-60 min"
     assert extracted.time_is_estimated is True
+
+
+def test_extracted_recipe_accepts_summary() -> None:
+    """v3 payloads carry an English one-sentence summary for semantic search."""
+    extracted = _extracted().model_copy(
+        update={"summary": "Classic Roman pasta with guanciale, egg, and pecorino."},
+    )
+
+    assert extracted.summary == "Classic Roman pasta with guanciale, egg, and pecorino."
 
 
 def test_from_extracted_maps_time_is_estimated() -> None:
