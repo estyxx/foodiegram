@@ -50,6 +50,34 @@ def test_recipe_document_omits_empty_proteins() -> None:
     ]
 
 
+def test_recipe_document_includes_summary_high_up() -> None:
+    """A non-empty summary lands right after the title, ahead of classification."""
+    document = recipe_document(
+        _recipe(summary="Classic Roman pasta with guanciale, egg, and pecorino."),
+    )
+
+    assert document.splitlines() == [
+        "Pasta al pomodoro",
+        "Classic Roman pasta with guanciale, egg, and pecorino.",
+        "pasta dinner italian",
+        "uova",
+        "pasta pomodori basilico",
+    ]
+
+
+def test_recipe_document_omits_empty_summary() -> None:
+    """An empty summary (the default) adds no line and no blank line."""
+    document = recipe_document(_recipe())
+
+    assert "" not in document.splitlines()
+    assert document.splitlines() == [
+        "Pasta al pomodoro",
+        "pasta dinner italian",
+        "uova",
+        "pasta pomodori basilico",
+    ]
+
+
 def test_recipe_document_without_title_still_returns_useful_text() -> None:
     """Other fields still embed when the title is missing."""
     document = recipe_document(_recipe(title=None))

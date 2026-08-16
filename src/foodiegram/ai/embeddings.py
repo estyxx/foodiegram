@@ -23,6 +23,9 @@ def recipe_document(recipe: Recipe) -> str:
     if recipe.title:
         parts.append(recipe.title)
 
+    if recipe.summary:
+        parts.append(recipe.summary)
+
     classification = _classification_line(recipe)
     if classification:
         parts.append(classification)

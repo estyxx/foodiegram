@@ -166,6 +166,7 @@ def test_legacy_recipe_json_without_new_fields_validates() -> None:
     assert recipe.course is Course.UNKNOWN
     assert recipe.mediterranean_categories == []
     assert recipe.prompt_version is None
+    assert recipe.summary == ""
 
 
 def test_manual_recipe_without_instagram_fields_validates() -> None:
@@ -351,6 +352,23 @@ def test_extracted_recipe_accepts_summary() -> None:
     )
 
     assert extracted.summary == "Classic Roman pasta with guanciale, egg, and pecorino."
+
+
+def test_from_extracted_maps_summary() -> None:
+    """Summary survives mapping into the domain Recipe."""
+    extracted = _extracted().model_copy(
+        update={"summary": "Classic Roman pasta with guanciale, egg, and pecorino."},
+    )
+
+    mapped = Recipe.from_extracted(
+        code="ABC",
+        pk="1",
+        caption=None,
+        extracted=extracted,
+    )
+
+    expected = "Classic Roman pasta with guanciale, egg, and pecorino."
+    assert mapped.recipe.summary == expected
 
 
 def test_from_extracted_maps_time_is_estimated() -> None:

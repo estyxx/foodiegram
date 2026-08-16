@@ -22,6 +22,7 @@ EXTRACTION_FIELDS: frozenset[str] = frozenset(
         "title",
         "ingredients",
         "instructions",
+        "summary",
         "meal_type",
         "dish_type",
         "cuisine_type",

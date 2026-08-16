@@ -121,6 +121,7 @@ class Recipe(BaseModel):
     title: str | None
     ingredients: list[str]
     instructions: list[str]
+    summary: str = ""
 
     # Classifications (use enums, default UNKNOWN)
     meal_type: MealType = MealType.UNKNOWN
@@ -267,6 +268,7 @@ class Recipe(BaseModel):
             title=extracted.title,
             ingredients=extracted.ingredients,
             instructions=extracted.instructions,
+            summary=extracted.summary,
             meal_type=meal_type,
             dish_type=dish_type,
             cuisine_type=cuisine_type,

@@ -18,6 +18,7 @@ def _extracted() -> ExtractedRecipe:
         title="New Title",
         ingredients=["new ingredient"],
         instructions=["new step"],
+        summary="A new one-sentence summary.",
         dish_type="pasta",
         meal_type="lunch",
         cuisine_type="italian",
@@ -100,6 +101,7 @@ def test_promote_keeps_edited_updates_rest_and_is_idempotent() -> None:
     # Every other extracted field takes the extraction's value.
     assert promoted.title == "New Title"
     assert promoted.instructions == ["new step"]
+    assert promoted.summary == "A new one-sentence summary."
     assert promoted.course is Course.PRIMO
     assert [c.category for c in promoted.mediterranean_categories] == [
         MedCategory.EGGS,
