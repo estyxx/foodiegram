@@ -12,7 +12,8 @@ from foodiegram.api_models import (
     ScaledIngredient,
     ScaleResult,
 )
-from foodiegram.deps import DepsDep
+from foodiegram.app.search_recipes import search_recipes_semantic
+from foodiegram.deps import DepsDep, OpenAIClientDep
 from foodiegram.domain.enums import (
     CuisineType,
     Difficulty,
@@ -202,6 +203,58 @@ async def count_recipes(
         recipes=len(recipes),
         all_saves=len(matched),
     )
+
+
+@router.get("/recipes/semantic")
+async def search_recipes_semantic_endpoint(
+    deps: DepsDep,
+    openai_client: OpenAIClientDep,
+    q: Annotated[str, Query()] = "",
+    cuisine: Annotated[str | None, Query()] = None,
+    meal_type: Annotated[str | None, Query()] = None,
+    dish_type: Annotated[str | None, Query()] = None,
+    difficulty: Annotated[str | None, Query()] = None,
+    dietary_tag: Annotated[str | None, Query()] = None,
+    protein: Annotated[str | None, Query()] = None,
+    protein_category: Annotated[list[str] | None, Query()] = None,
+    ingredient: Annotated[list[str] | None, Query()] = None,
+    is_recipe: Annotated[bool | None, Query()] = None,
+    complete: Annotated[bool | None, Query()] = None,
+    is_favorite: Annotated[bool | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[RecipeSummary]:
+    """Rank recipes by meaning against q, under the same facets as /recipes."""
+    favourites = set(deps.user_state.all_favorites())
+    matches = search_recipes_semantic(
+        recipes=deps.recipes,
+        client=openai_client,
+        query=q,
+        cuisine=_to_enum(CuisineType, cuisine) if cuisine else None,
+        meal_type=_to_enum(MealType, meal_type) if meal_type else None,
+        dish_type=_to_enum(DishType, dish_type) if dish_type else None,
+        difficulty=_to_enum(Difficulty, difficulty) if difficulty else None,
+        is_recipe=is_recipe,
+        complete=complete,
+        protein_categories=_protein_categories(protein_category),
+        dietary_tags=[dietary_tag] if dietary_tag else None,
+        proteins=[protein] if protein else None,
+        ingredients=_search_terms(ingredient),
+        limit=limit,
+    )
+    if is_favorite is not None:
+        matches = [
+            (recipe, score)
+            for recipe, score in matches
+            if (recipe.code in favourites) == is_favorite
+        ]
+    return [
+        RecipeSummary.from_recipe(
+            recipe,
+            is_favorite=recipe.code in favourites,
+            score=score,
+        )
+        for recipe, score in matches
+    ]
 
 
 @router.get("/recipes/{code}")

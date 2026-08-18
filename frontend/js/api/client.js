@@ -20,6 +20,7 @@
  * @property {boolean} is_favorite
  * @property {boolean} has_ingredients
  * @property {boolean} has_instructions
+ * @property {number | null} [score] Similarity rank; only set by semantic search.
  */
 
 /**
@@ -165,6 +166,25 @@ export async function getAllRecipes(filters) {
       return all;
     }
   }
+}
+
+/**
+ * Rank recipes by meaning against `filters.q`, under the same facets as getRecipes.
+ * Returns [] for an empty query without making a request.
+ * @param {RecipeFilters} [filters]
+ * @param {number} [limit]
+ * @returns {Promise<RecipeSummary[]>}
+ */
+export async function searchRecipesSemantic(filters, limit) {
+  if (!filters?.q || filters.q.trim() === "") {
+    return [];
+  }
+  const params = toParams(filters);
+  if (limit !== undefined) {
+    params.set("limit", String(limit));
+  }
+  const result = await apiFetch(`/recipes/semantic?${params.toString()}`);
+  return /** @type {RecipeSummary[]} */ (result);
 }
 
 /**

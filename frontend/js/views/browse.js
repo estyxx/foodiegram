@@ -1,6 +1,11 @@
 // @ts-check
 
-import { getAllRecipes, getRecipeCounts, updateRecipe } from "../api/client.js";
+import {
+  getAllRecipes,
+  getRecipeCounts,
+  searchRecipesSemantic,
+  updateRecipe,
+} from "../api/client.js";
 import { FilterPanel, FiltersToggle } from "../components/FilterPanel.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 import { SearchBar } from "../components/SearchBar.js";
@@ -19,11 +24,15 @@ import {
 } from "../lib/filters.js";
 
 const PAGE_SIZE = 50;
+const AI_SEARCH_ERROR =
+  "AI search failed — try again, or switch back to regular search.";
+const AI_RESULT_LIMIT = 60;
 
 /** @typedef {import("../api/client.js").RecipeSummary} RecipeSummary */
 /** @typedef {import("../api/client.js").RecipeCounts} RecipeCounts */
 /** @typedef {import("../lib/filters.js").BrowseFilters} BrowseFilters */
 /** @typedef {import("../lib/filters.js").Segment} Segment */
+/** @typedef {import("../components/SearchBar.js").SearchMode} SearchMode */
 
 /**
  * Render the browse (or favourites) view into container.
@@ -40,11 +49,16 @@ export async function renderBrowse(container, options) {
   let counts = { complete: 0, recipes: 0, all_saves: 0 };
   // Typing fires a request per keystroke; only the newest answer may land.
   let latestRequest = 0;
+  /** @type {SearchMode} */
+  let mode = "lexical";
+  let searching = false;
+  let searchError = "";
 
   const searchBar = SearchBar({
     onQueryChange: (text) => void apply({ ...filters, query: text }),
     onAddIngredient: (term) => void apply(withIngredient(filters, term)),
     onRemoveIngredient: (term) => void apply(withoutIngredient(filters, term)),
+    onToggleMode: () => void toggleMode(),
   });
 
   const panel = FilterPanel({
@@ -136,6 +150,13 @@ export async function renderBrowse(container, options) {
   async function refetch() {
     const query = toQuery(filters, { favourites });
     const request = (latestRequest += 1);
+    searchError = "";
+
+    if (mode === "ai") {
+      await refetchAi(query, request);
+      return;
+    }
+
     const [fetched, fetchedCounts] = await Promise.all([
       getAllRecipes(query),
       getRecipeCounts(query),
@@ -146,6 +167,55 @@ export async function renderBrowse(container, options) {
     results = fetched;
     counts = fetchedCounts;
     renderAll();
+  }
+
+  /**
+   * Semantic search is server-side (it embeds the query), so it gets its own
+   * loading/error handling instead of sharing the lexical fetch's happy path.
+   * @param {import("../api/client.js").RecipeFilters} query
+   * @param {number} request
+   * @returns {Promise<void>}
+   */
+  async function refetchAi(query, request) {
+    if (filters.query.trim() === "") {
+      results = [];
+      counts = await getRecipeCounts(query);
+      if (request === latestRequest) {
+        renderAll();
+      }
+      return;
+    }
+
+    searching = true;
+    renderAll();
+    try {
+      const [fetched, fetchedCounts] = await Promise.all([
+        searchRecipesSemantic(query, AI_RESULT_LIMIT),
+        getRecipeCounts(query),
+      ]);
+      if (request !== latestRequest) {
+        return;
+      }
+      results = fetched;
+      counts = fetchedCounts;
+    } catch {
+      if (request !== latestRequest) {
+        return;
+      }
+      results = [];
+      searchError = AI_SEARCH_ERROR;
+    } finally {
+      searching = false;
+      if (request === latestRequest) {
+        renderAll();
+      }
+    }
+  }
+
+  /** Flip between lexical and AI search, keeping the query and filters. */
+  async function toggleMode() {
+    mode = mode === "ai" ? "lexical" : "ai";
+    await refetch();
   }
 
   /**
@@ -183,7 +253,7 @@ export async function renderBrowse(container, options) {
   }
 
   function renderAll() {
-    searchBar.render(filters.ingredients);
+    searchBar.render(filters.ingredients, mode);
     toggle.render(activeCount(filters));
     panel.render(filters, countFor(filters.segment));
     renderSegmented();
@@ -210,6 +280,30 @@ export async function renderBrowse(container, options) {
   function renderResults() {
     grid.replaceChildren();
     rendered = 0;
+
+    if (mode === "ai" && searchError !== "") {
+      grid.append(buildAiStateMessage(searchError, "state-msg--error"));
+      updateCount();
+      loadMore.hidden = true;
+      return;
+    }
+    if (mode === "ai" && searching) {
+      grid.append(buildAiStateMessage("Searching by meaning…"));
+      updateCount();
+      loadMore.hidden = true;
+      return;
+    }
+    if (mode === "ai" && filters.query.trim() === "") {
+      grid.append(
+        buildAiStateMessage(
+          "Describe what you’re after — e.g. “something sweet for " +
+            "breakfast with protein”.",
+        ),
+      );
+      updateCount();
+      loadMore.hidden = true;
+      return;
+    }
     if (results.length === 0) {
       grid.append(...buildEmptyState(filters, counts, apply));
       updateCount();
@@ -235,6 +329,10 @@ export async function renderBrowse(container, options) {
   }
 
   function updateCount() {
+    if (mode === "ai" && searching) {
+      summary.textContent = "Searching by meaning…";
+      return;
+    }
     summary.textContent = `Showing ${rendered} of ${results.length} ${
       results.length === 1 ? "recipe" : "recipes"
     }`;
@@ -285,6 +383,19 @@ function buildEmptyState(filters, counts, onRelax) {
     parts.push(buildRelaxations(ways, onRelax));
   }
   return parts;
+}
+
+/**
+ * A single-line status for AI search: searching, no query yet, or a failure.
+ * @param {string} text
+ * @param {string} [extraClass]
+ * @returns {HTMLElement}
+ */
+function buildAiStateMessage(text, extraClass) {
+  const message = document.createElement("p");
+  message.className = extraClass ? `state-msg ${extraClass}` : "state-msg";
+  message.textContent = text;
+  return message;
 }
 
 /**

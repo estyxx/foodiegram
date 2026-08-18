@@ -5,18 +5,22 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 const PLACEHOLDER_EMPTY = "search by ingredient: zucchine, ceci, tofu\u2026";
 const PLACEHOLDER_MORE = "add another\u2026";
+const PLACEHOLDER_AI = "try: something sweet for breakfast with protein\u2026";
+
+/** @typedef {"lexical" | "ai"} SearchMode */
 
 /**
  * @typedef {object} SearchBarHandlers
  * @property {(text: string) => void} onQueryChange Debounced free-text search.
  * @property {(term: string) => void} onAddIngredient
  * @property {(term: string) => void} onRemoveIngredient
+ * @property {() => void} onToggleMode Switch between lexical and AI (semantic) search.
  */
 
 /**
  * @typedef {object} SearchBarView
  * @property {HTMLElement} element
- * @property {(ingredients: string[]) => void} render
+ * @property {(ingredients: string[], mode: SearchMode) => void} render
  */
 
 /**
@@ -80,11 +84,19 @@ export function SearchBar(handlers) {
     }
   });
 
-  field.append(buildSearchIcon(), chips, input, hint);
+  const aiToggle = document.createElement("button");
+  aiToggle.type = "button";
+  aiToggle.className = "searchbar__ai-toggle";
+  aiToggle.setAttribute("aria-label", "AI search");
+  aiToggle.setAttribute("aria-pressed", "false");
+  aiToggle.textContent = "✨";
+  aiToggle.addEventListener("click", () => handlers.onToggleMode());
+
+  field.append(buildSearchIcon(), chips, input, aiToggle, hint);
 
   return {
     element: field,
-    render(next) {
+    render(next, mode) {
       ingredients = next;
       // Removing a chip destroys the button that was clicked, so hand focus
       // back to the input before the row is rebuilt.
@@ -96,7 +108,14 @@ export function SearchBar(handlers) {
           }),
         ),
       );
-      input.placeholder = next.length > 0 ? PLACEHOLDER_MORE : PLACEHOLDER_EMPTY;
+      const isAi = mode === "ai";
+      aiToggle.setAttribute("aria-pressed", String(isAi));
+      aiToggle.classList.toggle("searchbar__ai-toggle--active", isAi);
+      input.placeholder = isAi
+        ? PLACEHOLDER_AI
+        : next.length > 0
+          ? PLACEHOLDER_MORE
+          : PLACEHOLDER_EMPTY;
     },
   };
 }

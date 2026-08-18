@@ -1,9 +1,12 @@
-from typing import TYPE_CHECKING, Annotated, cast
+import functools
+from typing import Annotated, cast
 
 from fastapi import Depends
+from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 
+from foodiegram.settings import Settings
 from foodiegram.storage.db import create_db_engine, init_db
 from foodiegram.storage.extractions_db import ExtractionRepository
 from foodiegram.storage.pantry_db import PantryRepository
@@ -11,9 +14,6 @@ from foodiegram.storage.plans_db import PlanRepository
 from foodiegram.storage.recipes_db import RecipeRepository
 from foodiegram.storage.targets_db import TargetRepository
 from foodiegram.storage.user_state_db import UserStateRepository
-
-if TYPE_CHECKING:
-    from foodiegram.settings import Settings
 
 
 class Deps(BaseModel):
@@ -66,3 +66,12 @@ def get_deps(request: Request) -> Deps:
 
 
 DepsDep = Annotated[Deps, Depends(get_deps)]
+
+
+@functools.cache
+def get_openai_client() -> OpenAI:
+    """Create one OpenAI client per process, for endpoints that embed a query."""
+    return OpenAI(api_key=Settings().require_openai_api_key())
+
+
+OpenAIClientDep = Annotated[OpenAI, Depends(get_openai_client)]

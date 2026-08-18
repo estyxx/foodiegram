@@ -1,13 +1,14 @@
 from collections.abc import Sequence
 from http import HTTPStatus
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from foodiegram.api import create_app
-from foodiegram.deps import AuthConfig, Deps
+from foodiegram.deps import AuthConfig, Deps, get_openai_client
 from foodiegram.domain.enums import MedCategory
 from foodiegram.domain.models import CategoryServing, Recipe
 from foodiegram.storage.extractions_db import ExtractionRepository
@@ -329,6 +330,44 @@ def test_summary_reports_both_halves_of_completeness(
 
     assert summary["has_ingredients"] is True
     assert summary["has_instructions"] is False
+
+
+def test_semantic_search_empty_query_returns_no_results(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """An empty q returns [] without needing to embed anything."""
+    deps.recipes.save(_fish_recipe("F1"))
+    client.app.dependency_overrides[get_openai_client] = lambda: MagicMock()  # type: ignore[attr-defined]  # reason: TestClient wraps a FastAPI app
+
+    response = client.get("/api/recipes/semantic")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == []
+
+
+def test_semantic_search_ranks_by_similarity_and_reports_score(
+    client: TestClient,
+    deps: Deps,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Results come back in ranked order, each carrying its similarity score."""
+    deps.recipes.save(_fish_recipe("CLOSE"))
+    deps.recipes.save(_fish_recipe("FAR"))
+    deps.recipes.save_embedding("CLOSE", [1.0, 0.0, 0.0], model="text-embedding-3-small")
+    deps.recipes.save_embedding("FAR", [0.0, 1.0, 0.0], model="text-embedding-3-small")
+    monkeypatch.setattr(
+        "foodiegram.app.search_recipes.embed_texts",
+        lambda _texts, *, client, model: [[1.0, 0.0, 0.0]],  # noqa: ARG005
+    )
+    client.app.dependency_overrides[get_openai_client] = lambda: MagicMock()  # type: ignore[attr-defined]  # reason: TestClient wraps a FastAPI app
+
+    response = client.get("/api/recipes/semantic", params={"q": "salmon dinner"})
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert [r["code"] for r in body] == ["CLOSE", "FAR"]
+    assert body[0]["score"] > body[1]["score"]
 
 
 def _protein_recipe(

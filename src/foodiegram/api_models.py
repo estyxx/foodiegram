@@ -45,9 +45,16 @@ class RecipeSummary(BaseModel):
     is_favorite: bool
     has_ingredients: bool
     has_instructions: bool
+    score: float | None = None
 
     @classmethod
-    def from_recipe(cls, recipe: Recipe, *, is_favorite: bool = False) -> RecipeSummary:
+    def from_recipe(
+        cls,
+        recipe: Recipe,
+        *,
+        is_favorite: bool = False,
+        score: float | None = None,
+    ) -> RecipeSummary:
         """Build a RecipeSummary from a Recipe, with favourite state applied."""
         return cls(
             code=recipe.code,
@@ -70,6 +77,7 @@ class RecipeSummary(BaseModel):
             is_favorite=is_favorite,
             has_ingredients=bool(recipe.ingredients),
             has_instructions=bool(recipe.instructions),
+            score=score,
         )
 
 
