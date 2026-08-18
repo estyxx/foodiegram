@@ -182,8 +182,40 @@ function buildSavedFrom(recipe) {
 function buildSourceActions(recipe) {
   const actions = document.createElement("div");
   actions.className = "detail__sourceactions";
-  actions.append(buildCopyRecipe(recipe), buildViewOriginal(recipe));
+  actions.append(
+    buildCopyRecipe(recipe),
+    buildShareRecipe(recipe),
+    buildViewOriginal(recipe),
+  );
   return actions;
+}
+
+/**
+ * A button that copies this recipe's own page link to the clipboard. The
+ * recipe's page and detail fetch are both reachable without the site
+ * password (see api_auth.py), so the link alone is enough to share it.
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLButtonElement}
+ */
+function buildShareRecipe(recipe) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  const idle = "↗ Share";
+  button.textContent = idle;
+  button.addEventListener("click", async () => {
+    const url = `${window.location.origin}/#recipe/${encodeURIComponent(recipe.code)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      button.textContent = "✓ Link copied";
+    } catch {
+      button.textContent = "Could not copy";
+    }
+    window.setTimeout(() => {
+      button.textContent = idle;
+    }, 1500);
+  });
+  return button;
 }
 
 /**

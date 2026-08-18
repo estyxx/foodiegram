@@ -485,6 +485,56 @@ def test_basic_auth_blocks_and_allows(db_engine: Engine) -> None:
     assert wrong.status_code == HTTPStatus.UNAUTHORIZED
 
 
+def test_recipe_detail_is_reachable_without_credentials(db_engine: Engine) -> None:
+    """A single recipe's GET stays public so its own link needs no password."""
+    deps = _make_deps(db_engine)
+    deps.recipes.save(_fish_recipe("SHR1"))
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    response = client.get("/api/recipes/SHR1")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["code"] == "SHR1"
+
+
+def test_recipe_list_still_requires_credentials(db_engine: Engine) -> None:
+    """The recipe list (as opposed to one detail page) stays behind the password."""
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    response = client.get("/api/recipes")
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_recipe_count_route_still_requires_credentials(db_engine: Engine) -> None:
+    """/recipes/count is not read as a shareable recipe code."""
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    response = client.get("/api/recipes/count")
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_recipe_mutation_still_requires_credentials(db_engine: Engine) -> None:
+    """PATCHing a recipe stays owner-only even though its GET is public."""
+    deps = _make_deps(db_engine)
+    deps.recipes.save(_fish_recipe("SHR2"))
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    response = client.patch("/api/recipes/SHR2", json={"is_favorite": True})
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_spa_shell_is_reachable_without_credentials(db_engine: Engine) -> None:
+    """The static app shell loads with no password, so a shared link can open."""
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    response = client.get("/")
+
+    assert response.status_code == HTTPStatus.OK
+
+
 def test_recipe_detail_includes_author(client: TestClient, deps: Deps) -> None:
     """The detail response exposes the post author's Instagram handle."""
     deps.recipes.save(

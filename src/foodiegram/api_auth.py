@@ -1,5 +1,6 @@
 import base64
 import binascii
+import re
 import secrets
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,23 @@ if TYPE_CHECKING:
 
 _SCHEME = "Basic "
 _REALM = 'Basic realm="dispensa"'
+
+# A recipe's own code doubles as its share secret: send someone the
+# /#recipe/{code} link and this is the one GET it takes to render it, no
+# password required. The static SPA shell has to be exempt too, or the page
+# can't even load for a recipient with no credentials. Everything else — the
+# recipe list, every mutation, every other endpoint — still needs the password.
+# "count" is excluded: /api/recipes/count is the aggregate-stats route, not a
+# recipe code, even though it has the same single-segment shape.
+_PUBLIC_RECIPE_DETAIL = re.compile(r"^/api/recipes/(?!count$)[^/]+$")
+
+
+def _is_public(request: Request) -> bool:
+    """Return True for the SPA shell and a single recipe's read-only detail GET."""
+    if request.method != "GET":
+        return False
+    path = request.url.path
+    return not path.startswith("/api/") or bool(_PUBLIC_RECIPE_DETAIL.match(path))
 
 
 def _authorized(header: str | None, *, username: str, password: str) -> bool:
@@ -36,7 +54,7 @@ def _authorized(header: str | None, *, username: str, password: str) -> bool:
 
 
 class BasicAuthMiddleware(BaseHTTPMiddleware):
-    """Require HTTP Basic auth on every request when a username is configured."""
+    """Require HTTP Basic auth on every request except a shareable recipe page."""
 
     def __init__(
         self,
@@ -55,8 +73,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        """Pass through when auth is disabled, else demand valid credentials."""
-        if not self._username:
+        """Pass through when auth is off or the request is public; else demand creds."""
+        if not self._username or _is_public(request):
             return await call_next(request)
         header = request.headers.get("Authorization")
         if not _authorized(
