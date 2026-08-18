@@ -10,6 +10,7 @@ from foodiegram.ai.batch import (
     fetch_batch_output,
     result_to_extraction,
     smoke_extract,
+    submitted_codes,
     write_batch_input,
 )
 from foodiegram.domain.errors import ExtractionError
@@ -37,20 +38,22 @@ def _has_usable_caption(recipe: Recipe) -> bool:
 def _eligible_for_submit(
     recipe: Recipe,
     *,
-    extracted_codes: set[str],
+    excluded_codes: set[str],
     only_missing: bool,
 ) -> bool:
     """Return True if recipe should be submitted for extraction.
 
-    only_missing skips recipes that already have an extraction at the current
-    PROMPT_VERSION; only_missing=False (--all) re-submits every captioned,
-    non-edited recipe — use after a prompt or model change.
+    only_missing skips recipes already extracted at the current PROMPT_VERSION or
+    already sent in a prior submitted batch (applied or still in flight), so
+    repeated calls advance through the backlog; only_missing=False (--all)
+    re-submits every captioned, non-edited recipe regardless — use after a prompt
+    or model change.
     """
     if recipe.edited_by_user:
         return False
     if not _has_usable_caption(recipe):
         return False
-    return not (only_missing and recipe.code in extracted_codes)
+    return not (only_missing and recipe.code in excluded_codes)
 
 
 def _extracted_codes(extractions: ExtractionRepository) -> set[str]:
@@ -78,12 +81,14 @@ def submit_batch(
     """
     all_recipes = recipes.list_all()
     extracted_codes = _extracted_codes(extractions)
+    already_submitted = submitted_codes()
+    excluded_codes = extracted_codes | already_submitted
     to_submit = [
         r
         for r in all_recipes
         if _eligible_for_submit(
             r,
-            extracted_codes=extracted_codes,
+            excluded_codes=excluded_codes,
             only_missing=only_missing,
         )
         and (only_codes is None or r.code in only_codes)
@@ -97,6 +102,7 @@ def submit_batch(
     mode = "only-missing" if only_missing else "all"
     logger.info("Total recipes: %d", len(all_recipes))
     logger.info("Already extracted at v%s: %d", PROMPT_VERSION, len(extracted_codes))
+    logger.info("Already in a submitted batch: %d", len(already_submitted))
     logger.info("No caption: %d", len(no_caption))
     if limit is not None:
         logger.info(
@@ -174,10 +180,10 @@ def smoke_test(
     limit: int,
 ) -> int:
     """Extract the first `limit` eligible captions synchronously; return passes."""
-    extracted_codes = _extracted_codes(extractions)
+    excluded_codes = _extracted_codes(extractions) | submitted_codes()
     eligible = [
         r
         for r in recipes.list_all()
-        if _eligible_for_submit(r, extracted_codes=extracted_codes, only_missing=True)
+        if _eligible_for_submit(r, excluded_codes=excluded_codes, only_missing=True)
     ][:limit]
     return smoke_extract(settings, recipes=eligible)

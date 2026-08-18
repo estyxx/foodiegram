@@ -1,17 +1,18 @@
 """Thin CLI wrapper around foodiegram.app.extraction.
 
 Commands:
-  submit [--all]     Build and submit an OpenAI batch job (default: only-missing).
-  status [BATCH_ID]  Check batch progress.
-  apply  [BATCH_ID]  Download completed results into the extractions table.
-  smoke  [--limit N] Synchronously validate a few extractions (default 5).
+  submit [--all]        Build and submit an OpenAI batch job (default: only-missing).
+  status [BATCH_ID]     Check batch progress.
+  apply  [BATCH_ID]     Download completed results into the extractions table.
+  recover-input BATCH_ID  Archive a submitted batch's input file from OpenAI.
+  smoke  [--limit N]    Synchronously validate a few extractions (default 5).
 """
 
 import argparse
 import logging
 from datetime import UTC, datetime
 
-from foodiegram.ai.batch import log_batch_status
+from foodiegram.ai.batch import log_batch_status, recover_batch_input
 from foodiegram.app.extraction import apply_batch, smoke_test, submit_batch
 from foodiegram.settings import Settings
 from foodiegram.storage.db import create_db_engine, init_db
@@ -63,6 +64,12 @@ def main() -> None:
     )
     apply_parser.add_argument("batch_id", nargs="?", default=None)
 
+    recover_parser = subparsers.add_parser(
+        "recover-input",
+        help="Archive a submitted batch's input file from OpenAI",
+    )
+    recover_parser.add_argument("batch_id")
+
     smoke_parser = subparsers.add_parser(
         "smoke",
         help="Synchronously extract a few captions and validate the responses",
@@ -79,6 +86,10 @@ def main() -> None:
 
     if args.command == "status":
         log_batch_status(settings, args.batch_id)
+        return
+
+    if args.command == "recover-input":
+        recover_batch_input(settings, args.batch_id)
         return
 
     engine = create_db_engine(settings.database_url)

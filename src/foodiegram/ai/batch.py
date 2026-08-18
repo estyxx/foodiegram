@@ -31,6 +31,7 @@ PROMPT_PATH = Path(__file__).parent / "prompts" / "extract_recipe_details.txt"
 BATCH_INPUT_PATH = Path("data/batch_input.jsonl")
 BATCH_OUTPUT_PATH = Path("data/batch_output.jsonl")
 LAST_BATCH_ID_PATH = Path("data/last_batch_id.txt")
+BATCH_INPUT_ARCHIVE_DIR = Path("data/batch_inputs")
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,19 @@ def write_batch_input(recipes: Sequence[Recipe]) -> Path:
     return BATCH_INPUT_PATH
 
 
+def _archive_batch_input(input_path: Path, *, batch_id: str) -> Path:
+    """Copy the submitted input file to a batch_id-keyed archive path.
+
+    write_batch_input overwrites the same fixed path on every submission, so
+    without this the input for a given batch_id is unrecoverable as soon as the
+    next batch is written.
+    """
+    BATCH_INPUT_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    archived_path = BATCH_INPUT_ARCHIVE_DIR / f"{batch_id}.jsonl"
+    archived_path.write_bytes(input_path.read_bytes())
+    return archived_path
+
+
 def create_batch(settings: Settings, *, input_path: Path) -> str:
     """Upload the batch input file, create the batch, and return its id."""
     client = OpenAI(api_key=settings.require_openai_api_key())
@@ -229,8 +243,52 @@ def create_batch(settings: Settings, *, input_path: Path) -> str:
     )
 
     LAST_BATCH_ID_PATH.write_text(batch.id, encoding="utf-8")
+    archived_path = _archive_batch_input(input_path, batch_id=batch.id)
+    logger.info("Archived batch input to %s", archived_path)
     logger.info("Batch created: %s", batch.id)
     return batch.id
+
+
+def submitted_codes() -> set[str]:
+    """Return recipe codes present in any archived batch input file.
+
+    Reads every data/batch_inputs/*.jsonl written by create_batch, regardless of
+    whether that batch has completed. Lets submit_batch skip recipes already sent
+    in a prior batch — applied or still in flight — so repeated `sync extract`
+    calls advance through the backlog instead of resubmitting the same recipes.
+    """
+    codes: set[str] = set()
+    if not BATCH_INPUT_ARCHIVE_DIR.exists():
+        return codes
+    for path in BATCH_INPUT_ARCHIVE_DIR.glob("*.jsonl"):
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            codes.add(str(json.loads(line)["custom_id"]))
+    return codes
+
+
+def recover_batch_input(settings: Settings, batch_id: str) -> Path:
+    """Download and archive a submitted batch's input file from OpenAI.
+
+    Recovers the batch_id-keyed archive for a batch that was submitted before
+    create_batch started archiving locally, or whose local archive was lost —
+    OpenAI retains the uploaded input file for the life of the batch.
+    """
+    client = OpenAI(api_key=settings.require_openai_api_key())
+    batch = client.batches.retrieve(batch_id)
+
+    if not batch.input_file_id:
+        msg = f"Batch {batch_id} has no input_file_id"
+        raise ExtractionError(msg)
+
+    content = client.files.content(batch.input_file_id).text
+    BATCH_INPUT_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    archived_path = BATCH_INPUT_ARCHIVE_DIR / f"{batch_id}.jsonl"
+    archived_path.write_text(content, encoding="utf-8")
+    logger.info("Recovered batch input to %s", archived_path)
+    return archived_path
 
 
 def log_batch_status(settings: Settings, batch_id: str | None) -> None:
