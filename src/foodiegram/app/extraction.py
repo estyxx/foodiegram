@@ -146,7 +146,7 @@ def apply_batch(
     added = 0
     errors = 0
 
-    for raw_line in output.content.splitlines():
+    for line_no, raw_line in enumerate(output.content.split("\n"), start=1):
         line = raw_line.strip()
         if not line:
             continue
@@ -166,7 +166,9 @@ def apply_batch(
             ValidationError,
             ExtractionError,
         ):
-            logger.exception("Failed to parse batch result line")
+            logger.exception(
+                "Failed to parse batch result at line %d: %r", line_no, line[:120]
+            )
             errors += 1
 
     logger.info("Extractions added: %d  Errors: %d", added, errors)

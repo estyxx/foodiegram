@@ -256,16 +256,29 @@ def submitted_codes() -> set[str]:
     whether that batch has completed. Lets submit_batch skip recipes already sent
     in a prior batch — applied or still in flight — so repeated `sync extract`
     calls advance through the backlog instead of resubmitting the same recipes.
+
+    Splits on a literal newline rather than str.splitlines(): a caption can
+    contain a Unicode line-separator character (e.g. U+2028) that splitlines()
+    also treats as a break, which would slice a JSON line in two and corrupt it.
     """
     codes: set[str] = set()
     if not BATCH_INPUT_ARCHIVE_DIR.exists():
         return codes
     for path in BATCH_INPUT_ARCHIVE_DIR.glob("*.jsonl"):
-        for raw_line in path.read_text(encoding="utf-8").splitlines():
+        content = path.read_text(encoding="utf-8")
+        for line_no, raw_line in enumerate(content.split("\n"), start=1):
             line = raw_line.strip()
             if not line:
                 continue
-            codes.add(str(json.loads(line)["custom_id"]))
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                msg = (
+                    f"Malformed JSONL in {path} at line {line_no}: {exc}. "
+                    f"Line starts with: {line[:120]!r}"
+                )
+                raise ExtractionError(msg) from exc
+            codes.add(str(record["custom_id"]))
     return codes
 
 
