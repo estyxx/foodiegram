@@ -92,6 +92,40 @@
  * @property {number} all_saves
  */
 
+/**
+ * @typedef {object} PlannedMeal
+ * @property {number | null} id Null until the server assigns one.
+ * @property {string} day ISO date.
+ * @property {"lunch" | "dinner"} meal
+ * @property {string} recipe_code
+ * @property {number} portions
+ */
+
+/**
+ * @typedef {object} CategoryStatus
+ * @property {string} category
+ * @property {number} planned
+ * @property {number} min_servings
+ * @property {number} max_servings
+ * @property {"under" | "ok" | "over"} state
+ */
+
+/**
+ * @typedef {object} GapSuggestion
+ * @property {string} category
+ * @property {RecipeSummary[]} recipes
+ */
+
+/**
+ * Plan + balance + suggestions in one payload; the FE does no balance math.
+ * @typedef {object} PlanResponse
+ * @property {string} week_start ISO date (a Monday).
+ * @property {PlannedMeal[]} meals
+ * @property {CategoryStatus[]} balance
+ * @property {number} oily_fish
+ * @property {GapSuggestion[]} suggestions
+ */
+
 const API_BASE = "/api";
 
 /**
@@ -221,6 +255,51 @@ export async function getRecipe(code) {
 export async function getVersion() {
   const result = await apiFetch("/version");
   return /** @type {VersionInfo} */ (result);
+}
+
+/**
+ * Fetch a week's plan, balance, and gap suggestions in one payload.
+ * @param {string} weekStart ISO date (must be a Monday).
+ * @returns {Promise<PlanResponse>}
+ */
+export async function getPlan(weekStart) {
+  const result = await apiFetch(`/plans/${weekStart}`);
+  return /** @type {PlanResponse} */ (result);
+}
+
+/**
+ * @typedef {object} MealUpsertBody
+ * @property {string} day ISO date.
+ * @property {"lunch" | "dinner"} meal
+ * @property {string} recipe_code
+ * @property {number} [portions]
+ */
+
+/**
+ * Insert or replace the meal in a (day, meal) slot; upsert is keyed by both.
+ * @param {string} weekStart
+ * @param {MealUpsertBody} meal
+ * @returns {Promise<PlanResponse>}
+ */
+export async function upsertMeal(weekStart, meal) {
+  const result = await apiFetch(`/plans/${weekStart}/meals`, {
+    method: "PUT",
+    body: JSON.stringify(meal),
+  });
+  return /** @type {PlanResponse} */ (result);
+}
+
+/**
+ * Remove a meal slot from the plan.
+ * @param {string} weekStart
+ * @param {number} mealId
+ * @returns {Promise<PlanResponse>}
+ */
+export async function deleteMeal(weekStart, mealId) {
+  const result = await apiFetch(`/plans/${weekStart}/meals/${mealId}`, {
+    method: "DELETE",
+  });
+  return /** @type {PlanResponse} */ (result);
 }
 
 /**

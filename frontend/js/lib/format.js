@@ -66,3 +66,35 @@ export function formatServings(servings) {
 export function formatQuantity(value) {
   return String(Math.round(value * 100) / 100);
 }
+
+const DAY_FORMATTER = new Intl.DateTimeFormat("it-IT", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+/**
+ * "lun 24 ago" for a day column heading.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function formatDayLabel(isoDate) {
+  return DAY_FORMATTER.format(new Date(`${isoDate}T00:00:00`));
+}
+
+const WEEK_RANGE_FORMATTER = new Intl.DateTimeFormat("it-IT", {
+  day: "numeric",
+  month: "short",
+});
+
+/**
+ * "24 ago – 30 ago" for the plan header.
+ * @param {string} weekStart ISO date (Monday).
+ * @param {string} weekEnd ISO date (Sunday).
+ * @returns {string}
+ */
+export function formatWeekRange(weekStart, weekEnd) {
+  const start = WEEK_RANGE_FORMATTER.format(new Date(`${weekStart}T00:00:00`));
+  const end = WEEK_RANGE_FORMATTER.format(new Date(`${weekEnd}T00:00:00`));
+  return `${start} – ${end}`;
+}
