@@ -67,6 +67,7 @@ class RecipeRow(SQLModel, table=True):
     style_tags: list[str] = Field(sa_column=Column(JSON))
     prep_style: list[str] = Field(sa_column=Column(JSON))
     edited_fields: list[str] = Field(sa_column=Column(JSON))
+    inspired_by: list[str] = Field(sa_column=Column(JSON))
 
 
 class ExtractionRow(SQLModel, table=True):

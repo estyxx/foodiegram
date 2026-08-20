@@ -79,6 +79,7 @@ def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> Re
         style_tags=recipe.style_tags,
         prep_style=recipe.prep_style,
         edited_fields=sorted(recipe.edited_fields),
+        inspired_by=recipe.inspired_by,
     )
 
 
@@ -126,6 +127,8 @@ def _to_domain(row: RecipeRow) -> Recipe:
             "cloudinary_url": row.cloudinary_url,
             "thumbnail_url": row.thumbnail_url,
             "edited_fields": row.edited_fields,
+            # Nullable until the ADD COLUMN backfills on existing rows.
+            "inspired_by": row.inspired_by or [],
             "archived": row.archived,
             "edited_by_user": row.edited_by_user,
             "is_recipe": row.is_recipe,

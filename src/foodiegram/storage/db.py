@@ -61,6 +61,9 @@ def _ensure_schema_patches(engine: Engine) -> None:
                 "ADD COLUMN IF NOT EXISTS embedding_source_hash TEXT",
             ),
         )
+        connection.execute(
+            text("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS inspired_by JSON"),
+        )
 
 
 def truncate_all_tables(engine: Engine) -> None:

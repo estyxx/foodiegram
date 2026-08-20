@@ -77,6 +77,7 @@ def _full_recipe() -> Recipe:
         cloudinary_url="https://cdn/cloud.jpg",
         thumbnail_url="https://cdn/thumb.jpg",
         edited_fields=frozenset({"ingredients", "title"}),
+        inspired_by=["XYZ", "m-pasta-e-ceci-AB12"],
         archived=True,
         edited_by_user=True,
         is_recipe=True,

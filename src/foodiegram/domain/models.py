@@ -171,6 +171,10 @@ class Recipe(BaseModel):
     # Retired by edited_fields; the user_state migration still reads it (dies Session 4).
     edited_by_user: bool = False
 
+    # Codes (Instagram or manual) of recipes that inspired this one. Chaining is
+    # allowed: a remix of a remix lists only its immediate parent(s).
+    inspired_by: list[str] = Field(default_factory=list)
+
     # Provenance
     is_recipe: bool = True
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
