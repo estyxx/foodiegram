@@ -76,11 +76,27 @@ def reset_database(*, database_url: str) -> None:
     _seed_targets(engine)
 
 
+def _libpq_url(database_url: str) -> str:
+    """Strip the SQLAlchemy +driver suffix for libpq-based tools (pg_dump, pg_restore).
+
+    libpq's URI parser only recognizes postgresql:// or postgres:// — an
+    unrecognized scheme like postgresql+psycopg2:// isn't rejected, it's silently
+    treated as a plain (non-URI) argument, i.e. the whole string as a dbname.
+    """
+    return (
+        make_url(database_url)
+        .set(drivername="postgresql")
+        .render_as_string(
+            hide_password=False,
+        )
+    )
+
+
 def dump_database(*, database_url: str, output: Path) -> Path:
     """Back up database_url to a custom-format pg_dump file."""
     output.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        ["pg_dump", "-Fc", "-f", str(output), database_url],
+        ["pg_dump", "-Fc", "-f", str(output), _libpq_url(database_url)],
         check=True,
     )
     return output
@@ -96,7 +112,7 @@ def restore_database(*, database_url: str, dump_path: Path) -> None:
             "--no-owner",
             "--no-privileges",
             "-d",
-            database_url,
+            _libpq_url(database_url),
             str(dump_path),
         ],
         check=True,
