@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f frontend/share.html src/foodiegram/app/sharing.py src/foodiegram/domain/sharing.py tests/test_sharing.py *)"
+    ]
+  }
+}
