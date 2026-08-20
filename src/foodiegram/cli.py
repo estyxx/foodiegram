@@ -7,7 +7,14 @@ import typer
 from openai import OpenAI
 
 from foodiegram.ai.batch import PROMPT_VERSION, log_batch_status
-from foodiegram.app import embed, extraction, ingest, promotion, sync_all
+from foodiegram.app import (
+    backfill_images,
+    embed,
+    extraction,
+    ingest,
+    promotion,
+    sync_all,
+)
 from foodiegram.domain.errors import FoodiegramError
 from foodiegram.images import configure, upload_thumbnail
 from foodiegram.settings import Settings
@@ -226,6 +233,41 @@ def sync_ingest(
     )
     codes = report.codes_needing_extraction
     typer.echo(f"needs extraction ({len(codes)}): {' '.join(codes) if codes else '-'}")
+
+
+@sync_app.command("backfill-images")
+def sync_backfill_images(
+    *,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Report what would be uploaded without writing."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Allow writing to a production-looking database."),
+    ] = False,
+) -> None:
+    """Re-upload a durable image for every stored recipe missing or with a broken one.
+
+    Scans the whole DB, not one food.json batch — catches recipes that fell out
+    of the current food.json export before ever getting a Cloudinary upload.
+    """
+    settings = _settings()
+    _guard_writable(settings, dry_run=dry_run, yes=yes)
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    if not dry_run:
+        configure(config=settings.require_cloudinary())
+    report = backfill_images.backfill_images(
+        recipes=RecipeRepository(engine),
+        upload=upload_thumbnail,
+        dry_run=dry_run,
+    )
+    for code in report.fixed_codes:
+        typer.echo(code)
+    for code in report.failed_codes:
+        typer.echo(f"{code}  FAILED")
+    typer.echo(f"fixed={report.fixed}  failed={report.failed}")
 
 
 @sync_app.command("extract")
