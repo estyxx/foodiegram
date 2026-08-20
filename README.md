@@ -1,9 +1,9 @@
 # Dispensa 🫙
 
 A personal recipe library and Mediterranean-diet weekly meal planner.
-~1,150 recipes extracted from saved Instagram posts (mostly Italian) plus, eventually,
+~1,180 recipes extracted from saved Instagram posts (mostly Italian) plus, eventually,
 manually added recipes. The signature feature: a **live, colour-coded weekly balance
-panel** tracking 7 protein categories against Mediterranean targets — adding or
+panel** tracking 8 protein categories against Mediterranean targets — adding or
 removing a recipe from the week moves the bars in real time and suggests gap-fillers.
 
 ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever.
@@ -16,42 +16,52 @@ ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever
 ## Pipeline overview
 
 Instagram extraction is **one ingestion source**, not the product. The pipeline runs
-locally (~monthly) and pushes structured recipes into the database. The **database is
-the source of truth**; the JSON files under `data/recipes/` are an import/export backup
-kept in a separate private repo.
+locally (~monthly) and pushes structured recipes into **local Postgres — the source of
+truth**. Neon (prod) is downstream; it never runs extraction or embedding itself.
 
-Extraction is **append-only**: `apply` records each LLM result as an immutable
-`extractions` row and never mutates recipes. A separate `promote` step merges the latest
-extraction into each recipe and **always preserves fields the user has edited**.
+Extraction is **append-only and asynchronous**: `extract` submits an OpenAI Batch job
+and returns immediately; `apply` — once the batch completes — records each LLM result
+as an immutable `extractions` row and never touches `recipes`. A separate `promote`
+step merges the latest extraction into each recipe and **always preserves fields the
+user has edited**. Semantic search (RAG) needs its own step too: `embed` re-embeds only
+recipes whose extracted content actually changed.
 
 ```
 Instagram app (browse & save — keeps the account warm)
   ↓ IGbulkCollector (browser ext) → export post list
-  ↓ IGbulkDL --dry-run → food.json (captions + CDN URLs)
-  ↓ make ingest      → recipe stubs + thumbnails
-  ↓ make submit      → OpenAI Batch API (≈50% cheaper)
-  ↓ make status / apply → extractions rows (immutable history)
-  ↓ make promote     → dry-run diff; make promote-apply → merge into recipes
-  ↓ make export      → data/recipes/ backup, committed to the private data repo
+  ↓ IGbulkDL --dry-run                     → food.json (captions + CDN URLs)
+  ↓ foodiegram sync ingest food.json       → recipe stubs + Cloudinary thumbnails
+  ↓ foodiegram sync extract                → submits an OpenAI Batch (async)
+  ↓ foodiegram sync status   (optional)    → poll batch completion
+  ↓ foodiegram sync apply                  → extractions rows (immutable history)
+  ↓ foodiegram sync promote --apply        → merge into recipes (user edits preserved)
+  ↓ foodiegram sync embed --changed        → re-embed recipes whose document changed
 
-Web app: browse · search · plan weeks · (Phase 6) edit · add manual recipes
+Web app: browse · search (keyword + AI/semantic) · plan weeks · edit · add manual recipes
 ```
+
+`foodiegram sync backfill-images` is a separate maintenance command: it scans every
+recipe already in the DB (not just the recipes in one `food.json` batch) and re-uploads
+a Cloudinary image for any that are missing one — useful for recipes ingested before
+Cloudinary upload was wired in, or whose upload failed the first time.
 
 ---
 
 ## Quick start (dev)
 
 ```bash
-cp .env.example .env   # serving needs no secrets; fill the pipeline block only to ingest
+cp .env.example .env
 uv sync
-make import            # load data/recipes/ into data/dispensa.db (first run only)
-make serve-api         # → http://localhost:8000
+uv run foodiegram db create-database         # working DB
+uv run foodiegram db create-database --test  # test DB (pytest only ever uses this one)
+uv run foodiegram db create-tables
+uv run uvicorn foodiegram.api:app --reload --port 8000
 ```
 
-The database defaults to `sqlite:///data/dispensa.db` (auto-created). Point at another
-database — e.g. Neon Postgres in prod — by setting `DATABASE_URL`. Serving the app needs
-only `DATABASE_URL` (+ `BASIC_AUTH_*` in prod); the OpenAI/Cloudinary/Instagram secrets
-are used solely by the local ingestion pipeline.
+`DATABASE_URL` defaults to local Postgres (`postgresql+psycopg2://dispensa:dispensa@
+localhost:5432/dispensa`) — see `.env.example`. Serving the app needs only
+`DATABASE_URL` (+ `BASIC_AUTH_*` in prod); the OpenAI/Cloudinary/Instagram secrets are
+used solely by the local ingestion pipeline below.
 
 ---
 
@@ -59,64 +69,164 @@ are used solely by the local ingestion pipeline.
 
 ```
 src/foodiegram/
-  domain/        Pure models, enums, errors, promote()/diff — no I/O, no SDKs
-  storage/       DB-backed repositories (SQLModel); recipes_json.py = import/export
-                 db.py · _tables.py · recipes_db.py · extractions_db.py · user_state_db.py
-  ai/            OpenAI Batch build/submit/status/apply; prompts/; pydantic-ai repair
-  instagram/     instagrapi adapter, cache, auth
-  images/        Cloudinary adapter
-  app/           Use-cases: import_json, export, promotion, diff_batch, review_categories
-  api.py         FastAPI: GET/PATCH /recipes + /scale (serves from the DB)
-  api_models.py  API response models (RecipeSummary, RecipeDetail)
-  settings.py    pydantic-settings (reads .env); DATABASE_URL, OpenAI, Cloudinary
+  domain/        Pure models, enums, errors + pure logic (planning, pantry, shopping,
+                 promote()/diff, synonyms) — no I/O, no SDKs
+  storage/       Postgres-backed repositories (SQLModel rows never leave this package):
+                 db.py · _tables.py · recipes_db.py · extractions_db.py ·
+                 plans_db.py · pantry_db.py · targets_db.py · user_state_db.py ·
+                 maintenance.py (dump/restore/reset) · recipes_json.py (legacy JSON)
+  ai/            OpenAI: batch.py (Batch API submit/status/apply), embeddings.py (RAG),
+                 repair.py (pydantic-ai interactive re-extraction), prompts/*.txt
+  images/        Cloudinary adapter: upload_thumbnail + is_valid_image_ref
+  instagram/     instagrapi adapter, cache, auth (flagged/frozen — see below)
+  app/           Use-cases, one concern per module: ingest, extraction, backfill_images,
+                 promotion, embed, diff_batch, review_categories, plan_week, export,
+                 import_json, search_recipes, sync_all
+  routers/       FastAPI routers: recipes, plans, pantry, targets, meta
+  api.py         create_app() factory: Basic auth, gzip, CORS, serves the SPA
+  mcp_server.py  MCP server exposing recipes/planning to Claude (OAuth-gated /mcp)
+  asgi.py        Composition root mounting api + mcp_server (what FastAPI Cloud serves)
+  cli.py         Typer CLI: `foodiegram db …` (maintenance) and `foodiegram sync …`
+                 (the ingestion pipeline) — the primary way to run everything below
+  settings.py    pydantic-settings (reads .env); DATABASE_URL, OpenAI, Cloudinary, auth
 frontend/        SPA (no-build ES modules): css/ tokens+base+components, js/ views+components
-scripts/         Thin CLI wrappers over foodiegram.app / foodiegram.ai
+scripts/         Legacy thin argparse wrappers predating the typer CLI — export.py and
+                 import_json.py are still the only way to run those two use-cases (see
+                 "Promoting to prod" below); most others are superseded by `sync …`.
 tests/
 docs/PLAN.md     Full roadmap, architecture decisions, all specs
 ```
 
-Dependencies point inward only (`api / scripts → app → storage | ai → domain`),
-enforced by import-linter. The ORM (SQLModel/SQLAlchemy) never leaks outside `storage/`.
+Dependencies point inward only (`cli → app → storage | ai | images | instagram →
+domain`), enforced by import-linter (`uv run lint-imports`). The ORM never leaks
+outside `storage/`.
 
 ---
 
-## Runbook
+## The sync pipeline
 
-**Syncing new saved posts (~monthly, local):**
+Everything below is `uv run foodiegram sync <command>`. Writes (`ingest`, `apply`,
+`promote --apply`, `embed`, `backfill-images`) print the target database and refuse a
+production-looking host (`neon.tech`/`neon.build`) unless you pass `--yes` — this
+pipeline is meant to run against **local** Postgres.
+
+| Command | What it does |
+|---|---|
+| `dedupe-links <links.txt>` | Drop duplicate and already-known shortcodes from an IGbulkCollector links file before feeding it to IGbulkDL. |
+| `ingest <food.json> --yes` | Per shortcode: new? / caption changed? / image missing or broken? Creates recipe stubs and uploads Cloudinary thumbnails **immediately** — Instagram's CDN URLs expire. |
+| `backfill-images [--dry-run] --yes` | Scans every recipe in the DB (not just one `food.json`) and re-uploads a durable image for any still missing one. Recovers from a per-recipe upload failure (e.g. a deleted Instagram post) and reports it rather than aborting the whole run. |
+| `extract [--limit N] [--all] [--codes …] [--dry-run]` | Submits an OpenAI Batch job for recipes needing extraction at the current `PROMPT_VERSION`. **Async** — returns immediately; the batch completes later. |
+| `status [--batch id]` | Polls an OpenAI batch and prints its completion counts. Optional — just a convenience while waiting. Defaults to the last submitted batch. |
+| `apply [--batch id] --yes` | Once the batch is `completed`, downloads its output and appends `extractions` rows. **Never touches `recipes`.** Required before `promote` — skipping this leaves `promote` with nothing to promote (`considered=0`). |
+| `promote [--version V] [--batch id] [--apply] --yes` | Merges the latest extraction at a prompt version into each recipe. Dry-run by default; `--apply` writes. Always preserves fields the user has edited. |
+| `embed [--force] [--codes …] [--dry-run] --yes` | Re-embeds recipes whose `recipe_document()` changed since their last embed (or that have no embedding yet). `--force` re-embeds everything. |
+| `all <food.json> [--dry-run] --yes` | Runs `ingest → extract → promote → embed --changed` in order, stopping on first error. **Does not** poll `status` or run `apply` — `extract` is async, so `all` can't wait out a batch; run `status`/`apply`/`promote` by hand once it completes. |
+
+**A full sync, start to finish:**
 
 ```bash
 # 1. Browse/save on the phone as normal (keeps the account warm).
-# 2. Run IGbulkCollector in the browser → export the post list.
+# 2. IGbulkCollector (browser ext) → export post list.
 # 3. IGbulkDL --dry-run → food.json (captions + CDN URLs; no media downloads).
-make ingest FILE=data/food.json    # thumbnails upload NOW — CDN URLs expire
-make submit                        # only recipes missing an extraction at v2
-make status                        # wait for completed
-make apply                         # download → extractions rows (history only)
-make promote                       # dry-run: see what would change per recipe
-make promote-apply                 # merge into recipes (user edits preserved)
-make export                        # DB → data/recipes/; commit in the private data repo
+
+uv run foodiegram sync ingest data/food.json --yes
+uv run foodiegram sync extract --limit 300         # or omit --limit for everything eligible
+
+# … wait for the OpenAI batch to complete …
+uv run foodiegram sync status --batch <batch_id>   # optional, poll until "completed"
+uv run foodiegram sync apply --batch <batch_id> --yes
+
+uv run foodiegram sync promote --apply --yes
+uv run foodiegram sync embed --changed --yes
+```
+
+Submitting produces one batch per call; if you have several outstanding, apply each
+archived batch (`data/batch_inputs/*.jsonl`) before promoting:
+
+```fish
+for f in data/batch_inputs/*.jsonl
+    set batch (basename $f .jsonl)
+    uv run foodiegram sync apply --batch $batch --yes
+end
+uv run foodiegram sync promote --apply --yes
 ```
 
 **Changing the prompt or model:**
 
 ```bash
 # Bump PROMPT_VERSION in src/foodiegram/ai/batch.py first (e.g. 2 → 3).
-make submit-all                    # re-submit every captioned recipe
-make apply
-make diff FROM=2 TO=3              # aggregate: "what actually changed?"
-make promote VERSION=3            # dry-run review
-make promote-apply VERSION=3      # merge; user edits are never at risk
-make export
+uv run foodiegram sync extract --all --yes    # re-submit every captioned recipe
+# … status / apply as above …
+uv run foodiegram sync promote --version 3 --apply --yes   # user edits are never at risk
+uv run foodiegram sync embed --changed --yes
 ```
 
-**Against prod:** prefix any command with `DATABASE_URL=<neon-pooled-url>`, e.g.
-`DATABASE_URL=… make promote-apply VERSION=3`.
+**Instagram account note:** the instagrapi login is currently flagged/frozen; nothing
+in `sync` depends on it — it only ever reads a `food.json` that already exists. Never
+run Instagram-facing code on the server.
 
-**Disaster recovery / fresh clone:** `make import` loads `data/recipes/` back into the
-DB; `make backfill` reconstructs `extractions` history from kept `batch_output.jsonl`.
+---
 
-**Instagram account note:** instagrapi login is currently flagged; nothing here depends
-on it. Never run Instagram-facing code on the server.
+## Database maintenance
+
+```bash
+uv run foodiegram db ping                   # connect and report success
+uv run foodiegram db create-database        # create $DATABASE_URL if missing
+uv run foodiegram db create-tables          # create any missing tables
+uv run foodiegram db dump [--output PATH]   # pg_dump -Fc → backups/dispensa-<ts>.dump
+uv run foodiegram db restore <dump> --yes   # pg_restore --clean into the working DB
+uv run foodiegram db reset --yes            # drop + recreate every table (local only)
+```
+
+`dump`/`restore` shell out to `pg_dump`/`pg_restore`, which must be the **same major
+version as the Postgres server** (they refuse to talk to a newer server than
+themselves). If your server is newer than the `pg_dump` on `PATH` — e.g. Postgres.app
+running Postgres 18 while your system package manager only has 17 — run the command
+through a matching version instead of installing over your `PATH`:
+
+```bash
+nix shell nixpkgs#postgresql_18 -c uv run foodiegram db dump
+```
+
+`restore`/`reset` refuse a production-looking host (`neon.tech`/`neon.build`) even with
+`--yes` passed through the normal guard — they're wholesale, destructive, whole-DB
+operations meant for the **local working database only**, never Neon. See "Promoting to
+prod" below for how data actually reaches Neon.
+
+---
+
+## Promoting to prod (Neon)
+
+Local Postgres is the source of truth; Neon is downstream. **Extraction never runs
+against Neon** — everything above (`extract`/`apply`/`promote`/`embed`/
+`backfill-images`) happens locally, and only the *result* moves to prod, so nothing
+gets re-extracted or re-uploaded to Cloudinary just because it's landing in a new
+database.
+
+The mechanism today is a JSON export/import pair (not yet wired into the `sync`/`db`
+typer CLI — reach them as standalone scripts):
+
+```bash
+uv run python scripts/export.py                              # DB → data/recipes/*.json
+DATABASE_URL='<neon-pooled-url>' uv run python scripts/import_json.py
+```
+
+`export` writes one sorted-key JSON file per recipe (stable git diffs; commit the
+output in the private data repo). `import_json` is the inverse: it upserts each
+recipe — including its `cloudinary_url`, already durable and host-independent — plus
+migrates any `is_favorite`/`user_notes` into `user_state`.
+
+**Known gap:** this does **not** carry `recipe_embeddings` (the RAG vectors) or the
+`extractions` history table — only the final promoted `recipes` rows. After importing
+into Neon, semantic search needs its own pass there:
+
+```bash
+DATABASE_URL='<neon-pooled-url>' uv run foodiegram sync embed --changed --yes
+```
+
+That's an OpenAI embedding call per recipe (cheap — nothing like extraction cost) but
+it is real recomputation, not a copy. A byte-identical embeddings copy is possible but
+isn't built yet.
 
 ---
 
@@ -126,9 +236,8 @@ One `fastapi deploy` ships the API, the SPA, and the OAuth-protected MCP endpoin
 together (D1). The served app is the composition root `foodiegram.asgi:app`
 (declared under `[tool.fastapi]` in `pyproject.toml`), which mounts the
 Basic-authed API at `/` and the MCP transport at `/mcp` behind OAuth 2.1. The
-deploy artifact is **code only** — data reaches prod via a local `import_json`
-against Neon (D2), and the filesystem is ephemeral (nothing mutable on disk in
-prod).
+deploy artifact is **code only** — data reaches prod via the export/import flow
+above (D2), and the filesystem is ephemeral (nothing mutable on disk in prod).
 
 The MCP endpoint is served at the exact path `https://<host>/mcp` (no trailing
 slash — give clients that URL verbatim to avoid a redirect that would drop the
@@ -143,14 +252,15 @@ metadata is published at `https://<host>/.well-known/oauth-protected-resource/mc
 - FastAPI Cloud supports Python 3.14 (matches `requires-python`); pin `==3.14.*` only
   if a dependency later forces it.
 - Tables + default targets are created automatically on first boot (`init_db`), so a
-  fresh Neon database is fine — but load the recipe data before/right after first deploy.
+  fresh Neon database is fine — but load the recipe data before/right after first deploy
+  (see "Promoting to prod" above).
 
 **Steps**
 
 ```bash
 # 1. Provision a Neon Postgres database; copy its POOLED connection string.
-# 2. Load your data into Neon from your laptop (data never rides in the artifact):
-DATABASE_URL='<neon-pooled-url>' make import
+# 2. Load your data into Neon from your laptop (data never rides in the artifact) —
+#    see "Promoting to prod" above.
 
 # 3. Deploy the code (from the repo root):
 uvx fastapi deploy        # or: fastapi deploy
@@ -174,27 +284,18 @@ ephemeral disk, is the source of truth).
 
 ---
 
-## Makefile targets
-
-| Target | What it does |
-|---|---|
-| `make check` | Full gate: ruff + mypy + pytest + lint-imports |
-| `make serve-api` | Start FastAPI dev server on :8000 |
-| `make import` | Load `data/recipes/` JSON into the DB |
-| `make export` | Export the DB to `data/recipes/` (sorted-key JSON) |
-| `make ingest FILE=…` | Ingest IGbulkDL JSON file(s) into the DB |
-| `make submit` / `make submit-all` | Submit an OpenAI batch (only-missing / everything) |
-| `make status` | Check batch progress |
-| `make apply` | Download results into the `extractions` table |
-| `make promote` / `make promote-apply` | Merge latest extractions into recipes (dry-run / write) |
-| `make diff FROM=1 TO=2` | Aggregate diff between two prompt versions |
-| `make backfill` | Rebuild extraction history from `batch_output.jsonl` |
-
-Promote/diff default to `VERSION=2`; override per invocation (`make promote VERSION=3`).
-
----
-
 ## Environment
 
 Copy `.env.example` and fill in the required variables. See the file for
-descriptions of each group (OpenAI, Cloudinary, Database, Auth, Instagram).
+descriptions of each group (Runtime, OpenAI, Cloudinary, Instagram).
+
+---
+
+## Testing & the green gate
+
+```bash
+uv run ruff check --fix . && uv run ruff format . && uv run mypy src && uv run pytest -q && uv run lint-imports
+```
+
+Also available as the `/green` skill. Tests never touch the working database — only
+`DATABASE_URL_TEST` (create it once with `uv run foodiegram db create-database --test`).
