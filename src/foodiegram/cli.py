@@ -1,11 +1,12 @@
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from openai import OpenAI
 
-from foodiegram.ai.batch import PROMPT_VERSION
+from foodiegram.ai.batch import PROMPT_VERSION, log_batch_status
 from foodiegram.app import embed, extraction, ingest, promotion, sync_all
 from foodiegram.domain.errors import FoodiegramError
 from foodiegram.images import configure, upload_thumbnail
@@ -263,6 +264,47 @@ def sync_extract(
     )
     action = "Would submit" if dry_run else "Submitted"
     typer.echo(f"{action} {count} recipe(s) at prompt version {PROMPT_VERSION}.")
+
+
+@sync_app.command("status")
+def sync_status(
+    batch_id: Annotated[
+        str | None,
+        typer.Option("--batch", help="Batch id (default: last submitted)."),
+    ] = None,
+) -> None:
+    """Report the status and request counts of a submitted OpenAI batch job."""
+    settings = _settings()
+    log_batch_status(settings, batch_id)
+
+
+@sync_app.command("apply")
+def sync_apply(
+    batch_id: Annotated[
+        str | None,
+        typer.Option("--batch", help="Batch id (default: last submitted)."),
+    ] = None,
+    *,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Allow writing to a production-looking database."),
+    ] = False,
+) -> None:
+    """Download a completed OpenAI batch and append its results as extractions.
+
+    Writes extraction history only — never touches recipes. Run `sync promote`
+    afterwards to merge these extractions into recipes.
+    """
+    settings = _settings()
+    _guard_writable(settings, dry_run=False, yes=yes)
+    engine = create_db_engine(settings.database_url)
+    init_db(engine)
+    extraction.apply_batch(
+        settings,
+        batch_id,
+        extractions=ExtractionRepository(engine),
+        applied_at=datetime.now(tz=UTC),
+    )
 
 
 @sync_app.command("promote")

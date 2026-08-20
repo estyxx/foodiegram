@@ -91,12 +91,21 @@ Run it, fix what breaks, re-run until clean. Don't skip a check. (Also available
 ## The `sync` workflow (Stage B — offline, idempotent)
 
 `sync` reconciles a downloaded `food.json` against the DB, doing only needed work:
-`dedupe-links · ingest · extract · promote · embed --changed · all`.
+`dedupe-links · ingest · extract · status · apply · promote · embed --changed · all`.
 - `ingest`: per shortcode, independent flags — new? / caption changed? / image missing or
   broken? — acting via the app use-cases and the `images/` Cloudinary adapter.
+- `extract`: submits an OpenAI batch (async — returns immediately, batch completes later).
+- `status`: polls the OpenAI batch (`--batch <id>`, default: last submitted) and prints
+  its completion counts. Not required — just a convenience while waiting.
+- `apply`: once the batch is `completed`, downloads its output and appends
+  `extractions` rows (kind=`batch`). Never touches `recipes`. **Required before
+  `promote`** — `promote` only ever reads from `extractions`, so skipping `apply`
+  after a batch finishes leaves `promote` with nothing to promote
+  (`considered=0`).
 - `embed --changed`: re-embed only stale (document_hash ≠ stored) or embedding-less rows.
 - `all`: ingest → extract → promote → embed, in order, stop on first error. Does NOT
-  scrape or dedupe.
+  scrape, dedupe, poll `status`, or `apply` — `extract` is async, so `all` cannot wait
+  out a batch; run `status` / `apply` / `promote` by hand once the batch completes.
 
 
 ## Instagram — account risk, keep isolated
