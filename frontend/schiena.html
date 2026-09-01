@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#fafaf9" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Schiena" />
+    <title>Esercizi schiena</title>
+
+    <!--
+      Standalone personal tool. Not part of the Dispensa SPA: no shared CSS/JS,
+      no build step, no framework. Served as-is by the existing StaticFiles mount
+      at GET /schiena.html. Self-contained on purpose — keep it that way.
+    -->
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        background: #fafaf9;
+        color: #292524;
+        line-height: 1.5;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #app {
+        max-width: 30rem;
+        margin: 0 auto;
+        padding: 1.75rem 1.25rem 3rem;
+      }
+      .screen {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        text-align: center;
+      }
+      .lede {
+        color: #78716c;
+        font-size: 0.9rem;
+        text-align: center;
+        margin: 0.25rem 0 1.25rem;
+      }
+
+      .big {
+        width: 100%;
+        border: 0;
+        border-radius: 1rem;
+        padding: 1.4rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        align-items: center;
+        cursor: pointer;
+        font: inherit;
+        transition: transform 0.08s ease;
+      }
+      .big:active {
+        transform: scale(0.98);
+      }
+      .big--dark {
+        background: #292524;
+        color: #fff;
+      }
+      .big--light {
+        background: #fff;
+        color: #44403c;
+        border: 1px solid #e7e5e4;
+      }
+      .big__label {
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      .big__sub {
+        font-size: 0.8rem;
+        color: #a8a29e;
+      }
+      .big--dark .big__sub {
+        color: #d6d3d1;
+      }
+
+      .progress {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+      }
+      .progress__dot {
+        height: 0.375rem;
+        flex: 1;
+        border-radius: 999px;
+      }
+
+      .badge-row {
+        text-align: center;
+      }
+      .badge {
+        display: inline-block;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0.3rem 0.8rem;
+        border-radius: 999px;
+      }
+      .note {
+        font-size: 0.75rem;
+        color: #78716c;
+        margin-top: 0.5rem;
+        padding: 0 0.5rem;
+        line-height: 1.4;
+      }
+
+      .card {
+        border-radius: 1.25rem;
+        border: 1px solid #f5f5f4;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+      .card__figure {
+        height: 8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+      .pose {
+        width: 100%;
+        height: 100%;
+      }
+      .card__body {
+        padding: 1.25rem 1.5rem 1.5rem;
+        text-align: center;
+      }
+      .card__name {
+        font-size: 1.4rem;
+        font-weight: 600;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+      }
+      .card__reps {
+        color: #78716c;
+        margin-bottom: 1rem;
+      }
+
+      .tip {
+        display: flex;
+        gap: 0.5rem;
+        text-align: left;
+        background: #fffbeb;
+        border: 1px solid #fef3c7;
+        border-radius: 0.75rem;
+        padding: 0.65rem 0.8rem;
+        margin-bottom: 0.75rem;
+      }
+      .tip__icon {
+        color: #d97706;
+        flex-shrink: 0;
+        line-height: 1.4;
+      }
+      .tip__text {
+        font-size: 0.85rem;
+        color: #57534e;
+        line-height: 1.4;
+      }
+
+      .difficulty {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .difficulty__btn {
+        flex: 1;
+        border: 0;
+        border-radius: 0.75rem;
+        background: #f5f5f4;
+        color: #57534e;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 500;
+        padding: 0.7rem 0.5rem;
+        cursor: pointer;
+        transition: transform 0.08s ease;
+      }
+      .difficulty__btn:active {
+        transform: scale(0.98);
+      }
+
+      .done-btn {
+        margin-top: 0.25rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+      }
+      .linkbtn {
+        width: 100%;
+        background: none;
+        border: 0;
+        color: #a8a29e;
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 0.75rem;
+        cursor: pointer;
+      }
+      .counter {
+        text-align: center;
+        color: #a8a29e;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+      }
+
+      .finish {
+        background: #fff;
+        border: 1px solid #f5f5f4;
+        border-radius: 1.25rem;
+        padding: 3rem 2rem;
+        text-align: center;
+        margin-bottom: 0.5rem;
+      }
+      .finish__check {
+        font-size: 2.5rem;
+        color: #7c9885;
+        margin-bottom: 0.5rem;
+      }
+      .finish__title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+      }
+      .finish__count {
+        color: #78716c;
+      }
+      .finish__hint {
+        font-size: 0.75rem;
+        color: #a8a29e;
+        margin-top: 0.75rem;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      "use strict";
+
+      // --- Data: 30 exercises, 4 categories ------------------------------------
+      const PROGRESSIVE_NOTE =
+        "Ordine dal più facile al più difficile — non farli tutti dal giorno 1, avanza gradualmente.";
+
+      const CATEGORIES = [
+        {
+          name: "Mobilize",
+          color: "#7C9885",
+          tint: "#f2f6f3",
+          exercises: [
+            {
+              name: "Pelvic Lift",
+              pose: "supineBent",
+              reps: "10 volte",
+              tip: "Muovi il bacino avanti e indietro appiattendo e inarcando leggermente la zona lombare. Movimento piccolo e lento, non forzare.",
+            },
+            {
+              name: "Knee Rolling",
+              pose: "supineBent",
+              reps: "10 volte",
+              tip: "Ginocchia unite, ruota entrambe da un lato senza sollevare le spalle da terra. Ferma se senti tirare troppo.",
+            },
+            {
+              name: "Hip Flex",
+              pose: "supineTabletop",
+              reps: "10 volte per lato",
+              tip: "Porta un ginocchio verso il petto tenendo l'altra gamba rilassata. Non trattenere il respiro.",
+            },
+            {
+              name: "Knees to Chest",
+              pose: "supineTabletop",
+              reps: "10 volte",
+              tip: "Entrambe le ginocchia al petto insieme, dondolo leggero se comodo. Fermati se senti fitte, non solo tensione.",
+            },
+            {
+              name: "Sitting Forward Position",
+              pose: "seatedForward",
+              reps: "10 volte",
+              tip: "Seduta su sedia, piega il busto in avanti portando le mani verso il pavimento. Piega dalle anche, non incurvare solo le spalle.",
+            },
+            {
+              name: "Hip Extension",
+              pose: "standingLegBack",
+              reps: "10 volte per lato",
+              tip: "In piedi, porta una gamba dritta indietro senza inarcare la zona lombare. Il movimento parte dall'anca, non dalla schiena.",
+            },
+            {
+              name: "Forward Bend",
+              pose: "standingForwardFold",
+              reps: "10 volte",
+              tip: "Scendi lentamente vertebra per vertebra, ginocchia morbide. Risali altrettanto lentamente, testa per ultima.",
+            },
+            {
+              name: "Front Lying Back Lift",
+              pose: "proneExtend",
+              reps: "10 volte",
+              tip: "A pancia in giù, solleva leggermente il petto senza spingere con le mani. Sollevamento piccolo, non da superman completo.",
+            },
+          ],
+        },
+        {
+          name: "Move",
+          color: "#6B8CAE",
+          tint: "#f0f4f8",
+          exercises: [
+            {
+              name: "Cat / Camel",
+              pose: "quadruped",
+              reps: "10 volte",
+              tip: "Carponi, alterna inarcare (camel) e incavare (cat) la schiena seguendo il respiro. Movimento fluido, non a scatti.",
+            },
+            {
+              name: "Child's Pose",
+              pose: "childPose",
+              reps: "10 volte",
+              tip: "Siedi sui talloni, busto disteso in avanti, braccia lunghe davanti. Lascia che il peso affondi, non spingere.",
+            },
+            {
+              name: "Thread the Needle",
+              pose: "quadruped",
+              reps: "10 volte per lato",
+              tip: "Carponi, infila un braccio sotto l'altra spalla ruotando il busto. Muovi dal centro schiena, tieni i fianchi fermi.",
+            },
+            {
+              name: "Leg Cross Overs",
+              pose: "sideLying",
+              reps: "5 volte",
+              tip: "Da sdraiata, porta le ginocchia piegate da un lato all'altro tenendo le spalle a terra. Rotazione controllata, non lasciarla cadere di peso.",
+            },
+            {
+              name: "Marching",
+              pose: "standingKneeUp",
+              reps: "10 volte per lato",
+              tip: "In piedi o sdraiata, solleva un ginocchio alla volta come se marciassi. Bacino stabile, non oscillare.",
+            },
+            {
+              name: "Hip Up and Out",
+              pose: "standingKneeUp",
+              reps: "4–5 volte, entrambi i lati",
+              tip: "Solleva il ginocchio poi apri l'anca verso l'esterno. Movimento lento, appoggio stabile sull'altra gamba.",
+            },
+            {
+              name: "Shoulder Blade Squeeze",
+              pose: "standingSqueeze",
+              reps: "10 volte",
+              tip: "Stringi le scapole verso la colonna, spalle basse e rilassate. Non alzare le spalle verso le orecchie.",
+            },
+            {
+              name: "Standing Bow and Arrow",
+              pose: "standingLegBack",
+              reps: "10 volte per lato",
+              tip: "In piedi, simula il gesto di tirare con l'arco ruotando il busto. Ruota dal torace, mantieni il bacino stabile.",
+            },
+          ],
+        },
+        {
+          name: "Strengthen",
+          color: "#B08968",
+          tint: "#f9f3ee",
+          note: PROGRESSIVE_NOTE,
+          exercises: [
+            {
+              name: "Static Glutes",
+              pose: "supineBent",
+              reps: "10 volte, tieni 5 sec",
+              tip: "Sdraiata, ginocchia piegate, contrai i glutei senza sollevare il bacino. Solo contrazione isometrica, nessun movimento.",
+            },
+            {
+              name: "Bilateral Bridge",
+              pose: "supineBent",
+              reps: "10 volte",
+              tip: "Solleva il bacino da terra fino ad allineare ginocchia-anche-spalle. Non inarcare oltre la linea retta, spingi con i talloni.",
+            },
+            {
+              name: "Offset Bridge",
+              pose: "supineBent",
+              reps: "10 volte per lato",
+              tip: "Come il ponte, ma con più peso su una gamba. Bacino livellato, non far cadere il lato scarico.",
+            },
+            {
+              name: "Split Stance Hip Hinge",
+              pose: "lungeSquat",
+              reps: "10 volte per lato",
+              tip: "Un piede avanti, uno indietro, piega dalle anche mantenendo la schiena dritta. La schiena resta neutra, il movimento è all'anca.",
+            },
+            {
+              name: "Forward Bend Hip Hinge",
+              pose: "standingForwardFold",
+              reps: "10 volte",
+              tip: "Piega il busto in avanti spingendo i fianchi indietro, schiena piatta, non arrotondata. Ginocchia morbide, peso sui talloni.",
+            },
+            {
+              name: "Squat",
+              pose: "lungeSquat",
+              reps: "10 volte",
+              tip: "Scendi come per sederti su una sedia, ginocchia in linea con le punte dei piedi. Non lasciare che le ginocchia cadano verso l'interno.",
+            },
+            {
+              name: "Jefferson Curl",
+              pose: "standingForwardFold",
+              reps: "8–10 volte, lento",
+              tip: "Arrotola la colonna vertebra per vertebra dall'alto verso il basso, poi risali allo stesso modo. Corpo libero, mai a scatti. Evita se hai un'ernia diagnosticata o dolore acuto in flessione — verifica con il fisioterapista prima.",
+            },
+            {
+              name: "Exercise Top End",
+              pose: "standingSqueeze",
+              reps: "10 volte",
+              tip: "Solleva le braccia mantenendo il core attivo e la schiena neutra. Non inarcare la lombare per guadagnare altezza.",
+            },
+          ],
+        },
+        {
+          name: "Activate",
+          color: "#A0616A",
+          tint: "#faf1f1",
+          note: PROGRESSIVE_NOTE,
+          exercises: [
+            {
+              name: "Superman",
+              pose: "proneExtend",
+              reps: "10 volte",
+              tip: "A pancia in giù, solleva braccio e gamba opposti insieme. Sollevamento controllato, non un colpo secco verso l'alto.",
+            },
+            {
+              name: "Deadbug",
+              pose: "supineTabletop",
+              reps: "10 volte per lato",
+              tip: "Sdraiata, ginocchia a 90°, estendi braccio e gamba opposti mantenendo la lombare a contatto col pavimento. Se la schiena si inarca, riduci l'ampiezza del movimento.",
+            },
+            {
+              name: "Half Front Plank",
+              pose: "plank",
+              reps: "tieni 10–15 sec",
+              tip: "Sugli avambracci, corpo in linea da testa a ginocchia. Non far cadere il bacino né alzarlo a punta.",
+            },
+            {
+              name: "Half Side Plank",
+              pose: "sideLying",
+              reps: "tieni 10–15 sec per lato",
+              tip: "Su un fianco, appoggio su avambraccio e ginocchio, solleva il bacino. Corpo in linea, non ruotare in avanti.",
+            },
+            {
+              name: "Child's Pose + Extension",
+              pose: "childPose",
+              reps: "10 volte",
+              tip: "Dalla posizione del bambino, scivola in avanti allungando la schiena, poi torna indietro. Movimento lento e continuo.",
+            },
+            {
+              name: "Lunge and Twist",
+              pose: "lungeSquat",
+              reps: "10 volte per lato",
+              tip: "In affondo, ruota il busto verso la gamba avanti. Ruota dal torace tenendo il bacino rivolto in avanti.",
+            },
+          ],
+        },
+      ];
+
+      const FLAT = CATEGORIES.flatMap((cat) =>
+        cat.exercises.map((ex) => ({
+          name: ex.name,
+          pose: ex.pose,
+          reps: ex.reps,
+          tip: ex.tip,
+          category: cat.name,
+          color: cat.color,
+          tint: cat.tint,
+          note: cat.note,
+        })),
+      );
+
+      // --- Stick-figure poses (inline SVG, no assets) ------------------------
+      const SVGNS = "http://www.w3.org/2000/svg";
+      const POSES = {
+        supineBent: {
+          c: [[18, 55, 7]],
+          d: [
+            "M25 55 H55",
+            "M55 55 L70 40 L70 75",
+            "M55 55 L75 55 L88 40 L88 75",
+            "M30 50 L35 40",
+          ],
+        },
+        supineTabletop: {
+          c: [[18, 60, 7]],
+          d: [
+            "M25 60 H60",
+            "M60 60 L68 35 L85 30",
+            "M60 60 L70 40 L60 25",
+            "M30 55 L15 40",
+          ],
+        },
+        seatedForward: {
+          c: [[55, 45, 7]],
+          faint: ["M40 80 H90 M40 80 V50 M90 80 V50"],
+          d: ["M55 52 L70 65", "M70 65 L55 85", "M70 65 L90 85", "M62 58 L45 85"],
+        },
+        standingLegBack: {
+          c: [[55, 20, 7]],
+          d: [
+            "M55 27 V55",
+            "M55 35 L35 45",
+            "M55 35 L75 25",
+            "M55 55 L45 85",
+            "M55 55 L75 70 L90 60",
+          ],
+        },
+        standingForwardFold: {
+          c: [[70, 30, 7]],
+          d: [
+            "M67 36 Q50 55 40 75",
+            "M40 75 L38 90",
+            "M60 55 L35 65",
+            "M55 90 V60 M70 90 V60",
+          ],
+        },
+        proneExtend: {
+          c: [[85, 45, 7]],
+          d: [
+            "M78 48 Q55 55 30 50",
+            "M85 52 L95 65",
+            "M78 45 L95 35",
+            "M35 52 L20 45",
+            "M35 52 L20 60",
+          ],
+        },
+        quadruped: {
+          c: [[90, 40, 7]],
+          d: [
+            "M83 42 Q55 40 30 60",
+            "M83 48 L83 75",
+            "M45 55 L38 78",
+            "M30 60 L25 75",
+          ],
+        },
+        childPose: {
+          c: [[22, 35, 7]],
+          d: ["M85 70 Q60 75 45 65 Q35 60 25 40", "M85 70 L85 55", "M45 65 L45 55"],
+        },
+        sideLying: {
+          c: [[20, 45, 7]],
+          d: ["M27 47 H65", "M65 47 L90 40", "M65 50 L88 60"],
+        },
+        standingKneeUp: {
+          c: [[60, 20, 7]],
+          d: [
+            "M60 27 V55",
+            "M60 55 L45 60 L48 40",
+            "M60 55 L70 85",
+            "M60 35 L45 30",
+            "M60 35 L75 45",
+          ],
+        },
+        standingSqueeze: {
+          c: [[60, 20, 7]],
+          d: [
+            "M60 27 V70",
+            "M60 35 L40 25",
+            "M60 35 L80 25",
+            "M60 70 L48 95 M60 70 L72 95",
+          ],
+        },
+        lungeSquat: {
+          c: [[55, 18, 7]],
+          d: [
+            "M55 25 V50",
+            "M55 30 L35 40 M55 30 L75 40",
+            "M55 50 L35 65 L30 90",
+            "M55 50 L78 60 L85 40",
+          ],
+        },
+        plank: {
+          c: [[95, 50, 7]],
+          d: ["M88 52 L25 62", "M90 58 L90 75 M78 60 L78 75", "M25 62 L20 50"],
+        },
+      };
+
+      function strokeAttrs(node, faint) {
+        node.setAttribute("fill", "none");
+        node.setAttribute("stroke", "#44403c");
+        node.setAttribute("stroke-width", "3.2");
+        node.setAttribute("stroke-linecap", "round");
+        node.setAttribute("stroke-linejoin", "round");
+        if (faint) node.setAttribute("stroke-opacity", "0.35");
+      }
+
+      function poseSvg(id) {
+        const svg = document.createElementNS(SVGNS, "svg");
+        svg.setAttribute("viewBox", "0 0 120 100");
+        svg.setAttribute("class", "pose");
+        svg.setAttribute("aria-hidden", "true");
+        const spec = POSES[id];
+        if (!spec) return svg;
+        for (const d of spec.faint || []) {
+          const p = document.createElementNS(SVGNS, "path");
+          p.setAttribute("d", d);
+          strokeAttrs(p, true);
+          svg.appendChild(p);
+        }
+        for (const circle of spec.c || []) {
+          const el = document.createElementNS(SVGNS, "circle");
+          el.setAttribute("cx", String(circle[0]));
+          el.setAttribute("cy", String(circle[1]));
+          el.setAttribute("r", String(circle[2]));
+          strokeAttrs(el, false);
+          svg.appendChild(el);
+        }
+        for (const d of spec.d || []) {
+          const p = document.createElementNS(SVGNS, "path");
+          p.setAttribute("d", d);
+          strokeAttrs(p, false);
+          svg.appendChild(p);
+        }
+        return svg;
+      }
+
+      // --- DOM helper --------------------------------------------------------
+      function el(tag, opts, children) {
+        const node = document.createElement(tag);
+        opts = opts || {};
+        if (opts.class) node.className = opts.class;
+        if (opts.text != null) node.textContent = opts.text;
+        if (opts.onClick) node.addEventListener("click", opts.onClick);
+        if (opts.style) Object.assign(node.style, opts.style);
+        if (opts.attrs) {
+          for (const key of Object.keys(opts.attrs)) {
+            node.setAttribute(key, opts.attrs[key]);
+          }
+        }
+        for (const child of children || []) {
+          if (child) node.appendChild(child);
+        }
+        return node;
+      }
+
+      // --- Persistence: difficulty / rotation index per category -----------
+      const ROTATION_KEY = "esercizi-schiena-rotation";
+      const DEFAULT_ROTATION = { Mobilize: 0, Move: 0, Strengthen: 0, Activate: 0 };
+
+      function loadRotation() {
+        try {
+          const raw = localStorage.getItem(ROTATION_KEY);
+          if (!raw) return Object.assign({}, DEFAULT_ROTATION);
+          const parsed = JSON.parse(raw);
+          return Object.assign({}, DEFAULT_ROTATION, parsed);
+        } catch (err) {
+          return Object.assign({}, DEFAULT_ROTATION);
+        }
+      }
+
+      function saveRotation(next) {
+        try {
+          localStorage.setItem(ROTATION_KEY, JSON.stringify(next));
+        } catch (err) {
+          // private mode / storage disabled — the session still works in memory
+        }
+      }
+
+      // --- State ----------------------------------------------------------
+      let mode = null; // null | "breve" | "completo"
+      let rotation = loadRotation();
+      let index = 0;
+      let done = new Set();
+
+      function currentList() {
+        if (mode === "breve") {
+          return CATEGORIES.map((cat) => {
+            const i = rotation[cat.name] % cat.exercises.length;
+            const ex = cat.exercises[i];
+            return {
+              name: ex.name,
+              pose: ex.pose,
+              reps: ex.reps,
+              tip: ex.tip,
+              category: cat.name,
+              color: cat.color,
+              tint: cat.tint,
+              note: cat.note,
+            };
+          });
+        }
+        return FLAT;
+      }
+
+      // --- Actions ------------------------------------------------------
+      function startMode(next) {
+        mode = next;
+        index = 0;
+        done = new Set();
+        render();
+      }
+
+      function markDone() {
+        done.add(index);
+        index += 1;
+        render();
+      }
+
+      function skip() {
+        index += 1;
+        render();
+      }
+
+      function adjustDifficulty(categoryName, delta) {
+        const cat = CATEGORIES.find((c) => c.name === categoryName);
+        if (!cat) return;
+        const max = cat.exercises.length - 1;
+        const value = Math.min(max, Math.max(0, rotation[categoryName] + delta));
+        rotation = Object.assign({}, rotation, { [categoryName]: value });
+        saveRotation(rotation);
+        render();
+      }
+
+      function backToMenu() {
+        if (mode === "breve") {
+          const next = Object.assign({}, rotation);
+          for (const name of ["Mobilize", "Move"]) {
+            const cat = CATEGORIES.find((c) => c.name === name);
+            next[name] = (rotation[name] + 1) % cat.exercises.length;
+          }
+          rotation = next;
+          saveRotation(rotation);
+        }
+        mode = null;
+        index = 0;
+        done = new Set();
+        render();
+      }
+
+      // --- Screens ----------------------------------------------------
+      function menuScreen() {
+        return el("div", { class: "screen" }, [
+          el("h1", { class: "title", text: "Esercizi schiena" }),
+          el("p", {
+            class: "lede",
+            text:
+              "Il giro breve tocca tutte e 4 le categorie in poche mosse — fallo a ogni pausa. " +
+              "Per Strengthen e Activate resti sullo stesso livello finché non dici tu «più difficile»: non avanza da solo.",
+          }),
+          el("button", { class: "big big--dark", onClick: () => startMode("breve") }, [
+            el("span", { class: "big__label", text: "Giro breve" }),
+            el("span", {
+              class: "big__sub",
+              text: "1 esercizio per categoria · ~2 min",
+            }),
+          ]),
+          el(
+            "button",
+            { class: "big big--light", onClick: () => startMode("completo") },
+            [
+              el("span", { class: "big__label", text: "Sessione completa" }),
+              el("span", {
+                class: "big__sub",
+                text: "Tutti i " + FLAT.length + " esercizi in sequenza",
+              }),
+            ],
+          ),
+        ]);
+      }
+
+      function progressBar(list) {
+        const bar = el("div", {
+          class: "progress",
+          attrs: { role: "progressbar", "aria-label": "Avanzamento sessione" },
+        });
+        list.forEach((_, i) => {
+          const dot = el("div", { class: "progress__dot" });
+          dot.style.backgroundColor = done.has(i)
+            ? "#44403c"
+            : i === index
+              ? "#d6d3d1"
+              : "#e7e5e4";
+          bar.appendChild(dot);
+        });
+        return bar;
+      }
+
+      function exerciseCard(ex) {
+        const body = el("div", { class: "card__body" }, [
+          el("h2", { class: "card__name", text: ex.name }),
+          el("p", { class: "card__reps", text: ex.reps }),
+        ]);
+
+        if (ex.tip) {
+          body.appendChild(
+            el("div", { class: "tip" }, [
+              el("span", {
+                class: "tip__icon",
+                text: "⚠",
+                attrs: { "aria-hidden": "true" },
+              }),
+              el("p", { class: "tip__text", text: ex.tip }),
+            ]),
+          );
+        }
+
+        const manual =
+          mode === "breve" &&
+          (ex.category === "Strengthen" || ex.category === "Activate");
+        if (manual) {
+          body.appendChild(
+            el("div", { class: "difficulty" }, [
+              el("button", {
+                class: "difficulty__btn",
+                text: "◀ più facile",
+                onClick: () => adjustDifficulty(ex.category, -1),
+              }),
+              el("button", {
+                class: "difficulty__btn",
+                text: "più difficile ▶",
+                onClick: () => adjustDifficulty(ex.category, 1),
+              }),
+            ]),
+          );
+        }
+
+        return el("div", { class: "card", style: { backgroundColor: ex.tint } }, [
+          el("div", {
+            class: "card__figure",
+            style: { backgroundColor: ex.color + "18" },
+          }, [poseSvg(ex.pose)]),
+          body,
+        ]);
+      }
+
+      function finishScreen(list) {
+        const box = el("div", { class: "finish" }, [
+          el("p", {
+            class: "finish__check",
+            text: "✓",
+            attrs: { "aria-hidden": "true" },
+          }),
+          el("h2", { class: "finish__title", text: "Fatto per oggi" }),
+          el("p", {
+            class: "finish__count",
+            text: done.size + " di " + list.length + " esercizi completati",
+          }),
+        ]);
+        if (mode === "breve") {
+          box.appendChild(
+            el("p", {
+              class: "finish__hint",
+              text:
+                "Al prossimo giro breve, Mobilize e Move passano agli esercizi successivi in rotazione. " +
+                "Strengthen e Activate restano al livello attuale.",
+            }),
+          );
+        }
+        return el("div", { class: "screen" }, [
+          progressBar(list),
+          box,
+          el("button", {
+            class: "big big--light",
+            text: "↺  Torna al menu",
+            onClick: backToMenu,
+          }),
+        ]);
+      }
+
+      function sessionScreen() {
+        const list = currentList();
+        if (index >= list.length) return finishScreen(list);
+
+        const ex = list[index];
+        const badgeRow = el("div", { class: "badge-row" }, [
+          el("span", {
+            class: "badge",
+            text: ex.category,
+            style: { backgroundColor: ex.color },
+          }),
+        ]);
+        if (ex.note) {
+          badgeRow.appendChild(el("p", { class: "note", text: ex.note }));
+        }
+
+        return el("div", { class: "screen" }, [
+          progressBar(list),
+          badgeRow,
+          exerciseCard(ex),
+          el("button", {
+            class: "big big--dark done-btn",
+            text: "✓  Fatto",
+            onClick: markDone,
+          }),
+          el("button", {
+            class: "linkbtn",
+            text: "Salta per oggi",
+            onClick: skip,
+          }),
+          el("p", {
+            class: "counter",
+            text: index + 1 + " di " + list.length,
+          }),
+        ]);
+      }
+
+      // --- Mount ----------------------------------------------------
+      const root = document.getElementById("app");
+
+      function render() {
+        root.replaceChildren(mode === null ? menuScreen() : sessionScreen());
+        window.scrollTo(0, 0);
+      }
+
+      render();
+    </script>
+  </body>
+</html>
