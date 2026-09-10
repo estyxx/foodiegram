@@ -745,6 +745,22 @@
         render();
       }
 
+      function resetProgress(evt) {
+        const ok = window.confirm(
+          "Azzero i progressi salvati? Rotazione e livelli di difficoltà tornano all'inizio.",
+        );
+        if (!ok) return;
+        rotation = Object.assign({}, DEFAULT_ROTATION);
+        try {
+          localStorage.removeItem(ROTATION_KEY);
+        } catch (err) {
+          // storage disabled — the in-memory reset is enough
+        }
+        const btn = evt.currentTarget;
+        btn.textContent = "Progressi azzerati ✓";
+        btn.disabled = true;
+      }
+
       // --- Screens ----------------------------------------------------
       function menuScreen() {
         return el("div", { class: "screen" }, [
@@ -773,6 +789,11 @@
               }),
             ],
           ),
+          el("button", {
+            class: "linkbtn",
+            text: "Azzera progressi salvati",
+            onClick: resetProgress,
+          }),
         ]);
       }
 
