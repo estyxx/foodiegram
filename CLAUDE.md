@@ -1,4 +1,4 @@
-# Dispensa (foodiegram)
+# Dispensa (dispensa)
 
 A personal Mediterranean-diet recipe library + weekly meal planner. Ingests Instagram
 saves, extracts structured recipe data from the Instagram's caption with OpenAI, exposes it to Claude via an MCP
@@ -193,7 +193,7 @@ boundaries (Instagram SDK, LLM JSON output, persisted files/API). Don't mix in
 
 ## Errors & logging
 
-- One small exception hierarchy per area, e.g. `class FoodiegramError(Exception)`,
+- One small exception hierarchy per area, e.g. `class DispensaError(Exception)`,
   then `InstagramFetchError`, `ExtractionError`, `StorageError`. Raise these, not
   bare `Exception`.
 - Catch narrowly, log with `logger.exception("context: %s", value)`, then re-raise
@@ -211,14 +211,14 @@ boundaries (Instagram SDK, LLM JSON output, persisted files/API). Don't mix in
 ## Package layout
 
 The file map that accompanies the Architecture section above (same layering; DDD-lite,
-not full DDD). Package: `foodiegram`. Module root: `src/foodiegram/`.
+not full DDD). Package: `dispensa`. Module root: `src/dispensa/`.
 
 ```
 domain/               pure models, enums, errors + pure logic. No I/O. No SDKs.
   enums.py            StrEnum: MealType, DishType, CuisineType, Difficulty, Course, MedCategory…
   models.py           Recipe, ExtractedRecipe, Extraction, CategoryServing,
                       ExtractedCategoryServing, MappedRecipe, UserState (Pydantic, frozen)
-  errors.py           FoodiegramError hierarchy
+  errors.py           DispensaError hierarchy
   editing.py          promote() + user-owned-field rules
   diffing.py          field-level diff between extraction payloads
   planning.py         WeekPlan, PlannedMeal, targets, balance math
@@ -238,12 +238,12 @@ api.py                create_app() factory: wires the routers, Basic auth, gzip,
 api_auth.py           Basic auth middleware.
 api_models.py         API-layer response models (RecipeSummary, RecipeDetail, etc.)
 deps.py               builds the repositories from settings; injected into routers.
-settings.py           pydantic-settings BaseSettings. Env prefix FOODIEGRAM_.
+settings.py           pydantic-settings BaseSettings. Env prefix DISPENSA_.
                       Never log the settings object itself.
 ```
 
 `cli.py` exposes typer command groups over `app/` (`db` for local-DB maintenance,
-`sync` for Stage-B ingestion); `scripts/*.py` are thin wrappers; `foodiegram.api:main`
+`sync` for Stage-B ingestion); `scripts/*.py` are thin wrappers; `dispensa.api:main`
 runs the server.
 
 Storage is **SQLModel** on Postgres everywhere (local working DB, a separate test DB,
@@ -366,7 +366,7 @@ project. These extend (never replace) the existing rules in this file.
     domain.
 - No inheritance for code reuse — composition only. No mixins, no abstract base
     ceremony; a `Protocol` where a second implementation actually exists.
-- Narrow, typed exceptions from the FoodiegramError hierarchy; raise early,
+- Narrow, typed exceptions from the DispensaError hierarchy; raise early,
     catch at the edge that can act on it.
 
 ### Tests (Kraken style)

@@ -1,7 +1,7 @@
 import pytest
 
-from foodiegram.domain.enums import Course, MedCategory, RecipeSource
-from foodiegram.domain.models import (
+from dispensa.domain.enums import Course, MedCategory, RecipeSource
+from dispensa.domain.models import (
     CategoryServing,
     ExtractedCategoryServing,
     ExtractedRecipe,

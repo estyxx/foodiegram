@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING
 
 from openai import OpenAI
 
-from foodiegram.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
-    from foodiegram.domain.models import Recipe
+    from dispensa.domain.models import Recipe
 
 QUERIES = [
     "dolce per colazione con proteine",

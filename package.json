@@ -1,7 +1,7 @@
 {
-  "name": "foodiegram-frontend",
+  "name": "dispensa-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Foodiegram recipe browser",
+  "description": "Frontend for Dispensa recipe browser",
   "main": "ui/index.html",
   "scripts": {
     "build": "echo 'No build step required for static site'",

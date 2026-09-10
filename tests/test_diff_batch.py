@@ -2,10 +2,10 @@ from collections.abc import Callable
 
 from sqlalchemy import Engine
 
-from foodiegram.app.diff_batch import diff_versions
-from foodiegram.domain.models import ExtractedRecipe, Extraction, Recipe
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.diff_batch import diff_versions
+from dispensa.domain.models import ExtractedRecipe, Extraction, Recipe
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 
 def _recipe_stub(code: str) -> Recipe:

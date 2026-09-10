@@ -6,8 +6,8 @@ Set INSTAGRAM_2FA_CODE in the environment if the account uses 2FA.
 
 import logging
 
-from foodiegram.instagram import login_client
-from foodiegram.settings import Settings
+from dispensa.instagram import login_client
+from dispensa.settings import Settings
 
 
 def main() -> None:

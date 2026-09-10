@@ -2,14 +2,14 @@ from unittest.mock import patch
 
 from sqlalchemy import Engine
 
-from foodiegram.deps import Deps
-from foodiegram.mcp_server.server import get_recipe
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.pantry_db import PantryRepository
-from foodiegram.storage.plans_db import PlanRepository
-from foodiegram.storage.recipes_db import RecipeRepository
-from foodiegram.storage.targets_db import TargetRepository
-from foodiegram.storage.user_state_db import UserStateRepository
+from dispensa.deps import Deps
+from dispensa.mcp_server.server import get_recipe
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.pantry_db import PantryRepository
+from dispensa.storage.plans_db import PlanRepository
+from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.targets_db import TargetRepository
+from dispensa.storage.user_state_db import UserStateRepository
 from tests.test_storage_db import _full_recipe
 
 _MED_CATEGORIES = 2
@@ -35,7 +35,7 @@ def test_get_recipe_returns_full_detail_with_ingredients_and_instructions(
     RecipeRepository(engine).save(recipe)
     deps = _deps(engine)
 
-    with patch("foodiegram.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server._deps", return_value=deps):
         result = get_recipe(code=recipe.code)
 
     assert result is not None
@@ -61,7 +61,7 @@ def test_get_recipe_null_title_serialises_as_null(engine: Engine) -> None:
     RecipeRepository(engine).save(recipe)
     deps = _deps(engine)
 
-    with patch("foodiegram.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server._deps", return_value=deps):
         result = get_recipe(code="NULLT")
 
     assert result is not None
@@ -72,7 +72,7 @@ def test_get_recipe_unknown_code_returns_none(engine: Engine) -> None:
     """An unknown code returns None without raising."""
     deps = _deps(engine)
 
-    with patch("foodiegram.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server._deps", return_value=deps):
         result = get_recipe(code="UNKNOWN")
 
     assert result is None

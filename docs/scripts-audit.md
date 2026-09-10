@@ -5,7 +5,7 @@ validated plan for the consolidated `sync` typer command group. **No files were
 changed, moved, or deleted.** This is a proposal for review before phase 2.
 
 Reference sources checked: `pyproject.toml` `[project.scripts]` (only
-`foodiegram-api` → `api:main` and `foodiegram` → `cli:main`; **no script under
+`dispensa-api` → `api:main` and `dispensa` → `cli:main`; **no script under
 `scripts/` is a packaged entry point**), `Makefile`, `docs/PLAN.md`, `README.md`,
 `tests/`, and a repo-wide grep of each module name. There is **no CI** (`.github/`
 absent), so CI references are N/A.
@@ -13,7 +13,7 @@ absent), so CI references are N/A.
 Two facts that drive several classifications:
 
 - `Recipe.from_extracted` already parses `base_servings` from the `servings`
-  string (`src/foodiegram/domain/models.py:214-218`), so the extract→promote path
+  string (`src/dispensa/domain/models.py:214-218`), so the extract→promote path
   populates it automatically now.
 - Nothing in the ingest or extract path sets `author_username`; only
   `backfill_authors.py` ever did, and it reads the local instagrapi cache, which is
@@ -77,7 +77,7 @@ DEV — probes / eval / QA / prerequisites worth keeping:
 
 ## NEEDS-ESTER-DECISION
 
-- `snapshot_instagram.py` (+ new `src/foodiegram/instagram/snapshot.py` and
+- `snapshot_instagram.py` (+ new `src/dispensa/instagram/snapshot.py` and
   `tests/test_snapshot_instagram.py`) — keep the instagrapi Stage-A alternative to
   the browser export, or standardize on IGbulkCollector→IGbulkDL and drop it? It is
   new, tested, uncommitted work; the redundancy is with the browser path, and the

@@ -3,7 +3,7 @@ from typing import Literal
 
 from sqlalchemy import Engine, text
 
-from foodiegram.domain.enums import (
+from dispensa.domain.enums import (
     Course,
     CuisineType,
     Difficulty,
@@ -12,15 +12,15 @@ from foodiegram.domain.enums import (
     MedCategory,
     RecipeSource,
 )
-from foodiegram.domain.models import (
+from dispensa.domain.models import (
     CategoryServing,
     ExtractedRecipe,
     Extraction,
     Recipe,
 )
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
-from foodiegram.storage.user_state_db import UserStateRepository
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.user_state_db import UserStateRepository
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5

@@ -3,11 +3,11 @@ from collections.abc import Callable
 from sqlalchemy import Engine, text
 from sqlmodel import Session
 
-from foodiegram.app.promotion import promote_version
-from foodiegram.domain.models import ExtractedRecipe, Extraction, Recipe
-from foodiegram.storage._tables import ExtractionRow
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.promotion import promote_version
+from dispensa.domain.models import ExtractedRecipe, Extraction, Recipe
+from dispensa.storage._tables import ExtractionRow
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 
 def _stub_recipe(

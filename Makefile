@@ -57,12 +57,12 @@ backfill:
 
 # Create local Postgres databases (working + test) and schema.
 db-init:
-	uv run foodiegram db create-database
-	uv run foodiegram db create-database --test
-	uv run foodiegram db create-tables
+	uv run dispensa db create-database
+	uv run dispensa db create-database --test
+	uv run dispensa db create-tables
 
 serve-api:
-	uv run uvicorn foodiegram.api:app --reload --port 8000
+	uv run uvicorn dispensa.api:app --reload --port 8000
 
 # Serve the composed app (API + Bearer-gated /mcp) via the [tool.fastapi]
 # entrypoint, exactly as FastAPI Cloud does. Requires MCP_AUTH_TOKEN in the env.

@@ -2,14 +2,14 @@ import math
 
 from sqlalchemy import Engine, func, select
 
-from foodiegram.ai.embeddings import recipe_document
-from foodiegram.domain.enums import MealType
-from foodiegram.domain.hashing import document_hash
-from foodiegram.domain.models import Recipe
-from foodiegram.domain.similarity import cosine_similarity
-from foodiegram.storage._tables import RecipeEmbeddingRow
-from foodiegram.storage.db import get_session
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.ai.embeddings import recipe_document
+from dispensa.domain.enums import MealType
+from dispensa.domain.hashing import document_hash
+from dispensa.domain.models import Recipe
+from dispensa.domain.similarity import cosine_similarity
+from dispensa.storage._tables import RecipeEmbeddingRow
+from dispensa.storage.db import get_session
+from dispensa.storage.recipes_db import RecipeRepository
 
 _MODEL = "text-embedding-3-small"
 _LIMIT_TWO = 2

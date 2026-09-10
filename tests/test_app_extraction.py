@@ -3,11 +3,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine
 
-from foodiegram.app import extraction
-from foodiegram.domain.models import Recipe
-from foodiegram.settings import Settings
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app import extraction
+from dispensa.domain.models import Recipe
+from dispensa.settings import Settings
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 _CAPTION = "x" * 100
 _SUBMIT_LIMIT = 2

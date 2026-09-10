@@ -1,6 +1,6 @@
 > SUPERSEDED. Current plan lives in docs/PLAN.md. Kept for history.
 
-# Foodiegram — Revival Plan
+# Dispensa — Revival Plan
 
 A staged roadmap from the current (working but messy) state to a clean,
 searchable, editable, meal-planning recipe app. Built so each phase ships
@@ -14,7 +14,7 @@ The pipeline *works* — you've extracted real recipes (the lemon-chicken escalo
 came through with full ingredients, English translation, and ~30 tag fields). The
 problems are consistency and sprawl, not capability:
 
-- **Name drift.** Resolved: the one name is `foodiegram`. The Python package and
+- **Name drift.** Resolved: the one name is `dispensa`. The Python package and
   all imports already use it; remaining `cookstagram` references live only in docs,
   the frontend, and live infra (the `cookstagram-data` repo / Vercel URL).
 - **Two `Recipe` models.** `types.py` defines an old, thin `Recipe`
@@ -33,7 +33,7 @@ problems are consistency and sprawl, not capability:
 - **`repository.py` references fields the model doesn't have** (`post_pk`,
   `cooking_methods` on the wrong model) — it was written against a different Recipe
   shape. It'll only line up once there's one model.
-- **Frontend sprawl.** `index.html`, `mobile.html`, `foodiegram.html`,
+- **Frontend sprawl.** `index.html`, `mobile.html`, `dispensa.html`,
   `recipe.html`, `analytics.html`, `planner.html` + `app.js` + `recipe.js` are
   overlapping single-file apps. Collapse to one.
 - **Error handling** is `print` + bare `except` + `traceback.print_exc()`
@@ -46,7 +46,7 @@ None of this is hard to fix. It's mostly consolidation.
 ## 2. Target architecture (DDD-lite, no over-engineering)
 
 ```
-src/foodiegram/
+src/dispensa/
   domain/        models.py, enums.py, errors.py   ← pure, no I/O
   instagram/     client.py, cache.py              ← instagrapi adapter
   ai/            extractor.py, prompts/*.txt       ← batch + interactive extraction
@@ -120,10 +120,10 @@ Each phase is shippable. Do them in order; don't skip to Phase 3.
 
 ### Phase 1 — MVP pipeline (extract → analyze → static site)
 *Goal: re-run end to end and browse the result.*
-- `foodiegram fetch <collection>` → instagrapi → cache JSON (keyed by `code`).
+- `dispensa fetch <collection>` → instagrapi → cache JSON (keyed by `code`).
 - Image step: download media → Cloudinary → store durable URL + `public_id`.
-- `foodiegram analyze` → **Batch API** → validated `Recipe` JSON per post.
-- `foodiegram build` → emit one `recipes.json` (+ a small `index.json`) the
+- `dispensa analyze` → **Batch API** → validated `Recipe` JSON per post.
+- `dispensa build` → emit one `recipes.json` (+ a small `index.json`) the
   frontend reads.
 - One clean frontend: card grid, text search, multi-filter (cuisine, meal, dietary,
   protein). Data in the **private** repo; code stays public.

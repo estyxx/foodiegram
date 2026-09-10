@@ -12,10 +12,10 @@ import logging
 
 from openai import OpenAI
 
-from foodiegram.app.search_recipes import search_recipes_semantic
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.search_recipes import search_recipes_semantic
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine
+from dispensa.storage.recipes_db import RecipeRepository
 
 logger = logging.getLogger(__name__)
 

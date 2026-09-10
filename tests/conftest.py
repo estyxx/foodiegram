@@ -5,19 +5,19 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import SQLModel
 
-from foodiegram.domain.models import (
+from dispensa.domain.models import (
     ExtractedCategoryServing,
     ExtractedRecipe,
     Extraction,
 )
-from foodiegram.settings import Settings
-from foodiegram.storage.db import (
+from dispensa.settings import Settings
+from dispensa.storage.db import (
     _ensure_schema_patches,
     _seed_targets,
     create_db_engine,
     truncate_all_tables,
 )
-from foodiegram.storage.maintenance import ensure_database
+from dispensa.storage.maintenance import ensure_database
 
 _FIXTURE_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 

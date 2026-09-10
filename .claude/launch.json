@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "foodiegram-api",
+      "name": "dispensa-api",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "foodiegram-api"],
+      "runtimeArgs": ["run", "dispensa-api"],
       "port": 8000
     }
   ]

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from foodiegram.app.version import _read_git_commit, resolve_version
+from dispensa.app.version import _read_git_commit, resolve_version
 
 _FULL_SHA = "abcdef1234567890abcdef1234567890abcdef12"
 _SHORT_SHA = "abcdef1"

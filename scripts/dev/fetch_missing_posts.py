@@ -16,8 +16,8 @@ import logging
 import sys
 from pathlib import Path
 
-from foodiegram.instagram import CacheManager, InstagramExtractor
-from foodiegram.settings import Settings
+from dispensa.instagram import CacheManager, InstagramExtractor
+from dispensa.settings import Settings
 
 PKS_DEFAULT = Path("data/all_post_pks.json")
 CACHE_DEFAULT = Path("cookstagram-data/cache")

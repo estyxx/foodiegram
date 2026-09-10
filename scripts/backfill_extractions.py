@@ -15,11 +15,11 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from foodiegram.ai.batch import PROMPT_VERSION, result_to_extraction
-from foodiegram.domain.errors import ExtractionError
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.extractions_db import ExtractionRepository
+from dispensa.ai.batch import PROMPT_VERSION, result_to_extraction
+from dispensa.domain.errors import ExtractionError
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.extractions_db import ExtractionRepository
 
 DEFAULT_FILE = Path("data/batch_output.jsonl")
 LAST_BATCH_ID_PATH = Path("data/last_batch_id.txt")

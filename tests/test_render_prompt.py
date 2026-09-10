@@ -1,7 +1,7 @@
 import pytest
 
-from foodiegram.ai.batch import CAPTION_MARKER, PROMPT_PATH, render_prompt
-from foodiegram.domain.errors import PromptTemplateError
+from dispensa.ai.batch import CAPTION_MARKER, PROMPT_PATH, render_prompt
+from dispensa.domain.errors import PromptTemplateError
 
 _LITERAL_BRACES = "objects of {category, servings, is_oily_fish}"
 

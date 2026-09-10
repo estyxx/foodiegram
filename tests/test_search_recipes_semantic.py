@@ -3,10 +3,10 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import Engine
 
-from foodiegram.app.search_recipes import search_recipes_semantic
-from foodiegram.domain.enums import MealType
-from foodiegram.domain.models import Recipe
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.search_recipes import search_recipes_semantic
+from dispensa.domain.enums import MealType
+from dispensa.domain.models import Recipe
+from dispensa.storage.recipes_db import RecipeRepository
 
 _MODEL = "text-embedding-3-small"
 _QUERY_VECTOR = [1.0, 0.0, 0.0]
@@ -67,7 +67,7 @@ def test_search_recipes_semantic_embeds_query_and_returns_scores(
         return [_QUERY_VECTOR]
 
     monkeypatch.setattr(
-        "foodiegram.app.search_recipes.embed_texts",
+        "dispensa.app.search_recipes.embed_texts",
         fake_embed_texts,
     )
     client = MagicMock()
@@ -107,7 +107,7 @@ def test_search_recipes_semantic_passes_facet_filters(
         return [_QUERY_VECTOR]
 
     monkeypatch.setattr(
-        "foodiegram.app.search_recipes.embed_texts",
+        "dispensa.app.search_recipes.embed_texts",
         fake_embed,
     )
     client = MagicMock()

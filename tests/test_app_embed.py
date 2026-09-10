@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import Engine
 
-from foodiegram.ai.embeddings import recipe_document
-from foodiegram.app.embed import embed_recipes
-from foodiegram.domain.hashing import document_hash
-from foodiegram.domain.models import Recipe
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.ai.embeddings import recipe_document
+from dispensa.app.embed import embed_recipes
+from dispensa.domain.hashing import document_hash
+from dispensa.domain.models import Recipe
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
     from openai import OpenAI

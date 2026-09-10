@@ -1,10 +1,10 @@
-from foodiegram.app.review_categories import (
+from dispensa.app.review_categories import (
     apply_reviewed_categories,
     needs_category_review,
     select_for_review,
 )
-from foodiegram.domain.enums import MedCategory
-from foodiegram.domain.models import (
+from dispensa.domain.enums import MedCategory
+from dispensa.domain.models import (
     CategoryServing,
     ExtractedCategoryServing,
     Recipe,

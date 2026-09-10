@@ -7,16 +7,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from foodiegram.api import create_app
-from foodiegram.deps import AuthConfig, Deps, get_openai_client
-from foodiegram.domain.enums import MedCategory
-from foodiegram.domain.models import CategoryServing, Recipe
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.pantry_db import PantryRepository
-from foodiegram.storage.plans_db import PlanRepository
-from foodiegram.storage.recipes_db import RecipeRepository
-from foodiegram.storage.targets_db import TargetRepository
-from foodiegram.storage.user_state_db import UserStateRepository
+from dispensa.api import create_app
+from dispensa.deps import AuthConfig, Deps, get_openai_client
+from dispensa.domain.enums import MedCategory
+from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.pantry_db import PantryRepository
+from dispensa.storage.plans_db import PlanRepository
+from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.targets_db import TargetRepository
+from dispensa.storage.user_state_db import UserStateRepository
 
 _MONDAY = "2024-01-01"
 _TUESDAY = "2024-01-02"
@@ -357,7 +357,7 @@ def test_semantic_search_ranks_by_similarity_and_reports_score(
     deps.recipes.save_embedding("CLOSE", [1.0, 0.0, 0.0], model="text-embedding-3-small")
     deps.recipes.save_embedding("FAR", [0.0, 1.0, 0.0], model="text-embedding-3-small")
     monkeypatch.setattr(
-        "foodiegram.app.search_recipes.embed_texts",
+        "dispensa.app.search_recipes.embed_texts",
         lambda _texts, *, client, model: [[1.0, 0.0, 0.0]],  # noqa: ARG005
     )
     client.app.dependency_overrides[get_openai_client] = lambda: MagicMock()  # type: ignore[attr-defined]  # reason: TestClient wraps a FastAPI app

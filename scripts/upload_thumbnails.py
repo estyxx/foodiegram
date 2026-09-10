@@ -2,14 +2,14 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from foodiegram.domain.errors import ImageUploadError
-from foodiegram.images import configure, upload_thumbnail
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.domain.errors import ImageUploadError
+from dispensa.images import configure, upload_thumbnail
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
-    from foodiegram.domain.models import Recipe
+    from dispensa.domain.models import Recipe
 
 # --- Inputs / constants ---
 UPLOAD_DELAY_SECONDS = 0.3

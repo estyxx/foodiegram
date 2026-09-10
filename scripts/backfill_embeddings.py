@@ -18,17 +18,17 @@ from openai import OpenAI
 from sqlalchemy import func
 from sqlmodel import select
 
-from foodiegram.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
-from foodiegram.domain.hashing import document_hash
-from foodiegram.settings import Settings
-from foodiegram.storage._tables import RecipeEmbeddingRow
-from foodiegram.storage.db import create_db_engine, get_session
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
+from dispensa.domain.hashing import document_hash
+from dispensa.settings import Settings
+from dispensa.storage._tables import RecipeEmbeddingRow
+from dispensa.storage.db import create_db_engine, get_session
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-    from foodiegram.domain.models import Recipe
+    from dispensa.domain.models import Recipe
 
 _BATCH_SIZE = 100
 

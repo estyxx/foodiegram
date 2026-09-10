@@ -9,23 +9,23 @@ import argparse
 import logging
 from typing import TYPE_CHECKING
 
-from foodiegram.ai.repair import (
+from dispensa.ai.repair import (
     build_category_agent,
     load_processed_meat_keywords,
     propose_categories,
 )
-from foodiegram.app.review_categories import (
+from dispensa.app.review_categories import (
     apply_reviewed_categories,
     select_for_review,
 )
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from foodiegram.domain.models import CategoryServing, ExtractedCategoryServing
+    from dispensa.domain.models import CategoryServing, ExtractedCategoryServing
 
 logger = logging.getLogger(__name__)
 

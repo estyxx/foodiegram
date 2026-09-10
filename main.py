@@ -1,3 +1,3 @@
-from foodiegram.api import app
+from dispensa.api import app
 
 __all__ = ["app"]

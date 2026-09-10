@@ -9,10 +9,10 @@ uv run scripts/diff_batch.py --from-version 1 --to-version 2 [--summary] \
 import argparse
 import logging
 
-from foodiegram.app.diff_batch import diff_versions
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.extractions_db import ExtractionRepository
+from dispensa.app.diff_batch import diff_versions
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.extractions_db import ExtractionRepository
 
 _MAX_LISTED = 60
 

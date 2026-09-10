@@ -30,17 +30,17 @@ recipes whose extracted content actually changed.
 Instagram app (browse & save — keeps the account warm)
   ↓ IGbulkCollector (browser ext) → export post list
   ↓ IGbulkDL --dry-run                     → food.json (captions + CDN URLs)
-  ↓ foodiegram sync ingest food.json       → recipe stubs + Cloudinary thumbnails
-  ↓ foodiegram sync extract                → submits an OpenAI Batch (async)
-  ↓ foodiegram sync status   (optional)    → poll batch completion
-  ↓ foodiegram sync apply                  → extractions rows (immutable history)
-  ↓ foodiegram sync promote --apply        → merge into recipes (user edits preserved)
-  ↓ foodiegram sync embed --changed        → re-embed recipes whose document changed
+  ↓ dispensa sync ingest food.json       → recipe stubs + Cloudinary thumbnails
+  ↓ dispensa sync extract                → submits an OpenAI Batch (async)
+  ↓ dispensa sync status   (optional)    → poll batch completion
+  ↓ dispensa sync apply                  → extractions rows (immutable history)
+  ↓ dispensa sync promote --apply        → merge into recipes (user edits preserved)
+  ↓ dispensa sync embed --changed        → re-embed recipes whose document changed
 
 Web app: browse · search (keyword + AI/semantic) · plan weeks · edit · add manual recipes
 ```
 
-`foodiegram sync backfill-images` is a separate maintenance command: it scans every
+`dispensa sync backfill-images` is a separate maintenance command: it scans every
 recipe already in the DB (not just the recipes in one `food.json` batch) and re-uploads
 a Cloudinary image for any that are missing one — useful for recipes ingested before
 Cloudinary upload was wired in, or whose upload failed the first time.
@@ -52,10 +52,10 @@ Cloudinary upload was wired in, or whose upload failed the first time.
 ```bash
 cp .env.example .env
 uv sync
-uv run foodiegram db create-database         # working DB
-uv run foodiegram db create-database --test  # test DB (pytest only ever uses this one)
-uv run foodiegram db create-tables
-uv run uvicorn foodiegram.api:app --reload --port 8000
+uv run dispensa db create-database         # working DB
+uv run dispensa db create-database --test  # test DB (pytest only ever uses this one)
+uv run dispensa db create-tables
+uv run uvicorn dispensa.api:app --reload --port 8000
 ```
 
 `DATABASE_URL` defaults to local Postgres (`postgresql+psycopg2://dispensa:dispensa@
@@ -68,7 +68,7 @@ used solely by the local ingestion pipeline below.
 ## Project layout
 
 ```
-src/foodiegram/
+src/dispensa/
   domain/        Pure models, enums, errors + pure logic (planning, pantry, shopping,
                  promote()/diff, synonyms) — no I/O, no SDKs
   storage/       Postgres-backed repositories (SQLModel rows never leave this package):
@@ -86,7 +86,7 @@ src/foodiegram/
   api.py         create_app() factory: Basic auth, gzip, CORS, serves the SPA
   mcp_server.py  MCP server exposing recipes/planning to Claude (OAuth-gated /mcp)
   asgi.py        Composition root mounting api + mcp_server (what FastAPI Cloud serves)
-  cli.py         Typer CLI: `foodiegram db …` (maintenance) and `foodiegram sync …`
+  cli.py         Typer CLI: `dispensa db …` (maintenance) and `dispensa sync …`
                  (the ingestion pipeline) — the primary way to run everything below
   settings.py    pydantic-settings (reads .env); DATABASE_URL, OpenAI, Cloudinary, auth
 frontend/        SPA (no-build ES modules): css/ tokens+base+components, js/ views+components
@@ -105,7 +105,7 @@ outside `storage/`.
 
 ## The sync pipeline
 
-Everything below is `uv run foodiegram sync <command>`. Writes (`ingest`, `apply`,
+Everything below is `uv run dispensa sync <command>`. Writes (`ingest`, `apply`,
 `promote --apply`, `embed`, `backfill-images`) print the target database and refuse a
 production-looking host (`neon.tech`/`neon.build`) unless you pass `--yes` — this
 pipeline is meant to run against **local** Postgres.
@@ -129,15 +129,15 @@ pipeline is meant to run against **local** Postgres.
 # 2. IGbulkCollector (browser ext) → export post list.
 # 3. IGbulkDL --dry-run → food.json (captions + CDN URLs; no media downloads).
 
-uv run foodiegram sync ingest data/food.json --yes
-uv run foodiegram sync extract --limit 300         # or omit --limit for everything eligible
+uv run dispensa sync ingest data/food.json --yes
+uv run dispensa sync extract --limit 300         # or omit --limit for everything eligible
 
 # … wait for the OpenAI batch to complete …
-uv run foodiegram sync status --batch <batch_id>   # optional, poll until "completed"
-uv run foodiegram sync apply --batch <batch_id> --yes
+uv run dispensa sync status --batch <batch_id>   # optional, poll until "completed"
+uv run dispensa sync apply --batch <batch_id> --yes
 
-uv run foodiegram sync promote --apply --yes
-uv run foodiegram sync embed --changed --yes
+uv run dispensa sync promote --apply --yes
+uv run dispensa sync embed --changed --yes
 ```
 
 Submitting produces one batch per call; if you have several outstanding, apply each
@@ -146,19 +146,19 @@ archived batch (`data/batch_inputs/*.jsonl`) before promoting:
 ```fish
 for f in data/batch_inputs/*.jsonl
     set batch (basename $f .jsonl)
-    uv run foodiegram sync apply --batch $batch --yes
+    uv run dispensa sync apply --batch $batch --yes
 end
-uv run foodiegram sync promote --apply --yes
+uv run dispensa sync promote --apply --yes
 ```
 
 **Changing the prompt or model:**
 
 ```bash
-# Bump PROMPT_VERSION in src/foodiegram/ai/batch.py first (e.g. 2 → 3).
-uv run foodiegram sync extract --all --yes    # re-submit every captioned recipe
+# Bump PROMPT_VERSION in src/dispensa/ai/batch.py first (e.g. 2 → 3).
+uv run dispensa sync extract --all --yes    # re-submit every captioned recipe
 # … status / apply as above …
-uv run foodiegram sync promote --version 3 --apply --yes   # user edits are never at risk
-uv run foodiegram sync embed --changed --yes
+uv run dispensa sync promote --version 3 --apply --yes   # user edits are never at risk
+uv run dispensa sync embed --changed --yes
 ```
 
 **Instagram account note:** the instagrapi login is currently flagged/frozen; nothing
@@ -170,12 +170,12 @@ run Instagram-facing code on the server.
 ## Database maintenance
 
 ```bash
-uv run foodiegram db ping                   # connect and report success
-uv run foodiegram db create-database        # create $DATABASE_URL if missing
-uv run foodiegram db create-tables          # create any missing tables
-uv run foodiegram db dump [--output PATH]   # pg_dump -Fc → backups/dispensa-<ts>.dump
-uv run foodiegram db restore <dump> --yes   # pg_restore --clean into the working DB
-uv run foodiegram db reset --yes            # drop + recreate every table (local only)
+uv run dispensa db ping                   # connect and report success
+uv run dispensa db create-database        # create $DATABASE_URL if missing
+uv run dispensa db create-tables          # create any missing tables
+uv run dispensa db dump [--output PATH]   # pg_dump -Fc → backups/dispensa-<ts>.dump
+uv run dispensa db restore <dump> --yes   # pg_restore --clean into the working DB
+uv run dispensa db reset --yes            # drop + recreate every table (local only)
 ```
 
 `dump`/`restore` shell out to `pg_dump`/`pg_restore`, which must be the **same major
@@ -185,7 +185,7 @@ running Postgres 18 while your system package manager only has 17 — run the co
 through a matching version instead of installing over your `PATH`:
 
 ```bash
-nix shell nixpkgs#postgresql_18 -c uv run foodiegram db dump
+nix shell nixpkgs#postgresql_18 -c uv run dispensa db dump
 ```
 
 `restore`/`reset` refuse a production-looking host (`neon.tech`/`neon.build`) even with
@@ -221,7 +221,7 @@ migrates any `is_favorite`/`user_notes` into `user_state`.
 into Neon, semantic search needs its own pass there:
 
 ```bash
-DATABASE_URL='<neon-pooled-url>' uv run foodiegram sync embed --changed --yes
+DATABASE_URL='<neon-pooled-url>' uv run dispensa sync embed --changed --yes
 ```
 
 That's an OpenAI embedding call per recipe (cheap — nothing like extraction cost) but
@@ -233,7 +233,7 @@ isn't built yet.
 ## Deploy (FastAPI Cloud + Neon)
 
 One `fastapi deploy` ships the API, the SPA, and the OAuth-protected MCP endpoint
-together (D1). The served app is the composition root `foodiegram.asgi:app`
+together (D1). The served app is the composition root `dispensa.asgi:app`
 (declared under `[tool.fastapi]` in `pyproject.toml`), which mounts the
 Basic-authed API at `/` and the MCP transport at `/mcp` behind OAuth 2.1. The
 deploy artifact is **code only** — data reaches prod via the export/import flow
@@ -298,4 +298,4 @@ uv run ruff check --fix . && uv run ruff format . && uv run mypy src && uv run p
 ```
 
 Also available as the `/green` skill. Tests never touch the working database — only
-`DATABASE_URL_TEST` (create it once with `uv run foodiegram db create-database --test`).
+`DATABASE_URL_TEST` (create it once with `uv run dispensa db create-database --test`).

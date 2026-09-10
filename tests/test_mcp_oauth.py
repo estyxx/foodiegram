@@ -11,10 +11,10 @@ from jwt import PyJWKClient
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from starlette.testclient import TestClient
 
-from foodiegram.asgi import build_asgi_app
-from foodiegram.domain.errors import ConfigurationError
-from foodiegram.mcp_server.auth import JwtTokenVerifier
-from foodiegram.settings import Settings
+from dispensa.asgi import build_asgi_app
+from dispensa.domain.errors import ConfigurationError
+from dispensa.mcp_server.auth import JwtTokenVerifier
+from dispensa.settings import Settings
 
 _ISSUER = "https://idp.example.com"
 _RESOURCE = "https://testserver/mcp"

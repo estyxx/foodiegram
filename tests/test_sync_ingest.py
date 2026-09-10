@@ -2,19 +2,19 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 
-from foodiegram.app.ingest import (
+from dispensa.app.ingest import (
     STABLE_MEDIA_URL,
     DedupeReport,
     FoodItem,
     dedupe_links,
     ingest_food_json,
 )
-from foodiegram.domain.hashing import caption_hash
-from foodiegram.domain.models import Recipe
-from foodiegram.images import UploadedImage
-from foodiegram.storage._tables import RecipeRow
-from foodiegram.storage.db import get_session
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.domain.hashing import caption_hash
+from dispensa.domain.models import Recipe
+from dispensa.images import UploadedImage
+from dispensa.storage._tables import RecipeRow
+from dispensa.storage.db import get_session
+from dispensa.storage.recipes_db import RecipeRepository
 
 _VALID_CLOUDINARY = "https://res.cloudinary.com/demo/image/upload/foodiegram/{code}.jpg"
 

@@ -1,7 +1,7 @@
 import pytest
 
-from foodiegram.app.sync_all import Stage, run_stages
-from foodiegram.domain.errors import ExtractionError
+from dispensa.app.sync_all import Stage, run_stages
+from dispensa.domain.errors import ExtractionError
 
 
 def _stage(name: str, calls: list[str], *, boom: bool = False) -> Stage:

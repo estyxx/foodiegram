@@ -17,18 +17,18 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func
 from sqlmodel import col, select
 
-from foodiegram.ai.embeddings import recipe_document
-from foodiegram.domain.hashing import caption_hash, document_hash
-from foodiegram.settings import Settings
-from foodiegram.storage._tables import RecipeEmbeddingRow, RecipeRow
-from foodiegram.storage.db import (
+from dispensa.ai.embeddings import recipe_document
+from dispensa.domain.hashing import caption_hash, document_hash
+from dispensa.settings import Settings
+from dispensa.storage._tables import RecipeEmbeddingRow, RecipeRow
+from dispensa.storage.db import (
     create_db_engine,
     database_label,
     get_session,
     init_db,
     looks_like_prod,
 )
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine

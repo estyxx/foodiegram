@@ -1,4 +1,4 @@
-from foodiegram.domain.pantry import PantryItem, kitchen_match
+from dispensa.domain.pantry import PantryItem, kitchen_match
 
 
 def test_synonym_and_cross_language_matching() -> None:

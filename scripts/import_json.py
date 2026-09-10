@@ -8,11 +8,11 @@ import argparse
 import logging
 from pathlib import Path
 
-from foodiegram.app.import_json import import_recipes
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
-from foodiegram.storage.user_state_db import UserStateRepository
+from dispensa.app.import_json import import_recipes
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.user_state_db import UserStateRepository
 
 
 def main() -> None:

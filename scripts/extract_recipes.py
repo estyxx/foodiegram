@@ -1,4 +1,4 @@
-"""Thin CLI wrapper around foodiegram.app.extraction.
+"""Thin CLI wrapper around dispensa.app.extraction.
 
 Commands:
   submit [--all]        Build and submit an OpenAI batch job (default: only-missing).
@@ -12,12 +12,12 @@ import argparse
 import logging
 from datetime import UTC, datetime
 
-from foodiegram.ai.batch import log_batch_status, recover_batch_input
-from foodiegram.app.extraction import apply_batch, smoke_test, submit_batch
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.ai.batch import log_batch_status, recover_batch_input
+from dispensa.app.extraction import apply_batch, smoke_test, submit_batch
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 
 def _positive_int(raw: str) -> int:

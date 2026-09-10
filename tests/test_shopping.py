@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 from datetime import date
 
-from foodiegram.domain.models import Recipe
-from foodiegram.domain.pantry import PantryItem
-from foodiegram.domain.planning import PlannedMeal, WeekPlan
-from foodiegram.domain.shopping import shopping_list
+from dispensa.domain.models import Recipe
+from dispensa.domain.pantry import PantryItem
+from dispensa.domain.planning import PlannedMeal, WeekPlan
+from dispensa.domain.shopping import shopping_list
 
 _MONDAY = date(2024, 1, 1)
 _EXPECTED_RAW_LINES = 2

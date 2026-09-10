@@ -3,11 +3,11 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 
-from foodiegram.app.export import export_recipes
-from foodiegram.app.import_json import import_recipes
-from foodiegram.domain.models import Recipe
-from foodiegram.storage.recipes_db import RecipeRepository
-from foodiegram.storage.user_state_db import UserStateRepository
+from dispensa.app.export import export_recipes
+from dispensa.app.import_json import import_recipes
+from dispensa.domain.models import Recipe
+from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.user_state_db import UserStateRepository
 
 _EXPECTED_RECIPES = 2
 

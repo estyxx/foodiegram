@@ -2,8 +2,8 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from foodiegram.ai.batch import PROMPT_VERSION, result_to_extraction
-from foodiegram.domain.models import ExtractedRecipe
+from dispensa.ai.batch import PROMPT_VERSION, result_to_extraction
+from dispensa.domain.models import ExtractedRecipe
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 # A snapshot distinct from the module constant, proving the stamp comes from the

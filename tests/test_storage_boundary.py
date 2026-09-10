@@ -2,7 +2,7 @@ import ast
 from collections.abc import Iterator
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parent.parent / "src" / "foodiegram"
+_SRC = Path(__file__).resolve().parent.parent / "src" / "dispensa"
 _FORBIDDEN_ROOTS = frozenset({"sqlmodel", "sqlalchemy"})
 
 

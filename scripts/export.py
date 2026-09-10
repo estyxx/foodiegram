@@ -9,10 +9,10 @@ import argparse
 import logging
 from pathlib import Path
 
-from foodiegram.app.export import export_recipes
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.export import export_recipes
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
 
 
 def main() -> None:

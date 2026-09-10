@@ -17,11 +17,11 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from foodiegram.domain.errors import StorageError
-from foodiegram.domain.models import Recipe
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.domain.errors import StorageError
+from dispensa.domain.models import Recipe
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
 
 logger = logging.getLogger(__name__)
 

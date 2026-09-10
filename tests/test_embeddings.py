@@ -3,9 +3,9 @@ from typing import cast
 
 from openai import OpenAI
 
-from foodiegram.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
-from foodiegram.domain.enums import CuisineType, DishType, MealType
-from foodiegram.domain.models import Recipe
+from dispensa.ai.embeddings import EMBEDDING_MODEL, embed_texts, recipe_document
+from dispensa.domain.enums import CuisineType, DishType, MealType
+from dispensa.domain.models import Recipe
 
 
 def _recipe(**overrides: object) -> Recipe:

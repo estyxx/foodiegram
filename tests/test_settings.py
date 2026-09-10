@@ -1,7 +1,7 @@
 import pytest
 
-from foodiegram.domain.errors import ConfigurationError
-from foodiegram.settings import Settings
+from dispensa.domain.errors import ConfigurationError
+from dispensa.settings import Settings
 
 _PAYLOAD = {
     "instagram_username": "alice_distinct",

@@ -1,5 +1,5 @@
 [project]
-name = "foodiegram"
+name = "dispensa"
 version = "0.1.0"
 description = "Extract, parse, and tag recipes from your instagram saved collections"
 readme = "README.md"
@@ -27,14 +27,14 @@ dependencies = [
 ]
 
 [project.scripts]
-foodiegram-api = "foodiegram.api:main"
-foodiegram = "foodiegram.cli:main"
+dispensa-api = "dispensa.api:main"
+dispensa = "dispensa.cli:main"
 
 # What `fastapi run`/`fastapi deploy` (and FastAPI Cloud) serve: the composition
 # root that mounts the Basic-authed API and the Bearer-gated /mcp together. Plain
-# `foodiegram.api:app` still serves the API alone for local dev without a token.
+# `dispensa.api:app` still serves the API alone for local dev without a token.
 [tool.fastapi]
-entrypoint = "foodiegram.asgi:app"
+entrypoint = "dispensa.asgi:app"
 
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]
@@ -73,20 +73,20 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 # typing-only imports used in annotations must stay importable at runtime.
 "tests/*" = ["S101", "S105", "S106", "TC001", "TC002", "TC003"]
 # extractor: Client and Settings used at runtime (class attrs + property body).
-"src/foodiegram/instagram/extractor.py" = ["TC001", "TC002"]
+"src/dispensa/instagram/extractor.py" = ["TC001", "TC002"]
 # routers: FastAPI evaluates path/query/body annotations at runtime, so typing
 # imports used only in route signatures (e.g. datetime.date) must stay importable.
-"src/foodiegram/routers/*" = ["TC001", "TC002", "TC003"]
+"src/dispensa/routers/*" = ["TC001", "TC002", "TC003"]
 # deps: Request is a FastAPI dependency marker resolved at runtime by identity.
-"src/foodiegram/deps.py" = ["TC002"]
+"src/dispensa/deps.py" = ["TC002"]
 # CLI signatures use Path at runtime via typer annotations.
-"src/foodiegram/cli.py" = ["TC003"]
+"src/dispensa/cli.py" = ["TC003"]
 # pg_dump/pg_restore are intentional maintenance subprocess calls.
-"src/foodiegram/storage/maintenance.py" = ["S603", "S607", "S105", "C901", "TRY301", "TC003"]
+"src/dispensa/storage/maintenance.py" = ["S603", "S607", "S105", "C901", "TRY301", "TC003"]
 # S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
-"src/foodiegram/settings.py" = ["S104"]
+"src/dispensa/settings.py" = ["S104"]
 # Sequence is the public parameter type for cosine_similarity.
-"src/foodiegram/domain/similarity.py" = ["TC003"]
+"src/dispensa/domain/similarity.py" = ["TC003"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -118,7 +118,7 @@ dev = [
 # → domain. `include_external_packages` is what lets the domain-is-pure contract
 # see third-party SDK imports, not just first-party ones.
 [tool.importlinter]
-root_packages = ["foodiegram"]
+root_packages = ["dispensa"]
 include_external_packages = true
 
 # Golden rule 5: the domain layer is pure. It imports no sibling layer and no
@@ -126,21 +126,21 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "domain-is-pure"
 type = "forbidden"
-source_modules = ["foodiegram.domain"]
+source_modules = ["dispensa.domain"]
 forbidden_modules = [
-    "foodiegram.storage",
-    "foodiegram.ai",
-    "foodiegram.instagram",
-    "foodiegram.images",
-    "foodiegram.app",
-    "foodiegram.api",
-    "foodiegram.api_auth",
-    "foodiegram.api_models",
-    "foodiegram.routers",
-    "foodiegram.mcp_server",
-    "foodiegram.asgi",
-    "foodiegram.deps",
-    "foodiegram.settings",
+    "dispensa.storage",
+    "dispensa.ai",
+    "dispensa.instagram",
+    "dispensa.images",
+    "dispensa.app",
+    "dispensa.api",
+    "dispensa.api_auth",
+    "dispensa.api_models",
+    "dispensa.routers",
+    "dispensa.mcp_server",
+    "dispensa.asgi",
+    "dispensa.deps",
+    "dispensa.settings",
     "instagrapi",
     "openai",
     "cloudinary",
@@ -156,10 +156,10 @@ forbidden_modules = [
 name = "adapters-are-independent"
 type = "independence"
 modules = [
-    "foodiegram.storage",
-    "foodiegram.ai",
-    "foodiegram.images",
-    "foodiegram.instagram",
+    "dispensa.storage",
+    "dispensa.ai",
+    "dispensa.images",
+    "dispensa.instagram",
 ]
 
 # asgi.py is the composition root: the one module allowed to import both entry
@@ -172,10 +172,10 @@ modules = [
 name = "layers"
 type = "layers"
 layers = [
-    "foodiegram.asgi | foodiegram.cli",
-    "foodiegram.api | foodiegram.mcp_server",
-    "foodiegram.routers",
-    "foodiegram.app",
-    "foodiegram.storage | foodiegram.ai | foodiegram.images | foodiegram.instagram",
-    "foodiegram.domain",
+    "dispensa.asgi | dispensa.cli",
+    "dispensa.api | dispensa.mcp_server",
+    "dispensa.routers",
+    "dispensa.app",
+    "dispensa.storage | dispensa.ai | dispensa.images | dispensa.instagram",
+    "dispensa.domain",
 ]

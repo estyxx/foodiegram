@@ -9,7 +9,7 @@ Run via:
 import argparse
 import logging
 
-from foodiegram.mcp_server.server import get_recipe
+from dispensa.mcp_server.server import get_recipe
 
 logger = logging.getLogger(__name__)
 

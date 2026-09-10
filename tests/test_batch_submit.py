@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from foodiegram.ai import batch
-from foodiegram.settings import Settings
+from dispensa.ai import batch
+from dispensa.settings import Settings
 
 
 class _FakeFiles:

@@ -1,7 +1,7 @@
 # DISPENSA 🫙 — Master Plan (final, Cursor-ready)
 
 *This is the single canonical document. It supersedes plan v1/v2/v3 and `plan.md`.
-Repo: `estyxx/foodiegram` (package rename → `dispensa` deferred to Phase 5).
+Repo: `estyxx/dispensa` (package rename → `dispensa` deferred to Phase 5).
 All decisions below are LOCKED unless marked open. Work phase by phase, one task at a time.
 Definition of done, always: `ruff check --fix . && ruff format . && mypy . && pytest` green
 (+ `tsc --noEmit` once the frontend exists). CLAUDE.md conventions apply to every line.*
@@ -83,7 +83,7 @@ Rules:
 ## 3. Package layout (target; Phase 0 creates it by pure moves)
 
 ```
-src/foodiegram/
+src/dispensa/
 ├── domain/                      # PURE — no I/O, no SDKs, no env, no clock
 │   ├── enums.py                 # + MedCategory, Course, RecipeSource; DishType extended
 │   ├── errors.py
@@ -128,7 +128,7 @@ tests/                           # domain/ = full coverage; storage = sqlite-tmp
 
 **Dependency rule (CI-enforced):** nothing in `domain/` imports from any sibling package.
 `tests/test_architecture.py` walks `ast.parse` imports of every module under `domain/` and
-fails on `foodiegram.(storage|ai|instagram|images|app|api)`.
+fails on `dispensa.(storage|ai|instagram|images|app|api)`.
 
 ## 4. The recipe data lifecycle
 
@@ -547,7 +547,7 @@ WCAG AA (darken until it passes):
 
 ### Phase 0 — Clear the desk (~2 evenings)
 - [ ] 0.1 Finish the reopened **Recipe Detail missing fields** task (Notion)
-- [ ] 0.2 Delete legacy: `src/foodiegram/recipe_extractor.py` (violates shortcode rule),
+- [ ] 0.2 Delete legacy: `src/dispensa/recipe_extractor.py` (violates shortcode rule),
       `login.html`, `recipe.js`, stale `.cursor/rules`. Add `.env.example`
       (OPENAI_API_KEY, CLOUDINARY_*, DATABASE_URL, BASIC_AUTH_*, INSTAGRAM_* optional)
 - [ ] 0.3 DDD restructure per §3 — **pure moves, zero behaviour change**, imports updated,
@@ -650,7 +650,7 @@ Expiry nudges (a date comparison) → taste profile (favourites/repeats/notes) r
 - Kickoff prompt for 0.3 (template for all structural tasks):
 
 > Read CLAUDE.md and follow every convention (no `**kwargs`, mypy --strict, pure domain,
-> ruff ALL, line length 89, one-line imperative docstrings). Restructure `src/foodiegram/`
+> ruff ALL, line length 89, one-line imperative docstrings). Restructure `src/dispensa/`
 > into the layout in the pasted §3: create `storage/`, `ai/`, `instagram/`, `images/`,
 > `app/` packages; move `repository.py → storage/recipes_json.py`; `_auth.py`,
 > `instageram_extractor.py`, `cache_manager.py → instagram/`; batch logic from

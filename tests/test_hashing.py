@@ -1,6 +1,6 @@
-from foodiegram.ai.embeddings import recipe_document
-from foodiegram.domain.hashing import caption_hash, document_hash
-from foodiegram.domain.models import Recipe
+from dispensa.ai.embeddings import recipe_document
+from dispensa.domain.hashing import caption_hash, document_hash
+from dispensa.domain.models import Recipe
 
 
 def _recipe(

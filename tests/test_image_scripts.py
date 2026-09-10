@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
-from foodiegram.domain.models import Recipe
+from dispensa.domain.models import Recipe
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 _EXPIRED_CDN = "https://scontent-man2-1.cdninstagram.com/v/t51.png?oh=sig&oe=exp"

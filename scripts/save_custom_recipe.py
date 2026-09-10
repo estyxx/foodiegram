@@ -22,11 +22,11 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from foodiegram.domain.enums import RecipeSource
-from foodiegram.domain.models import ExtractedRecipe, Recipe
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.domain.enums import RecipeSource
+from dispensa.domain.models import ExtractedRecipe, Recipe
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.recipes_db import RecipeRepository
 
 logger = logging.getLogger(__name__)
 

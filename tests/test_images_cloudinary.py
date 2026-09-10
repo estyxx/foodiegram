@@ -1,8 +1,8 @@
 import cloudinary.uploader
 import pytest
 
-from foodiegram.domain.errors import ImageUploadError
-from foodiegram.images import (
+from dispensa.domain.errors import ImageUploadError
+from dispensa.images import (
     UploadedImage,
     is_expired_cdn_url,
     is_valid_image_ref,

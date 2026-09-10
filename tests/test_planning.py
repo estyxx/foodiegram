@@ -4,9 +4,9 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from foodiegram.domain.enums import MedCategory
-from foodiegram.domain.models import CategoryServing, Recipe
-from foodiegram.domain.planning import (
+from dispensa.domain.enums import MedCategory
+from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.domain.planning import (
     CategoryStatus,
     CategoryTarget,
     PlannedMeal,

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from foodiegram.domain.diffing import diff_against_recipe, diff_payloads
-from foodiegram.domain.models import (
+from dispensa.domain.diffing import diff_against_recipe, diff_payloads
+from dispensa.domain.models import (
     ExtractedCategoryServing,
     ExtractedRecipe,
     Extraction,

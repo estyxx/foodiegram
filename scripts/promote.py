@@ -8,11 +8,11 @@ uv run scripts/promote.py --version 2 [--batch ID] [--apply]
 import argparse
 import logging
 
-from foodiegram.app.promotion import promote_version
-from foodiegram.settings import Settings
-from foodiegram.storage.db import create_db_engine, init_db
-from foodiegram.storage.extractions_db import ExtractionRepository
-from foodiegram.storage.recipes_db import RecipeRepository
+from dispensa.app.promotion import promote_version
+from dispensa.settings import Settings
+from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.recipes_db import RecipeRepository
 
 _MAX_LISTED = 40
 

@@ -64,9 +64,9 @@ flowchart LR
 Where the new work lands:
 
 - The protein categories and their mapping are pure rules, so they live in `domain`.
-- The new filters live in `repository.find` (`foodiegram/repository.py`), next to the ones
+- The new filters live in `repository.find` (`dispensa/repository.py`), next to the ones
   already there.
-- `api.list_recipes` (`foodiegram/api.py`) only reads new query parameters and passes them
+- `api.list_recipes` (`dispensa/api.py`) only reads new query parameters and passes them
   down.
 - The UI lives in `public/` (served as static files by the API).
 
@@ -195,9 +195,9 @@ it ever hurts, cache `list_all` or move the store to SQLModel. Not now.
 
 **Goal.** Add the shared name from the section above. No UI in this session.
 
-- Add `ProteinCategory` as a `StrEnum` in `foodiegram/domain/enums.py` with the eight
+- Add `ProteinCategory` as a `StrEnum` in `dispensa/domain/enums.py` with the eight
   members: `fish, legumes, poultry, eggs, dairy, red_meat, processed_meat, plant_protein`.
-- Add a small module `foodiegram/domain/proteins.py` with:
+- Add a small module `dispensa/domain/proteins.py` with:
   - a mapping dict from word to `ProteinCategory` (the table above, lower-cased keys),
   - `categories_for(proteins: list[str]) -> set[ProteinCategory]`, a module-level function
     that maps each word and returns the set (unknown words are skipped, never an error),
@@ -361,11 +361,11 @@ Sequence this last, after the categories prove right in the real UI.
 
 Related code to open while working:
 
-- `foodiegram/repository.py`: `find`, `list_all`, `save` (the store and its filters).
-- `foodiegram/api.py`: `list_recipes` (where query parameters are wired).
-- `foodiegram/domain/enums.py` and `foodiegram/domain/models.py`: the taxonomy and `Recipe`.
-- `foodiegram/api_models.py`: `RecipeSummary` (what each card receives).
-- `foodiegram/domain/synonyms.py`: `expand_term` (cross-language search).
+- `dispensa/repository.py`: `find`, `list_all`, `save` (the store and its filters).
+- `dispensa/api.py`: `list_recipes` (where query parameters are wired).
+- `dispensa/domain/enums.py` and `dispensa/domain/models.py`: the taxonomy and `Recipe`.
+- `dispensa/api_models.py`: `RecipeSummary` (what each card receives).
+- `dispensa/domain/synonyms.py`: `expand_term` (cross-language search).
 - `public/index.html` and its JS: the frontend.
 - `CLAUDE.md`: the coding conventions this plan follows.
 

@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
-from foodiegram.domain.editing import PROTECTED_FIELDS, promote
-from foodiegram.domain.enums import Course, MedCategory, RecipeSource
-from foodiegram.domain.models import (
+from dispensa.domain.editing import PROTECTED_FIELDS, promote
+from dispensa.domain.enums import Course, MedCategory, RecipeSource
+from dispensa.domain.models import (
     ExtractedCategoryServing,
     ExtractedRecipe,
     Extraction,

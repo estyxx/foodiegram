@@ -2,9 +2,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from foodiegram.domain.enums import MedCategory, ProteinTier
-from foodiegram.domain.models import CategoryServing, Recipe
-from foodiegram.domain.proteins import (
+from dispensa.domain.enums import MedCategory, ProteinTier
+from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.domain.proteins import (
     PROTEIN_WORDS,
     TIERS,
     categories_for,
