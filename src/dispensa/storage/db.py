@@ -86,6 +86,8 @@ def _ensure_schema_patches(engine: Engine) -> None:
         connection.execute(
             text("ALTER TABLE recipes DROP COLUMN IF EXISTS edited_by_user"),
         )
+        # Staging table dropped (D32); `sync ingest` writes recipe stubs directly.
+        connection.execute(text("DROP TABLE IF EXISTS posts"))
 
 
 def truncate_all_tables(engine: Engine) -> None:

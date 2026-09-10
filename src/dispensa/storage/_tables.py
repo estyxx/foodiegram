@@ -102,18 +102,6 @@ class RecipeEmbeddingRow(SQLModel, table=True):
     created_at: datetime
 
 
-class PostRow(SQLModel, table=True):
-    """Staging row for an ingested Instagram post."""
-
-    __tablename__ = "posts"
-
-    code: str = Field(primary_key=True)
-    caption: str | None = None
-    taken_at: datetime | None = None
-    collection_names: list[str] = Field(sa_column=Column(JSON))
-    ingested_at: datetime
-
-
 class WeekPlanRow(SQLModel, table=True):
     """A planned week, keyed by its (Monday) start date."""
 
