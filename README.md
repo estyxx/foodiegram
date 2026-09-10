@@ -8,8 +8,9 @@ removing a recipe from the week moves the bars in real time and suggests gap-fil
 
 ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever.
 
-> Repo name is `cookstagram` (historical); package rename to `dispensa` is deferred to
-> Phase 5. See [docs/PLAN.md](docs/PLAN.md) for the full roadmap.
+> The working directory is `foodiegram` (historical); the Python package was renamed to
+> `dispensa` at commit `26cc3fd`. See [docs/PLAN.md](docs/PLAN.md) for the full roadmap
+> and [docs/PLAN-phases-9-13.md](docs/PLAN-phases-9-13.md) for the current phases.
 
 ---
 
@@ -74,7 +75,7 @@ src/dispensa/
   storage/       Postgres-backed repositories (SQLModel rows never leave this package):
                  db.py · _tables.py · recipes_db.py · extractions_db.py ·
                  plans_db.py · pantry_db.py · targets_db.py · user_state_db.py ·
-                 maintenance.py (dump/restore/reset) · recipes_json.py (legacy JSON)
+                 maintenance.py (dump/restore/reset)
   ai/            OpenAI: batch.py (Batch API submit/status/apply), embeddings.py (RAG),
                  repair.py (pydantic-ai interactive re-extraction), prompts/*.txt
   images/        Cloudinary adapter: upload_thumbnail + is_valid_image_ref

@@ -16,8 +16,9 @@ Definition of done, always: `ruff check --fix . && ruff format . && mypy . && py
 ~800 recipes extracted from saved Instagram posts (mostly Italian; titles/ingredients/
 instructions stay verbatim in the original language, classifications in English) plus,
 eventually, manually added recipes. The signature feature: a **live, colour-coded weekly
-balance panel** tracking 7 protein categories against Mediterranean targets — adding or
-removing a recipe from the week moves the bars in real time and suggests gap-fillers.
+balance panel** tracking 8 protein categories (the 7 below plus `plant_protein`) against
+Mediterranean targets — adding or removing a recipe from the week moves the bars in real
+time and suggests gap-fillers.
 Pantry-lite awareness ("7/9 in kitchen", shopping list). ADHD-friendly, warm, editorial,
 accessible. Solo hobby project: simple, readable, robust. A future AI layer (Phase 7)
 learns tastes and reduces waste — deliberately last.
@@ -64,10 +65,10 @@ Rules:
 | D3 | **Two-entity model**: `extractions` (append-only, immutable LLM outputs with prompt/model provenance) vs `recipes` (mutable canonical state). `promote()` is the only path between them and never overwrites user-edited fields. |
 | D4 | **ORM: `sqlmodel`** (approved). SQLite locally, Neon Postgres in prod, one codebase. `SQLModel.metadata.create_all` for now; alembic only when schema churn demands it. SQLModel rows NEVER leave `storage/` — repositories return domain models. |
 | D5 | **pydantic-ai** gets three jobs: single-recipe repair, category review loop, paste-any-text → structured recipe. OpenAI Batch API remains the bulk path. |
-| D6 | Full re-extraction with **prompt v2**: adds `mediterranean_categories`, `course` (approved), extends `dish_type`. Carbonara counts processed_meat at full weight (guideline-honest). |
+| D6 | Full re-extraction with **prompt v2**: adds `mediterranean_categories`, `course` (approved), extends `dish_type`. Carbonara counts processed_meat at full weight (guideline-honest). *(Superseded: the prompt is now at `PROMPT_VERSION = "3"`, which also adds `plant_protein` and `summary`.)* |
 | D7 | **Frontend: no-build vanilla ES modules**, pure function components, tiny pub-sub store, JSDoc + `// @ts-check`, `tsc --noEmit` in `make check`. `typescript` is the only devDependency. |
 | D8 | **Pantry-lite**: name + staple/fresh + optional expiry. No quantities, no depletion, ever (until real usage proves otherwise). |
-| D9 | **DDD-lite**: `api/scripts → app → storage\|ai\|instagram\|images → domain`. Domain is pure (no I/O, SDKs, env, clock). Enforced by `tests/test_architecture.py`. |
+| D9 | **DDD-lite**: `api/scripts → app → storage\|ai\|instagram\|images → domain`. Domain is pure (no I/O, SDKs, env, clock). Enforced by **import-linter** (`lint-imports`), not the never-created `tests/test_architecture.py`. |
 | D10 | JSON files demote to **pipeline artifact + export/backup**: `scripts/export.py` dumps DB → `data/recipes/*.json` (sorted keys) → committed to a private data repo → backup + free `git diff` of the data. |
 | D11 | **Identity**: `code: str` stays PK. Instagram = shortcode; manual = `m-{slugified-title}-{4 random base32}`. New `source: RecipeSource`; `pk`/`post_url`/`caption` become `\| None`. |
 | D12 | **Search stays client-side** over a slim `GET /api/recipes` index cached per session (~800 recipes). No FTS. |
@@ -95,7 +96,7 @@ src/dispensa/
 │   ├── shopping.py              # shopping-list aggregation
 │   └── synonyms.py              # (existing)
 ├── app/                         # use-cases — orchestration, no HTTP types
-│   ├── ingest.py                # food.json → posts staging + recipe stubs + thumbnails
+│   ├── ingest.py                # food.json → recipe stubs + durable thumbnails (no posts staging; D32)
 │   ├── extraction.py            # submit/apply batch → extraction rows
 │   ├── promotion.py             # batch/extraction → recipes via domain promote()
 │   ├── edit_recipe.py           # apply user edits, maintain edited_fields
@@ -109,9 +110,10 @@ src/dispensa/
 │   ├── recipes_db.py            # RecipeRepository (DB-backed)
 │   ├── extractions_db.py        # append-only ExtractionRepository
 │   ├── plans_db.py  pantry_db.py  user_state_db.py  targets_db.py
-│   └── recipes_json.py          # legacy JSON read/write — import/export ONLY
+│   └── maintenance.py           # pg_dump/restore/reset + prod guards
+│                                # (recipes_json.py deleted in 9.4 — import/export do their own JSON I/O)
 ├── ai/
-│   ├── batch.py                 # OpenAI Batch submit/status/apply; PROMPT_VERSION = "2"
+│   ├── batch.py                 # OpenAI Batch submit/status/apply; PROMPT_VERSION = "3"
 │   ├── repair.py                # pydantic-ai agents (full re-extract, categories-only,
 │   │                            #   free-text → ExtractedRecipe)
 │   └── prompts/extract_recipe_details.txt
@@ -123,12 +125,13 @@ src/dispensa/
 
 frontend/                        # renamed from public/, structured (Part VI)
 scripts/                         # thin argparse wrappers over app/ (Part V)
-tests/                           # domain/ = full coverage; storage = sqlite-tmp round-trips
+tests/                           # domain/ = full coverage; app + storage run against the
+                                 #   Postgres test DB (DATABASE_URL_TEST), not sqlite-tmp
 ```
 
 **Dependency rule (CI-enforced):** nothing in `domain/` imports from any sibling package.
-`tests/test_architecture.py` walks `ast.parse` imports of every module under `domain/` and
-fails on `dispensa.(storage|ai|instagram|images|app|api)`.
+Enforced by **import-linter** (`lint-imports`, 3 contracts: `domain-is-pure`,
+`adapters-are-independent`, `layers`); `tests/test_architecture.py` was never created.
 
 ## 4. The recipe data lifecycle
 
@@ -374,7 +377,7 @@ Auth middleware: if `settings.basic_auth_username` set → require Basic on ever
 
 # PART V — TOOLING & RUNBOOK
 
-## 12. Scripts (thin argparse wrappers over `app/`; all honour `DATABASE_URL`, unset → `sqlite:///data/dispensa.db`; every destructive script has `--dry-run`)
+## 12. Scripts (thin argparse wrappers over `app/`; all honour `DATABASE_URL`, unset → local Postgres `postgresql+psycopg2://dispensa:dispensa@localhost:5432/dispensa`; every destructive script has `--dry-run`)
 
 | Script | Behaviour |
 |---|---|
@@ -425,9 +428,10 @@ frontend/
 │   ├── base.css               # reset, typography, focus rings, prefers-reduced-motion
 │   └── components.css         # one section per component (.balance-panel__bar …)
 └── js/
-    ├── main.js                # hash router: #week, #plan, #recipe/{code}, #browse
+    ├── main.js                # hash router: #browse, #plan, #favourites, #recipe/{code}
+    │                          #   (#week never built — deferred; see §17)
     ├── api/client.js          # fetch wrapper + JSDoc @typedefs for every DTO
-    ├── state/store.js         # ~40 lines: createStore(initial) → {get,set,subscribe}
+    ├── state/store.js         # (deleted in 9.4 — never wired; views use local closures + renderAll())
     ├── lib/scale.js           # extractNumber/scaleIngredient (moved from inline)
     ├── lib/format.js          # it-IT dates, quantities
     ├── components/
@@ -480,10 +484,11 @@ WCAG AA (darken until it passes):
 
 ## 17. View acceptance criteria
 
-- **#week (Home):** balance panel above the fold; Mon–Sun strip of DayColumn chips;
+- **#week (Home):** *(deferred — never built; `main.js` routes only browse/plan/
+  favourites/recipe.)* balance panel above the fold; strip of DayColumn chips;
   "Cook tonight" = today's dinner; "From your kitchen" = top 3 by kitchen-match ratio,
   expiring items flagged; "Plan the week" CTA → #plan.
-- **#plan:** 7 columns (rows <768px) + sticky right rail (balance, gap suggestions,
+- **#plan:** 5 columns Mon–Fri (rows <768px) + sticky right rail (balance, gap suggestions,
   shopping-list button). Adding a recipe optimistically updates the store → panel
   animates (skipped under reduced-motion) → PUT; rollback on failure.
 - **#recipe/{code}:** magazine layout per Dispensa v3; "Counts as: 🐟 Fish · oily" line;
@@ -506,7 +511,8 @@ WCAG AA (darken until it passes):
 ```
 ### Mediterranean categories (English values only):
 - **mediterranean_categories**: list of {category, servings, is_oily_fish} objects.
-  Categories: "fish", "legumes", "poultry", "eggs", "dairy", "red_meat", "processed_meat".
+  Categories: "fish", "legumes", "poultry", "eggs", "dairy", "red_meat", "processed_meat",
+  "plant_protein" (tofu/tempeh/edamame/seitan — NOT legumes, which are whole pulses).
   Rules:
   - A recipe may count toward MULTIPLE categories (lentil-parmesan soup = legumes + dairy;
     carbonara = eggs + processed_meat + dairy).
@@ -537,38 +543,39 @@ WCAG AA (darken until it passes):
   lievitati = anything whose point is the dough.
 ```
 
-4. `PROMPT_VERSION = "2"` constant in `ai/batch.py`, stamped into every extraction and,
-   via promote, into `Recipe.prompt_version`. Update the Batch request JSON schema to
+4. `PROMPT_VERSION` constant in `ai/batch.py` (now `"3"`), stamped into every extraction
+   and, via promote, into `Recipe.prompt_version`. Update the Batch request JSON schema to
    include both new fields.
 
 ---
 
 # PART VIII — PHASE BOARD (execute strictly in order, one task at a time)
 
-### Phase 0 — Clear the desk (~2 evenings)
-- [ ] 0.1 Finish the reopened **Recipe Detail missing fields** task (Notion)
-- [ ] 0.2 Delete legacy: `src/dispensa/recipe_extractor.py` (violates shortcode rule),
+### Phase 0 — Clear the desk (~2 evenings)  — DONE (0.1 tracked externally)
+- [ ] 0.1 Finish the reopened **Recipe Detail missing fields** task (Notion) — external
+- [x] 0.2 Delete legacy: `src/dispensa/recipe_extractor.py` (violates shortcode rule),
       `login.html`, `recipe.js`, stale `.cursor/rules`. Add `.env.example`
       (OPENAI_API_KEY, CLOUDINARY_*, DATABASE_URL, BASIC_AUTH_*, INSTAGRAM_* optional)
-- [ ] 0.3 DDD restructure per §3 — **pure moves, zero behaviour change**, imports updated,
-      scripts still run. Add `tests/test_architecture.py` (import-direction test)
-- [ ] 0.4 Replace the stale Cookstagram README intro with the Dispensa brief (§1) +
+- [x] 0.3 DDD restructure per §3 — **pure moves, zero behaviour change**, imports updated,
+      scripts still run. ~~Add `tests/test_architecture.py`~~ → replaced by **import-linter**
+      (`lint-imports`, 3 contracts); `test_architecture.py` was never created.
+- [x] 0.4 Replace the stale Cookstagram README intro with the Dispensa brief (§1) +
       runbook placeholder; append the JS conventions (§15) and the D4 boundary rule
       (SQLModel rows never leave storage/) to CLAUDE.md
 - **Done when:** all green; repo has the target shape; nothing legacy remains.
 
-### Phase 1 — Categories & grouping data (~3 evenings)
-- [ ] 1.1 Enums (§5) + model fields (§6) + `from_extracted` mapping, with unit tests
-      (incl. unknown-category-string tolerance)
-- [ ] 1.2 Prompt v2 (Part VII); regression test first: apply/promote path preserves
-      user edits before any batch runs
-- [ ] 1.3 `extract.py submit --all` → `apply` (still writing recipe JSON at this phase —
-      the DB doesn't exist yet). **Keep `batch_output.jsonl` v2** for the Phase-2 backfill
-- [ ] 1.4 `review_categories.py` first version (pydantic-ai, against JSON store);
-      hand-check the classics: carbonara (eggs+processed+dairy), ragù, pasta e ceci,
-      parmigiana, a salmon dish (oily flag)
-- **Done when:** every `is_recipe=true` recipe has `prompt_version="2"`; ≥95% of recipes
-  with a clear protein have ≥1 category; zero user edits clobbered.
+### Phase 1 — Categories & grouping data (~3 evenings)  — DONE (superseded by v3 + DB)
+- [x] 1.1 Enums (§5) + model fields (§6) + `from_extracted` mapping, with unit tests
+      (incl. unknown-category-string tolerance). `MedCategory` has 8 members incl.
+      `PLANT_PROTEIN`; tests in `tests/test_domain_models.py`.
+- [x] 1.2 ~~Prompt v2~~ → prompt is at **v3**; promote-respects-edits is
+      `tests/test_editing.py` / `test_promotion.py`.
+- [x] 1.3 ~~`extract submit --all` → `apply` (JSON store)~~ → superseded by the DB
+      path (Phase 2); `batch_output.jsonl` kept for the backfill.
+- [x] 1.4 `review_categories.py` first version — `scripts/review_categories.py` +
+      `app/review_categories.py` + `ai/repair.py`, `tests/test_review_categories.py`.
+- **Done when:** every `is_recipe=true` recipe has a current `prompt_version`; ≥95% of
+  recipes with a clear protein have ≥1 category; zero user edits clobbered.
 
 ### Phase 2 — Storage: DB as source of truth (~5–6 evenings) — HIGH-RISK PHASE, see §19
 - [x] 2.1 `sqlmodel` dependency; `storage/db.py`; all tables (§10); targets seeding
@@ -581,7 +588,8 @@ WCAG AA (darken until it passes):
 - [~] 2.4 Scripts per §12: `extract apply` writes **extractions rows only** ✔,
       `diff_batch` ✔, `promote` (dry-run/apply, skips user edits) ✔, `export` ✔,
       `import_json` ✔; all write scripts (ingest/upload/fix/backfill/review) on the DB ✔.
-      Deferred: `ingest.py` posts-staging + on-ingest Cloudinary (D14); `repair_recipe.py`
+      On-ingest Cloudinary (D14) ✔ (`sync ingest`). Posts staging dropped (D32).
+      Still missing: `repair_recipe.py`.
 - [x] 2.5 Load local DB: `import_json data/recipes/` ✔ (1152, DB→JSON round-trip proven
       identical); `backfill_extractions.py` ✔ (899 rows at v2 from the kept
       batch_output.jsonl, real created_at timestamps); **idempotence proven** — a v2
@@ -603,26 +611,34 @@ WCAG AA (darken until it passes):
       dedupe, aisle grouping, unknown→altro)
 - [x] 3.3 Plan/pantry/targets endpoints (§11) + Basic-auth middleware (D13)
 - **Done when:** `GET /api/plans/{week}` returns plan+balance+suggestions in one payload,
-  covered by API tests against sqlite-tmp.
+  covered by API tests against the Postgres test DB.
 
-### Phase 4 — Frontend: the wow moment (~5–6 evenings)
+### Phase 3.5 — MCP server (BUILT — not in the original plan)
+- [x] `src/dispensa/mcp_server/` — `search_recipes` (semantic, summary rows) and
+      `get_recipe` (full `RecipeDetail`) tools. Runs over stdio (`__main__.py`) or
+      mounted at `/mcp` behind a JWT/OAuth bearer verifier (`auth.py`) via `asgi.py`.
+      Tested: `test_mcp_get_recipe.py`, `test_mcp_oauth.py`,
+      `test_search_recipes_semantic.py`. Write tools are Phase 10.
+
+### Phase 4 — Frontend: the wow moment (~5–6 evenings)  — mostly done
 - [x] 4.1 `tokens.css` from Dispensa v3 + AA verification (blocks everything else)
-- [ ] 4.2 Scaffold §14; port existing browse/detail/favourites — **feature-parity
-      checkpoint** against the old index.html before adding anything new
-- [ ] 4.3 Slim `/api/recipes` index + client-side search cache (D12)
-- [ ] 4.4 `#week` + `#plan` with live BalancePanel (optimistic update → PUT → rollback),
-      GapSuggestions, DayColumn keyboard path, live-region announcements
+- [x] 4.2 Scaffold §14; port existing browse/detail/favourites — feature parity met.
+      (`state/store.js` never wired and was deleted in 9.4; views use local closures.)
+- [~] 4.3 Slim `/api/recipes` index ✔ (`RecipeSummary`); **client-side search cache
+      not built** — lexical + semantic search are server-side. → Phase 11.
+- [~] 4.4 `#plan` with live BalancePanel (optimistic upsert → PUT → rollback),
+      GapSuggestions, DayColumn ✔. **`#week` never built** (deferred). Planner is
+      **Mon–Fri**, not Mon–Sun.
 - **Done when:** you plan a real week and the bars move. Start using it that same week.
 
-### Phase 5 — Pantry-lite + shopping list + deploy (~4 evenings)
-- [ ] 5.1 PantryList UI + endpoints; kitchen X/Y on cards & detail; Cookable-now filter;
-      "From your kitchen" strip with expiry flags
-- [ ] 5.2 Shopping-list view + `data/aisles.json` (static map, ships in repo — it's code,
-      not data); post-generate "add these to pantry?" nudge
-- [ ] 5.3 Deploy: FastAPI Cloud + Neon integration; env vars (`DATABASE_URL` pooled,
-      `BASIC_AUTH_*`, `OPENAI_API_KEY`, `CLOUDINARY_*`); `fastapi deploy`;
-      `DATABASE_URL=<neon> import_json` initial load; smoke-test an edit surviving a
-      redeploy; custom domain + optional repo/package rename to `dispensa`
+### Phase 5 — Pantry-lite + shopping list + deploy (~4 evenings)  — backends only
+- [~] 5.1 PantryList UI + endpoints — **backend done** (`routers/pantry.py`,
+      `domain/pantry.py`); no `PantryList.js`, no kitchen ratio on cards.
+- [~] 5.2 Shopping-list view + `data/aisles.json` — **endpoint done**
+      (`GET /plans/{week}/shopping-list`, `domain/shopping.py`); no frontend view.
+- [~] 5.3 Deploy: FastAPI Cloud + Neon — **plumbing advanced** (`dispensa.asgi:app`,
+      `[tool.fastapi]`, MCP OAuth, `/api/version`); live deployment unverified from
+      the tree. Package already renamed to `dispensa` (commit `26cc3fd`).
 - **Done when:** it lives at a URL, data in Neon, backup = export + private-repo commit.
 
 ### Phase 6 — Editing & manual recipes (~4 evenings)
