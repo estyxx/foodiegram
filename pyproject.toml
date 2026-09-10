@@ -1,0 +1,181 @@
+[project]
+name = "dispensa"
+version = "0.1.0"
+description = "Extract, parse, and tag recipes from your instagram saved collections"
+readme = "README.md"
+authors = [
+    { name = "Ester Beltrami", email = "beltrami.ester@gmail.com" }
+]
+keywords = ["instagram", "recipes", "ocr", "nlp", "data-extraction"]
+requires-python = ">=3.14"
+dependencies = [
+    "cloudinary>=1.44.1",
+    "dotenv>=0.9.9",
+    "fastapi[standard]>=0.115",
+    "instagrapi>=2.10.6",
+    "mcp[cli]>=2.0.0",
+    "openai>=2.44.0",
+    "psycopg2-binary>=2.9.12",
+    "pydantic>=2.11.7",
+    "pydantic-ai-slim[openai]>=2.5.0",
+    "pydantic-settings>=2.14.1",
+    "pyjwt[crypto]>=2.13",
+    "python-multipart>=0.0.9",
+    "sqlmodel>=0.0.39",
+    "typer>=0.15.0",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+dispensa-api = "dispensa.api:main"
+dispensa = "dispensa.cli:main"
+
+# What `fastapi run`/`fastapi deploy` (and FastAPI Cloud) serve: the composition
+# root that mounts the Basic-authed API and the Bearer-gated /mcp together. Plain
+# `dispensa.api:app` still serves the API alone for local dev without a token.
+[tool.fastapi]
+entrypoint = "dispensa.asgi:app"
+
+[build-system]
+requires = ["uv_build>=0.8.3,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 89
+fix = true
+# Standalone reference artifacts that are not part of the package.
+extend-exclude = ["Recipe Management System Architecture", "cookstagram-data"]
+
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D100", # https://docs.astral.sh/ruff/rules/undocumented-public-module/
+"D104", # https://docs.astral.sh/ruff/rules/undocumented-public-package/
+"D203", # https://docs.astral.sh/ruff/rules/incorrect-blank-line-before-class/
+"D213", # https://docs.astral.sh/ruff/rules/multi-line-summary-second-line/
+"PLR0913", # query/filter methods legitimately take many keyword-only args
+"COM812", # conflicts with ruff formatter (trailing comma enforcement)
+]
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic (and SQLModel, which builds columns from annotations at class-definition
+# time) evaluate model field types at runtime; moving those imports into
+# TYPE_CHECKING would break validation and table mapping.
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
+
+[tool.ruff.lint.per-file-ignores]
+# Standalone migration/utility scripts are not an importable package.
+# T201: print() is the intended output mechanism for CLI scripts.
+# PLR2004: small literal constants are clear enough in script context.
+"scripts/*" = ["INP001", "T201", "PLR2004"]
+# `assert` and hardcoded test credentials are the expected idiom in tests.
+# TC001-003: pytest evaluates fixture/param annotations at runtime on 3.14, so
+# typing-only imports used in annotations must stay importable at runtime.
+"tests/*" = ["S101", "S105", "S106", "TC001", "TC002", "TC003"]
+# extractor: Client and Settings used at runtime (class attrs + property body).
+"src/dispensa/instagram/extractor.py" = ["TC001", "TC002"]
+# routers: FastAPI evaluates path/query/body annotations at runtime, so typing
+# imports used only in route signatures (e.g. datetime.date) must stay importable.
+"src/dispensa/routers/*" = ["TC001", "TC002", "TC003"]
+# deps: Request is a FastAPI dependency marker resolved at runtime by identity.
+"src/dispensa/deps.py" = ["TC002"]
+# CLI signatures use Path at runtime via typer annotations.
+"src/dispensa/cli.py" = ["TC003"]
+# pg_dump/pg_restore are intentional maintenance subprocess calls.
+"src/dispensa/storage/maintenance.py" = ["S603", "S607", "S105", "C901", "TRY301", "TC003"]
+# S104: "0.0.0.0" is intentional — the server must bind to all interfaces in prod.
+"src/dispensa/settings.py" = ["S104"]
+# Sequence is the public parameter type for cosine_similarity.
+"src/dispensa/domain/similarity.py" = ["TC003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+explicit_package_bases = true
+files = ["src", "tests"]
+
+# instagrapi and cloudinary ship no type stubs / py.typed marker.
+[[tool.mypy.overrides]]
+module = ["instagrapi.*", "cloudinary.*"]
+ignore_missing_imports = true
+
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.3",
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "ruff>=0.12.9",
+]
+
+# ── import-linter ─────────────────────────────────────────────────────────────
+# CLAUDE.md rule 22 / PLAN.md D9: api/scripts → app → storage|ai|instagram|images
+# → domain. `include_external_packages` is what lets the domain-is-pure contract
+# see third-party SDK imports, not just first-party ones.
+[tool.importlinter]
+root_packages = ["dispensa"]
+include_external_packages = true
+
+# Golden rule 5: the domain layer is pure. It imports no sibling layer and no
+# I/O or SDK library. pydantic is deliberately absent — domain models are Pydantic.
+[[tool.importlinter.contracts]]
+name = "domain-is-pure"
+type = "forbidden"
+source_modules = ["dispensa.domain"]
+forbidden_modules = [
+    "dispensa.storage",
+    "dispensa.ai",
+    "dispensa.instagram",
+    "dispensa.images",
+    "dispensa.app",
+    "dispensa.api",
+    "dispensa.api_auth",
+    "dispensa.api_models",
+    "dispensa.routers",
+    "dispensa.mcp_server",
+    "dispensa.asgi",
+    "dispensa.deps",
+    "dispensa.settings",
+    "instagrapi",
+    "openai",
+    "cloudinary",
+    "sqlmodel",
+    "sqlalchemy",
+    "fastapi",
+    "pydantic_ai",
+]
+
+# Adapters are independent siblings: each wraps one external system and none may
+# reach into another. Cross-adapter orchestration belongs in app/.
+[[tool.importlinter.contracts]]
+name = "adapters-are-independent"
+type = "independence"
+modules = [
+    "dispensa.storage",
+    "dispensa.ai",
+    "dispensa.images",
+    "dispensa.instagram",
+]
+
+# asgi.py is the composition root: the one module allowed to import both entry
+# siblings (api and mcp_server) to mount them together. Below it, api sits above
+# routers (api.py wires the routers in), routers above app, and the adapters form
+# one flat sibling layer above the pure domain. mcp_server is an entry point
+# beside api: it reaches down through app but is imported only by asgi, so it
+# shares that sibling layer with api.
+[[tool.importlinter.contracts]]
+name = "layers"
+type = "layers"
+layers = [
+    "dispensa.asgi | dispensa.cli",
+    "dispensa.api | dispensa.mcp_server",
+    "dispensa.routers",
+    "dispensa.app",
+    "dispensa.storage | dispensa.ai | dispensa.images | dispensa.instagram",
+    "dispensa.domain",
+]

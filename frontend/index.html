@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dispensa</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#view">Skip to content</a>
+
+    <header class="app-header">
+      <a class="brand" href="#browse" aria-label="Dispensa — home">
+        <span class="brand__mark" aria-hidden="true">D</span>
+        <span class="brand__word">Dispensa</span>
+      </a>
+      <nav class="app-nav" aria-label="Primary">
+        <a class="app-nav__link" href="#browse" data-route="browse">Browse</a>
+        <a class="app-nav__link" href="#plan" data-route="plan">Plan</a>
+        <a class="app-nav__link" href="#favourites" data-route="favourites"
+          >Favourites</a
+        >
+      </nav>
+    </header>
+
+    <main class="app-main" id="view" tabindex="-1"></main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <div class="app-footer__brand">
+          <span class="brand__mark app-footer__mark" aria-hidden="true">D</span>
+          <span class="app-footer__word">Dispensa</span>
+          <span class="app-footer__tagline">Mediterranean meal planner</span>
+        </div>
+        <span class="app-footer__version" id="app-version" aria-live="polite"></span>
+      </div>
+    </footer>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>

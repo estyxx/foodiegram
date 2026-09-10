@@ -1,0 +1,26 @@
+{
+  "name": "dispensa-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Dispensa recipe browser",
+  "main": "ui/index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static site'",
+    "start": "npx serve frontend",
+    "dev": "npx http-server frontend -p 3000",
+    "typecheck": "tsc --noEmit -p frontend/jsconfig.json"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  },
+  "keywords": [
+    "instagram",
+    "recipes",
+    "frontend",
+    "browser"
+  ],
+  "author": "Ester Beltrami",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
