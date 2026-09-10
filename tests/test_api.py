@@ -253,7 +253,7 @@ def test_patch_base_servings_marks_recipe_edited(
 
     detail = client.get("/api/recipes/F1").json()
     assert detail["base_servings"] == _UPDATED_SERVINGS
-    assert detail["edited_by_user"] is True
+    assert "base_servings" in detail["edited_fields"]
 
 
 def test_list_recipes_filters_on_is_recipe(client: TestClient, deps: Deps) -> None:

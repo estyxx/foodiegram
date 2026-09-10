@@ -168,8 +168,6 @@ class Recipe(BaseModel):
     # Editing state (favourites / notes now live in user_state)
     edited_fields: frozenset[str] = frozenset()
     archived: bool = False
-    # Retired by edited_fields; the user_state migration still reads it (dies Session 4).
-    edited_by_user: bool = False
 
     # Codes (Instagram or manual) of recipes that inspired this one. Chaining is
     # allowed: a remix of a remix lists only its immediate parent(s).

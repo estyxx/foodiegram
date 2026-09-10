@@ -76,5 +76,8 @@ def apply_reviewed_categories(
         if serving.category in _MED_CATEGORY_VALUES
     ]
     return recipe.model_copy(
-        update={"mediterranean_categories": categories, "edited_by_user": True},
+        update={
+            "mediterranean_categories": categories,
+            "edited_fields": recipe.edited_fields | {"mediterranean_categories"},
+        },
     )

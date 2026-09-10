@@ -49,7 +49,7 @@ def _eligible_for_submit(
     re-submits every captioned, non-edited recipe regardless — use after a prompt
     or model change.
     """
-    if recipe.edited_by_user:
+    if recipe.edited_fields:
         return False
     if not _has_usable_caption(recipe):
         return False

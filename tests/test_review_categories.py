@@ -104,7 +104,7 @@ def test_accept_path_marks_manual_and_edited() -> None:
 
     updated = apply_reviewed_categories(_BASE, proposed)
 
-    assert updated.edited_by_user is True
+    assert "mediterranean_categories" in updated.edited_fields
     assert [c.category for c in updated.mediterranean_categories] == [
         MedCategory.EGGS,
         MedCategory.PROCESSED_MEAT,

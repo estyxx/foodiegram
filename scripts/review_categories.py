@@ -2,7 +2,7 @@
 
 Select recipes needing category review, propose categories per recipe via the
 categories-only agent, and prompt y/n/skip on stdin. Accepted proposals are
-written with source="manual" and mark the recipe edited_by_user.
+written with source="manual" and add "mediterranean_categories" to edited_fields.
 """
 
 import argparse

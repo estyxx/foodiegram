@@ -53,7 +53,6 @@ def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> Re
         cloudinary_url=recipe.cloudinary_url,
         thumbnail_url=recipe.thumbnail_url,
         archived=recipe.archived,
-        edited_by_user=recipe.edited_by_user,
         is_recipe=recipe.is_recipe,
         confidence=recipe.confidence,
         extracted_at=recipe.extracted_at,
@@ -130,7 +129,6 @@ def _to_domain(row: RecipeRow) -> Recipe:
             # Nullable until the ADD COLUMN backfills on existing rows.
             "inspired_by": row.inspired_by or [],
             "archived": row.archived,
-            "edited_by_user": row.edited_by_user,
             "is_recipe": row.is_recipe,
             "confidence": row.confidence,
             "extracted_at": ensure_utc(row.extracted_at),
@@ -223,19 +221,22 @@ class RecipeRepository:
         return list(self._all_cache)
 
     def save(self, recipe: Recipe) -> None:
-        """Insert or update recipe, preserving created_at and user edits.
+        """Insert or update recipe, preserving created_at and the edit marker.
 
-        If the stored copy has edited_by_user=True, its editing bookkeeping is
-        kept — AI re-extraction must never overwrite a user's edits.
+        The stored edited_fields set is unioned into the incoming one, so a
+        re-extraction that reconstructs a Recipe without the bookkeeping cannot
+        drop it — the next promote() still protects those fields. Callers that
+        deliberately edit a field (the PATCH router, category review) pass it in
+        edited_fields themselves and that addition is kept.
         """
         now = datetime.now(tz=UTC)
         with get_session(self._engine) as session:
             existing = session.get(RecipeRow, recipe.code)
-            if existing is not None and existing.edited_by_user:
+            if existing is not None and existing.edited_fields:
                 recipe = recipe.model_copy(
                     update={
-                        "edited_by_user": existing.edited_by_user,
-                        "edited_fields": frozenset(existing.edited_fields),
+                        "edited_fields": recipe.edited_fields
+                        | frozenset(existing.edited_fields),
                     },
                 )
             created_at = existing.created_at if existing is not None else now
