@@ -15,6 +15,8 @@ import { addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
 
 const WEEK_STEP_DAYS = 7;
 const SEARCH_LIMIT = 20;
+// The planner shows Monday-Friday only; the week is still Monday-anchored.
+const VISIBLE_DAYS = 5;
 
 /**
  * Render the plan view (#plan): a live BalancePanel above a Monday-Sunday
@@ -71,7 +73,7 @@ export async function renderPlan(container) {
 
   const handlers = { onAdd: handleAdd, onPortionsChange: handlePortionsChange,
     onRemove: handleRemove, onSearch: handleSearch };
-  const columns = weekDays(weekStart).map(() => DayColumn(handlers));
+  const columns = visibleDays(weekStart).map(() => DayColumn(handlers));
   grid.append(...columns.map((column) => column.element));
 
   container.append(header, balancePanel.element, errorMsg, loading, grid);
@@ -128,11 +130,11 @@ export async function renderPlan(container) {
       return;
     }
 
-    range.textContent = formatWeekRange(weekStart, addDays(weekStart, 6));
+    range.textContent = formatWeekRange(weekStart, addDays(weekStart, VISIBLE_DAYS - 1));
     balancePanel.render(plan.balance, plan.oily_fish);
 
     const mealsByDay = groupMeals(plan.meals);
-    weekDays(weekStart).forEach((day, index) => {
+    visibleDays(weekStart).forEach((day, index) => {
       columns[index].render({
         day,
         label: formatDayLabel(day),
@@ -264,6 +266,15 @@ export async function renderPlan(container) {
   }
 
   await goToWeek(weekStart);
+}
+
+/**
+ * The weekday dates shown in the planner: Monday through Friday.
+ * @param {string} weekStart ISO date (Monday).
+ * @returns {string[]}
+ */
+function visibleDays(weekStart) {
+  return weekDays(weekStart).slice(0, VISIBLE_DAYS);
 }
 
 /**
