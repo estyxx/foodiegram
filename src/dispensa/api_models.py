@@ -1,9 +1,9 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from dispensa.domain.models import Recipe
+from dispensa.domain.models import ExtractedCategoryServing, Recipe
 
 # Longest caption snippet surfaced as a card description; the card clamps to two
 # lines, so this only bounds payload size (the full caption stays on the detail).
@@ -126,6 +126,31 @@ class ScaleResult(BaseModel):
     base_servings: int | None
     scaled_servings: float | None
     ingredients: list[ScaledIngredient]
+
+
+class RecipeCreate(BaseModel):
+    """POST body for /recipes: a hand-authored draft saved as a MANUAL recipe.
+
+    Shaped like the extractor's output but with only title/ingredients/
+    instructions required; classifications and Mediterranean categories are
+    optional. inspired_by may point at is_recipe=false posts (D24).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    ingredients: list[str]
+    instructions: list[str]
+    summary: str = ""
+    mediterranean_categories: list[ExtractedCategoryServing] = Field(
+        default_factory=list,
+    )
+    inspired_by: list[str] = Field(default_factory=list)
+    meal_type: str = "unknown"
+    dish_type: str = "unknown"
+    cuisine_type: str = "unknown"
+    difficulty: str = "unknown"
+    course: str = "unknown"
 
 
 class RecipeUpdate(BaseModel):

@@ -3,15 +3,18 @@ import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import ValidationError
 
 from dispensa.api_models import (
     RecipeCounts,
+    RecipeCreate,
     RecipeDetail,
     RecipeSummary,
     RecipeUpdate,
     ScaledIngredient,
     ScaleResult,
 )
+from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.search_recipes import search_recipes_semantic
 from dispensa.deps import DepsDep, OpenAIClientDep
 from dispensa.domain.enums import (
@@ -163,6 +166,20 @@ async def list_recipes(
         RecipeSummary.from_recipe(recipe, is_favorite=recipe.code in favourites)
         for recipe in page
     ]
+
+
+@router.post("/recipes", status_code=201)
+async def create_recipe(body: RecipeCreate, deps: DepsDep) -> RecipeDetail:
+    """Save a hand-authored draft as a MANUAL recipe and return the stored recipe."""
+    try:
+        recipe = save_custom_recipe(body.model_dump(), recipes=deps.recipes)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StorageError as exc:
+        logger.exception("Failed to save custom recipe %r", body.title)
+        msg = "Could not persist the custom recipe"
+        raise HTTPException(status_code=500, detail=msg) from exc
+    return _detail(recipe, deps=deps)
 
 
 @router.get("/recipes/count")

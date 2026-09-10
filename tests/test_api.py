@@ -241,6 +241,57 @@ def test_favourite_and_notes_round_trip(client: TestClient, deps: Deps) -> None:
     assert client.get("/api/recipes", params={"is_favorite": "true"}).json() == []
 
 
+def test_create_custom_recipe_persists_manual_source(client: TestClient) -> None:
+    """POST /api/recipes saves a hand-authored draft as a MANUAL recipe."""
+    created = client.post(
+        "/api/recipes",
+        json={
+            "title": "Pasta e ceci",
+            "ingredients": ["200g ceci", "160g pasta"],
+            "instructions": ["Cook the chickpeas", "Add the pasta"],
+            "mediterranean_categories": [{"category": "legumes", "servings": 2.0}],
+        },
+    )
+    assert created.status_code == HTTPStatus.CREATED
+    body = created.json()
+    assert body["source"] == "manual"
+    assert body["post_url"] is None
+    assert body["code"].startswith("m-pasta-e-ceci-")
+    assert [c["source"] for c in body["mediterranean_categories"]] == ["manual"]
+
+    detail = client.get(f"/api/recipes/{body['code']}").json()
+    assert detail["title"] == "Pasta e ceci"
+    assert detail["is_favorite"] is False
+
+
+def test_create_custom_recipe_records_inspired_by(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """inspired_by may point at a saved post the extractor judged not a recipe (D24)."""
+    deps.recipes.save(_inspiration_recipe("N1"))
+
+    created = client.post(
+        "/api/recipes",
+        json={
+            "title": "My version",
+            "ingredients": ["stuff"],
+            "instructions": ["do it"],
+            "inspired_by": ["N1"],
+        },
+    )
+    assert created.status_code == HTTPStatus.CREATED
+
+    detail = client.get(f"/api/recipes/{created.json()['code']}").json()
+    assert detail["inspired_by"] == ["N1"]
+
+
+def test_create_custom_recipe_rejects_a_malformed_draft(client: TestClient) -> None:
+    """A draft missing required fields is a 422, not a save."""
+    response = client.post("/api/recipes", json={"title": "No body"})
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 def test_patch_base_servings_marks_recipe_edited(
     client: TestClient,
     deps: Deps,
