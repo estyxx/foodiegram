@@ -271,7 +271,7 @@ async def get_recipe(code: str, deps: DepsDep) -> RecipeDetail:
 async def update_recipe(code: str, body: RecipeUpdate, deps: DepsDep) -> RecipeDetail:
     """Apply partial user edits: recipe fields to the recipe, app state to user_state.
 
-    base_servings maps to a Recipe field (sets edited_by_user); is_favorite and
+    base_servings maps to a Recipe field (added to edited_fields); is_favorite and
     user_notes are per-user app state and are written to user_state instead.
     """
     recipe = deps.recipes.get(code)
@@ -285,7 +285,9 @@ async def update_recipe(code: str, body: RecipeUpdate, deps: DepsDep) -> RecipeD
         if key in body.model_fields_set and key in Recipe.model_fields
     }
     if recipe_changes:
-        recipe_changes["edited_by_user"] = True
+        recipe_changes["edited_fields"] = recipe.edited_fields | frozenset(
+            recipe_changes,
+        )
         recipe = recipe.model_copy(update=recipe_changes)
         try:
             deps.recipes.save(recipe)

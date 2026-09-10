@@ -39,7 +39,6 @@ class RecipeRow(SQLModel, table=True):
     thumbnail_url: str | None = None
 
     archived: bool = False
-    edited_by_user: bool = False
     is_recipe: bool = True
     confidence: float = 1.0
     extracted_at: datetime | None = None

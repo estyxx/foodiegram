@@ -57,7 +57,7 @@
  * @property {string | null} thumbnail_url
  * @property {string | null} cloudinary_url
  * @property {string | null} skill_level
- * @property {boolean} edited_by_user
+ * @property {string[]} edited_fields
  * @property {boolean} is_favorite
  * @property {string | null} user_notes
  */

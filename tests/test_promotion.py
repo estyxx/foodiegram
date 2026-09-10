@@ -14,7 +14,6 @@ def _stub_recipe(
     *,
     code: str,
     edited_fields: frozenset[str] = frozenset(),
-    edited_by_user: bool = False,
 ) -> Recipe:
     """Build a minimally-populated recipe stub awaiting promotion."""
     return Recipe(
@@ -26,7 +25,6 @@ def _stub_recipe(
         ingredients=["old ingredient"],
         instructions=[],
         edited_fields=edited_fields,
-        edited_by_user=edited_by_user,
     )
 
 
@@ -43,7 +41,6 @@ def test_promote_updates_recipe_and_preserves_user_edits(
         _stub_recipe(
             code="ABC",
             edited_fields=frozenset({"ingredients"}),
-            edited_by_user=True,
         ),
     )
     extractions.add(

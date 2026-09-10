@@ -26,6 +26,8 @@ _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 _SECONDARY_SERVINGS = 0.5
 _TWO_RECIPES = 2
 _THREE_RECIPES = 3
+_EDITED_SERVINGS = 6
+_REEXTRACTED_SERVINGS = 2
 
 
 def _full_recipe() -> Recipe:
@@ -79,7 +81,6 @@ def _full_recipe() -> Recipe:
         edited_fields=frozenset({"ingredients", "title"}),
         inspired_by=["XYZ", "m-pasta-e-ceci-AB12"],
         archived=True,
-        edited_by_user=True,
         is_recipe=True,
         confidence=0.95,
         extracted_at=_EXTRACTED_AT,
@@ -160,6 +161,36 @@ def test_recipe_round_trips_fully(engine: Engine) -> None:
     assert loaded.edited_fields == {"ingredients", "title"}
     assert loaded.mediterranean_categories[1].category is MedCategory.PROCESSED_MEAT
     assert loaded.mediterranean_categories[1].servings == _SECONDARY_SERVINGS
+
+
+def test_save_keeps_the_edit_marker_when_a_reextraction_drops_it(
+    engine: Engine,
+) -> None:
+    """A non-promote save() cannot erase edited_fields; the next promote needs it."""
+    repo = RecipeRepository(engine)
+    repo.save(
+        _full_recipe().model_copy(
+            update={
+                "base_servings": _EDITED_SERVINGS,
+                "edited_fields": frozenset({"base_servings"}),
+            },
+        ),
+    )
+
+    # A later save (e.g. AI re-extraction) that reconstructs the recipe without
+    # any edit bookkeeping of its own.
+    repo.save(
+        _full_recipe().model_copy(
+            update={
+                "base_servings": _REEXTRACTED_SERVINGS,
+                "edited_fields": frozenset(),
+            },
+        ),
+    )
+
+    loaded = repo.get("ABC")
+    assert loaded is not None
+    assert loaded.edited_fields == {"base_servings"}
 
 
 def test_missing_title_round_trips_as_missing(engine: Engine) -> None:

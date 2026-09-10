@@ -93,21 +93,18 @@ class RecipeRepository:
         """Persist recipe to {code}.json, preserving user edits on re-extraction.
 
         Writes atomically via a sibling .tmp file and Path.replace.
-        If the stored copy has edited_by_user=True, its editing bookkeeping
-        (edited_by_user, edited_fields) is kept from the stored version — AI
-        re-extraction must never overwrite user edits.
+        If the stored copy has a non-empty edited_fields set, that set is kept
+        from the stored version — AI re-extraction must never overwrite user
+        edits.
         """
         path = self._path(recipe.code)
 
         if path.exists():
             try:
                 existing = Recipe.model_validate_json(path.read_bytes())
-                if existing.edited_by_user:
+                if existing.edited_fields:
                     recipe = recipe.model_copy(
-                        update={
-                            "edited_by_user": existing.edited_by_user,
-                            "edited_fields": existing.edited_fields,
-                        },
+                        update={"edited_fields": existing.edited_fields},
                     )
             except (ValidationError, ValueError):
                 # Stale schema (pre-migration file) — no user edits can exist;
