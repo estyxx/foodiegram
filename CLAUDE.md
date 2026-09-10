@@ -301,7 +301,10 @@ don't write the abstraction — write the function.
 
 ## Testing
 
-- `pytest`. Unit tests do **no** network and **no** real disk outside `tmp_path`.
+- `pytest`. No test hits the network. `domain/` and other pure tests touch **no**
+  real disk outside `tmp_path`. App and storage tests run against the **Postgres
+  test DB** (`DATABASE_URL_TEST`) — see the Kraken addendum below; that is the
+  standard, not sqlite-tmp.
 - Mock adapters via Protocols (define `InstagramClient`, `RecipeStore` protocols;
   pass fakes in tests). Don't monkeypatch the real SDK.
 - Test the mapping/parsing logic (Media → domain, LLM JSON → Recipe) hardest —
