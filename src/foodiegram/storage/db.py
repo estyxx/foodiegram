@@ -25,9 +25,27 @@ def ensure_utc(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=UTC)
 
 
+# Recycle pooled connections before Neon's proxy drops them, and cap how long a
+# stalled DNS lookup or TCP handshake can block a request. keepalives let the OS
+# notice a silently dropped connection instead of hanging on the next query.
+_POOL_RECYCLE_SECONDS = 300
+_CONNECT_ARGS = {
+    "connect_timeout": 10,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
+
 def create_db_engine(database_url: str) -> Engine:
-    """Create a SQLModel engine for database_url with connection pre-ping."""
-    return create_engine(database_url, pool_pre_ping=True)
+    """Create a SQLModel engine for database_url with pre-ping and recycle."""
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=_POOL_RECYCLE_SECONDS,
+        connect_args=_CONNECT_ARGS,
+    )
 
 
 def get_session(engine: Engine) -> Session:
