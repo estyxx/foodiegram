@@ -1,14 +1,20 @@
 import logging
+from datetime import date
 from functools import cache
 from typing import TYPE_CHECKING, Annotated, Any
 
 from mcp.server import MCPServer
 from openai import OpenAI
-from pydantic import Field
+from pydantic import Field, ValidationError
 
+from dispensa.app.plan_week import build_planning_context
 from dispensa.app.search_recipes import search_recipes_semantic
 from dispensa.deps import build_deps
-from dispensa.mcp_server.serializers import to_mcp_detail, to_mcp_view
+from dispensa.mcp_server.serializers import (
+    to_mcp_detail,
+    to_mcp_view,
+    to_planning_context,
+)
 from dispensa.settings import Settings
 
 if TYPE_CHECKING:
@@ -96,6 +102,53 @@ def search_recipes(
         to_mcp_view(recipe, is_favorite=recipe.code in favourites, score=score)
         for recipe, score in matches
     ]
+
+
+@mcp.tool()
+def get_planning_context(
+    week_start: Annotated[
+        str,
+        Field(
+            description=(
+                "The Monday that starts the target week, as an ISO date "
+                "'YYYY-MM-DD'. Must be a Monday."
+            ),
+        ),
+    ],
+) -> dict[str, Any]:
+    """Return everything needed to plan one week's meals in a single call.
+
+    One payload for the whole planning conversation, so nothing has to be
+    re-fetched or re-explained: the meals already slotted for the week (with
+    their titles), the Mediterranean-diet `balance` of planned servings against
+    each category `target` with an under/ok/over `state`, the `oily_fish`
+    tally, `suggestions` of recipes that would fill each under-target category
+    (slim views — call `get_recipe` for the full recipe), the weekly `targets`,
+    the current `pantry` contents, and the user's `favourite_codes`. Call this
+    once at the start of a planning session; after changing a meal, the
+    write tool's response already carries the fresh balance.
+    """
+    logger.info("get_planning_context: week_start=%r", week_start)
+    try:
+        target = date.fromisoformat(week_start)
+    except ValueError as exc:
+        msg = "week_start must be an ISO date, e.g. '2024-01-01'"
+        raise ValueError(msg) from exc
+
+    deps = _deps()
+    try:
+        context = build_planning_context(
+            week_start=target,
+            recipes=deps.recipes,
+            plans=deps.plans,
+            targets=deps.targets,
+            pantry=deps.pantry,
+            user_state=deps.user_state,
+        )
+    except ValidationError as exc:
+        msg = f"week_start {week_start!r} is not a Monday"
+        raise ValueError(msg) from exc
+    return to_planning_context(context)
 
 
 @mcp.tool()

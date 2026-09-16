@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 from dispensa.api_models import RecipeDetail
 
 if TYPE_CHECKING:
+    from dispensa.app.plan_week import PlanningContext
     from dispensa.domain.models import Recipe
 
 
@@ -32,6 +33,54 @@ def to_mcp_view(
     if score is not None:
         view["score"] = score
     return view
+
+
+def to_planning_context(context: PlanningContext) -> dict[str, Any]:
+    """Serialise the week's planning payload for the MCP wire.
+
+    Slim recipe views for gap suggestions (the model pays to read every field);
+    everything else is small scalars it needs to reason about balance.
+    """
+    view = context.week
+    return {
+        "week_start": view.plan.week_start.isoformat(),
+        "meals": [meal.model_dump(mode="json") for meal in context.meals],
+        "balance": [
+            {
+                "category": status.category.value,
+                "planned": status.planned,
+                "min_servings": status.target.min_servings,
+                "max_servings": status.target.max_servings,
+                "state": status.state,
+            }
+            for status in view.balance
+        ],
+        "oily_fish": view.oily_fish,
+        "suggestions": [
+            {
+                "category": category.value,
+                "recipes": [to_mcp_view(recipe) for recipe in recipes_for],
+            }
+            for category, recipes_for in view.suggestions.items()
+        ],
+        "targets": [
+            {
+                "category": target.category.value,
+                "min_servings": target.min_servings,
+                "max_servings": target.max_servings,
+            }
+            for target in context.targets
+        ],
+        "pantry": [
+            {
+                "name": item.name,
+                "kind": item.kind,
+                "expires": item.expires.isoformat() if item.expires else None,
+            }
+            for item in context.pantry
+        ],
+        "favourite_codes": list(context.favourite_codes),
+    }
 
 
 def to_mcp_detail(
