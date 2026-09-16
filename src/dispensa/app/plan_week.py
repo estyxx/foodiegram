@@ -1,11 +1,14 @@
-from typing import TYPE_CHECKING
+from datetime import date
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from dispensa.domain.enums import MedCategory
 from dispensa.domain.models import Recipe
+from dispensa.domain.pantry import PantryItem
 from dispensa.domain.planning import (
     CategoryStatus,
+    CategoryTarget,
     WeekPlan,
     gap_suggestions,
     oily_fish_count,
@@ -15,7 +18,6 @@ from dispensa.domain.shopping import shopping_list
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from datetime import date
 
     from dispensa.domain.shopping import AisleGroup
     from dispensa.storage.pantry_db import PantryRepository
@@ -66,6 +68,73 @@ def build_week_plan_view(
         suggestions={
             category: tuple(recipes_for) for category, recipes_for in suggestions.items()
         },
+    )
+
+
+class PlannedMealView(BaseModel):
+    """One planned slot with its recipe title resolved, for the planning payload."""
+
+    model_config = ConfigDict(frozen=True)
+
+    day: date
+    meal: Literal["lunch", "dinner"]
+    recipe_code: str
+    portions: int
+    title: str | None
+
+
+class PlanningContext(BaseModel):
+    """Everything a planner needs for one week in a single read."""
+
+    model_config = ConfigDict(frozen=True)
+
+    week: WeekPlanView
+    meals: tuple[PlannedMealView, ...]
+    targets: tuple[CategoryTarget, ...]
+    pantry: tuple[PantryItem, ...]
+    favourite_codes: tuple[str, ...]
+
+
+def build_planning_context(
+    *,
+    week_start: date,
+    recipes: RecipeRepository,
+    plans: PlanRepository,
+    targets: TargetRepository,
+    pantry: PantryRepository,
+    user_state: UserStateRepository,
+) -> PlanningContext:
+    """Assemble the plan, balance, gaps, targets, pantry and favourites for a week.
+
+    Raises pydantic ValidationError if week_start is not a Monday.
+    """
+    view = build_week_plan_view(
+        week_start=week_start,
+        recipes=recipes,
+        plans=plans,
+        targets=targets,
+        user_state=user_state,
+    )
+    titles = {
+        code: (found.title if (found := recipes.get(code)) else None)
+        for code in {meal.recipe_code for meal in view.plan.meals}
+    }
+    meals = tuple(
+        PlannedMealView(
+            day=meal.day,
+            meal=meal.meal,
+            recipe_code=meal.recipe_code,
+            portions=meal.portions,
+            title=titles.get(meal.recipe_code),
+        )
+        for meal in view.plan.meals
+    )
+    return PlanningContext(
+        week=view,
+        meals=meals,
+        targets=tuple(targets.list_all()),
+        pantry=tuple(pantry.list_all()),
+        favourite_codes=tuple(sorted(user_state.all_favorites())),
     )
 
 
