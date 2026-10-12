@@ -8,6 +8,7 @@ from starlette.requests import Request
 
 from dispensa.settings import Settings
 from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
 from dispensa.storage.plans_db import PlanRepository
@@ -27,6 +28,7 @@ class Deps(BaseModel):
     plans: PlanRepository
     pantry: PantryRepository
     targets: TargetRepository
+    exercise_log: ExerciseLogRepository
 
 
 class AuthConfig(BaseModel):
@@ -49,6 +51,7 @@ def build_deps(database_url: str) -> Deps:
         plans=PlanRepository(engine),
         pantry=PantryRepository(engine),
         targets=TargetRepository(engine),
+        exercise_log=ExerciseLogRepository(engine),
     )
 
 

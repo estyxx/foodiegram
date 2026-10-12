@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from dispensa.api_auth import BasicAuthMiddleware
 from dispensa.deps import AuthConfig, Deps, auth_from_settings, build_deps
-from dispensa.routers import meta, pantry, plans, recipes, targets
+from dispensa.routers import exercise_log, meta, pantry, plans, recipes, targets
 from dispensa.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,7 @@ def create_app(
     app.include_router(pantry.router)
     app.include_router(targets.router)
     app.include_router(meta.router)
+    app.include_router(exercise_log.router)
 
     @app.get("/")
     async def serve_index() -> FileResponse:

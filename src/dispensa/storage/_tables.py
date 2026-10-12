@@ -135,6 +135,19 @@ class PantryItemRow(SQLModel, table=True):
     expires: date | None = None
 
 
+class ExerciseLogRow(SQLModel, table=True):
+    """One completed back exercise; the same exercise may repeat within a day."""
+
+    __tablename__ = "exercise_log"
+
+    id: int | None = Field(default=None, primary_key=True)
+    client_id: str = Field(unique=True)
+    exercise: str
+    category: str
+    done_on: date = Field(index=True)
+    completed_at: datetime
+
+
 class UserStateRow(SQLModel, table=True):
     """Per-recipe app state (favourite / notes), keyed by recipe code."""
 
