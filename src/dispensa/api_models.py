@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from dispensa.domain.exercise_log import ExerciseCategory
 from dispensa.domain.models import ExtractedCategoryServing, Recipe
 
 # Longest caption snippet surfaced as a card description; the card clamps to two
@@ -238,6 +239,31 @@ class PantryItemCreate(BaseModel):
     name: str
     kind: Literal["staple", "fresh"]
     expires: date | None = None
+
+
+class ExerciseLogCreate(BaseModel):
+    """POST body to log one completed back exercise."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_id: str = Field(min_length=1, max_length=64)
+    exercise: str = Field(min_length=1, max_length=120)
+    category: ExerciseCategory
+    done_on: date
+    completed_at: AwareDatetime
+
+
+class ExerciseLogOut(BaseModel):
+    """A logged back-exercise completion in API responses."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: int | None
+    client_id: str
+    exercise: str
+    category: str
+    done_on: date
+    completed_at: datetime
 
 
 class TargetOut(BaseModel):

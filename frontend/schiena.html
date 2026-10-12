@@ -57,6 +57,13 @@
         margin: 0.25rem 0 1.25rem;
       }
 
+      .today {
+        text-align: center;
+        font-size: 0.85rem;
+        color: #57534e;
+        margin-bottom: 0.5rem;
+      }
+
       .big {
         width: 100%;
         border: 0;
@@ -156,6 +163,11 @@
       .card__reps {
         color: #78716c;
         margin-bottom: 1rem;
+      }
+      .card__today {
+        font-size: 0.8rem;
+        color: #57534e;
+        margin: -0.5rem 0 1rem;
       }
 
       .tip {
@@ -651,34 +663,85 @@
         return node;
       }
 
-      // --- Persistence: difficulty / rotation index per category -----------
+      // --- Persistence: today's position per category ----------------------
+      // Every day starts again from the first (easiest) exercise of every
+      // category, so the saved position is stamped with its day and ignored once
+      // that day is over.
       const ROTATION_KEY = "esercizi-schiena-rotation";
       const DEFAULT_ROTATION = { Mobilize: 0, Move: 0, Strengthen: 0, Activate: 0 };
 
-      function loadRotation() {
+      // Local calendar day (YYYY-MM-DD) — the day the user lives, not UTC.
+      function dayKey(date) {
+        const mm = String(date.getMonth() + 1).padStart(2, "0");
+        const dd = String(date.getDate()).padStart(2, "0");
+        return date.getFullYear() + "-" + mm + "-" + dd;
+      }
+
+      function loadRotation(day) {
         try {
           const raw = localStorage.getItem(ROTATION_KEY);
           if (!raw) return Object.assign({}, DEFAULT_ROTATION);
           const parsed = JSON.parse(raw);
-          return Object.assign({}, DEFAULT_ROTATION, parsed);
+          // Stale day, or the pre-daily shape without a date: start from the top.
+          if (!parsed || parsed.date !== day) return Object.assign({}, DEFAULT_ROTATION);
+          return Object.assign({}, DEFAULT_ROTATION, parsed.rotation);
         } catch (err) {
           return Object.assign({}, DEFAULT_ROTATION);
         }
       }
 
-      function saveRotation(next) {
+      function saveRotation(day, next) {
         try {
-          localStorage.setItem(ROTATION_KEY, JSON.stringify(next));
+          localStorage.setItem(
+            ROTATION_KEY,
+            JSON.stringify({ date: day, rotation: next }),
+          );
         } catch (err) {
           // private mode / storage disabled — the session still works in memory
         }
       }
 
+      // --- Completion log: queued in the browser, flushed to the API -------
+      // Each "Fatto" is queued first and then sent, so a flaky connection never
+      // loses a tap. client_id makes a retried send idempotent on the server,
+      // while two real repeats of the same exercise stay two entries.
+      const LOG_URL = "/api/exercise-log";
+      const PENDING_KEY = "esercizi-schiena-pending";
+
+      function loadPending() {
+        try {
+          const raw = localStorage.getItem(PENDING_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          return [];
+        }
+      }
+
+      function savePending() {
+        try {
+          localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+        } catch (err) {
+          // storage disabled — the queue still lives in memory for this page
+        }
+      }
+
+      function newClientId() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return window.crypto.randomUUID();
+        }
+        return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+      }
+
       // --- State ----------------------------------------------------------
       let mode = null; // null | "breve" | "completo"
-      let rotation = loadRotation();
+      let today = dayKey(new Date());
+      let rotation = loadRotation(today);
       let index = 0;
       let done = new Set();
+      let pending = loadPending(); // taps not yet confirmed by the server
+      let todayLog = []; // server-confirmed completions for `today`
+      let flushing = false;
 
       function currentList() {
         if (mode === "breve") {
@@ -700,8 +763,81 @@
         return FLAT;
       }
 
+      // Pending taps from today that the server has not echoed back yet.
+      function queuedToday() {
+        const confirmed = new Set(todayLog.map((e) => e.client_id));
+        return pending.filter((e) => e.done_on === today && !confirmed.has(e.client_id));
+      }
+
+      function doneTodayCount(name) {
+        const confirmed = todayLog.filter((e) => e.exercise === name).length;
+        return confirmed + queuedToday().filter((e) => e.exercise === name).length;
+      }
+
+      function doneTodayTotal() {
+        return todayLog.length + queuedToday().length;
+      }
+
+      // --- Server sync ----------------------------------------------------
+      async function flushPending() {
+        if (flushing) return;
+        flushing = true;
+        try {
+          while (pending.length > 0) {
+            const entry = pending[0];
+            const res = await fetch(LOG_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(entry),
+            });
+            if (res.status === 422) {
+              // Can never succeed; drop it rather than wedge everything behind it.
+              console.warn("exercise log rejected", entry);
+              pending.shift();
+              savePending();
+              continue;
+            }
+            if (!res.ok) break; // keep it queued; retried on the next tap / load
+            const saved = await res.json();
+            pending.shift();
+            savePending();
+            const known = todayLog.some((e) => e.client_id === saved.client_id);
+            if (saved.done_on === today && !known) todayLog.push(saved);
+          }
+        } catch (err) {
+          // offline: leave the queue as is
+        } finally {
+          flushing = false;
+          paint();
+        }
+      }
+
+      async function refreshToday() {
+        const day = today;
+        try {
+          const res = await fetch(LOG_URL + "?day=" + encodeURIComponent(day));
+          if (!res.ok || day !== today) return;
+          todayLog = await res.json();
+          paint();
+        } catch (err) {
+          // offline: counts fall back to what is queued locally
+        }
+      }
+
+      // A new calendar day: position back to the start, today's log re-read.
+      function syncDay() {
+        const day = dayKey(new Date());
+        if (day === today) return;
+        today = day;
+        rotation = Object.assign({}, DEFAULT_ROTATION);
+        saveRotation(today, rotation);
+        todayLog = [];
+        refreshToday();
+      }
+
       // --- Actions ------------------------------------------------------
       function startMode(next) {
+        syncDay();
         mode = next;
         index = 0;
         done = new Set();
@@ -709,6 +845,19 @@
       }
 
       function markDone() {
+        const ex = currentList()[index];
+        if (ex) {
+          const now = new Date();
+          pending.push({
+            client_id: newClientId(),
+            exercise: ex.name,
+            category: ex.category,
+            done_on: dayKey(now),
+            completed_at: now.toISOString(),
+          });
+          savePending();
+          flushPending();
+        }
         done.add(index);
         index += 1;
         render();
@@ -725,7 +874,7 @@
         const max = cat.exercises.length - 1;
         const value = Math.min(max, Math.max(0, rotation[categoryName] + delta));
         rotation = Object.assign({}, rotation, { [categoryName]: value });
-        saveRotation(rotation);
+        saveRotation(today, rotation);
         render();
       }
 
@@ -737,7 +886,7 @@
             next[name] = (rotation[name] + 1) % cat.exercises.length;
           }
           rotation = next;
-          saveRotation(rotation);
+          saveRotation(today, rotation);
         }
         mode = null;
         index = 0;
@@ -747,21 +896,28 @@
 
       function resetProgress(evt) {
         const ok = window.confirm(
-          "Azzero i progressi salvati? Rotazione e livelli di difficoltà tornano all'inizio.",
+          "Riparto da capo per oggi? Rotazione e livelli tornano al primo esercizio. " +
+            "Il registro degli esercizi fatti resta com'è.",
         );
         if (!ok) return;
         rotation = Object.assign({}, DEFAULT_ROTATION);
-        try {
-          localStorage.removeItem(ROTATION_KEY);
-        } catch (err) {
-          // storage disabled — the in-memory reset is enough
-        }
+        saveRotation(today, rotation);
         const btn = evt.currentTarget;
-        btn.textContent = "Progressi azzerati ✓";
+        btn.textContent = "Ripartito da capo ✓";
         btn.disabled = true;
       }
 
       // --- Screens ----------------------------------------------------
+      function todaySummary() {
+        const total = doneTodayTotal();
+        const waiting = pending.length;
+        const base =
+          total === 0
+            ? "Oggi: ancora niente"
+            : "Oggi: " + total + (total === 1 ? " esercizio fatto" : " esercizi fatti");
+        return waiting > 0 ? base + " · " + waiting + " da sincronizzare" : base;
+      }
+
       function menuScreen() {
         return el("div", { class: "screen" }, [
           el("h1", { class: "title", text: "Esercizi schiena" }),
@@ -769,8 +925,10 @@
             class: "lede",
             text:
               "Il giro breve tocca tutte e 4 le categorie in poche mosse — fallo a ogni pausa. " +
-              "Per Strengthen e Activate resti sullo stesso livello finché non dici tu «più difficile»: non avanza da solo.",
+              "Strengthen e Activate non avanzano da soli: dici tu «più difficile». " +
+              "Ogni giorno si riparte dal primo esercizio di ogni categoria.",
           }),
+          el("p", { class: "today", text: todaySummary() }),
           el("button", { class: "big big--dark", onClick: () => startMode("breve") }, [
             el("span", { class: "big__label", text: "Giro breve" }),
             el("span", {
@@ -791,7 +949,7 @@
           ),
           el("button", {
             class: "linkbtn",
-            text: "Azzera progressi salvati",
+            text: "Riparti da capo (oggi)",
             onClick: resetProgress,
           }),
         ]);
@@ -819,6 +977,15 @@
           el("h2", { class: "card__name", text: ex.name }),
           el("p", { class: "card__reps", text: ex.reps }),
         ]);
+        const times = doneTodayCount(ex.name);
+        if (times > 0) {
+          body.appendChild(
+            el("p", {
+              class: "card__today",
+              text: "Fatto " + times + (times === 1 ? " volta" : " volte") + " oggi",
+            }),
+          );
+        }
 
         if (ex.tip) {
           body.appendChild(
@@ -881,7 +1048,7 @@
               class: "finish__hint",
               text:
                 "Al prossimo giro breve, Mobilize e Move passano agli esercizi successivi in rotazione. " +
-                "Strengthen e Activate restano al livello attuale.",
+                "Strengthen e Activate restano al livello attuale. Domani si riparte da capo.",
             }),
           );
         }
@@ -936,12 +1103,30 @@
       // --- Mount ----------------------------------------------------
       const root = document.getElementById("app");
 
-      function render() {
+      // paint() redraws in place; render() is for navigation and resets scroll.
+      function paint() {
         root.replaceChildren(mode === null ? menuScreen() : sessionScreen());
+      }
+
+      function render() {
+        if (mode === null) syncDay();
+        paint();
         window.scrollTo(0, 0);
       }
 
+      // A phone keeps the page alive in the background: on return, re-check the
+      // day, re-read today's log and send anything still queued.
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible") return;
+        if (mode === null) syncDay();
+        refreshToday();
+        flushPending();
+        if (mode === null) paint();
+      });
+
       render();
+      refreshToday();
+      flushPending();
     </script>
   </body>
 </html>

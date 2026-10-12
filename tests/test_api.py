@@ -11,6 +11,7 @@ from dispensa.api import create_app
 from dispensa.deps import AuthConfig, Deps, get_openai_client
 from dispensa.domain.enums import MedCategory
 from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
 from dispensa.storage.plans_db import PlanRepository
@@ -54,6 +55,7 @@ def _make_deps(engine: Engine) -> Deps:
         plans=PlanRepository(engine),
         pantry=PantryRepository(engine),
         targets=TargetRepository(engine),
+        exercise_log=ExerciseLogRepository(engine),
     )
 
 
