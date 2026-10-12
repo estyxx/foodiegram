@@ -58,10 +58,17 @@ class ExerciseLogRepository:
 
     def list_for_day(self, day: date) -> list[ExerciseCompletion]:
         """Return the completions logged for day, oldest first."""
+        return self.list_between(start=day, end=day)
+
+    def list_between(self, *, start: date, end: date) -> list[ExerciseCompletion]:
+        """Return completions with start <= done_on <= end, oldest first."""
         with get_session(self._engine) as session:
             rows = session.exec(
                 select(ExerciseLogRow)
-                .where(col(ExerciseLogRow.done_on) == day)
+                .where(
+                    col(ExerciseLogRow.done_on) >= start,
+                    col(ExerciseLogRow.done_on) <= end,
+                )
                 .order_by(col(ExerciseLogRow.completed_at), col(ExerciseLogRow.id)),
             ).all()
             return [_to_completion(row) for row in rows]
