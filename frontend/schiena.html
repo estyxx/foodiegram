@@ -234,6 +234,141 @@
         margin-top: 0.25rem;
       }
 
+      .stats__back {
+        text-align: left;
+        padding-left: 0;
+        width: auto;
+        align-self: flex-start;
+      }
+      .stats__card {
+        background: #fff;
+        border: 1px solid #f5f5f4;
+        border-radius: 1.25rem;
+        padding: 1.25rem 1.25rem 1.4rem;
+      }
+      .stats__h {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #78716c;
+      }
+      .stats__sub {
+        font-size: 0.8rem;
+        color: #a8a29e;
+        margin-bottom: 0.5rem;
+      }
+      .stats__big {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+      }
+      .stats__empty {
+        font-size: 0.85rem;
+        color: #78716c;
+        text-align: center;
+      }
+      .stats__list {
+        list-style: none;
+      }
+      .stats__row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        column-gap: 0.6rem;
+        align-items: baseline;
+        padding: 0.45rem 0;
+        border-top: 1px solid #f5f5f4;
+      }
+      .stats__dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 999px;
+        align-self: center;
+      }
+      .stats__name {
+        font-size: 0.95rem;
+      }
+      .stats__count {
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      .stats__times {
+        grid-column: 2 / 4;
+        font-size: 0.75rem;
+        color: #a8a29e;
+      }
+
+      .bars {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.4rem;
+        margin: 0.25rem 0 1rem;
+      }
+      .bar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .bar--future {
+        opacity: 0.45;
+      }
+      .bar__n {
+        font-size: 0.75rem;
+        color: #57534e;
+        height: 1.1rem;
+        line-height: 1.1rem;
+      }
+      .bar__track {
+        width: 100%;
+        height: 5rem;
+        display: flex;
+        align-items: flex-end;
+        background: #f5f5f4;
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+      .bar__fill {
+        width: 100%;
+        background: #a8a29e;
+        border-radius: 0.5rem 0.5rem 0 0;
+      }
+      .bar__fill--today {
+        background: #292524;
+      }
+      .bar__d {
+        font-size: 0.75rem;
+        color: #a8a29e;
+      }
+      .bar__d--today {
+        color: #292524;
+        font-weight: 700;
+      }
+
+      .catrow {
+        display: grid;
+        grid-template-columns: 5.5rem 1fr 1.5rem;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.3rem 0;
+        font-size: 0.85rem;
+      }
+      .catrow__track {
+        height: 0.5rem;
+        background: #f5f5f4;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .catrow__fill {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+      }
+      .catrow__n {
+        text-align: right;
+        font-weight: 600;
+      }
+
       .finish {
         background: #fff;
         border: 1px solid #f5f5f4;
@@ -742,6 +877,7 @@
       let pending = loadPending(); // taps not yet confirmed by the server
       let todayLog = []; // server-confirmed completions for `today`
       let flushing = false;
+      let weekLog = []; // server-confirmed completions for the current week
 
       function currentList() {
         if (mode === "breve") {
@@ -803,6 +939,9 @@
             savePending();
             const known = todayLog.some((e) => e.client_id === saved.client_id);
             if (saved.done_on === today && !known) todayLog.push(saved);
+            if (!weekLog.some((e) => e.client_id === saved.client_id)) {
+              weekLog.push(saved);
+            }
           }
         } catch (err) {
           // offline: leave the queue as is
@@ -824,6 +963,50 @@
         }
       }
 
+      // --- Week view helpers (weeks run Monday to Sunday) -----------------
+      function parseDay(key) {
+        const parts = key.split("-").map(Number);
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+
+      function addDays(date, n) {
+        const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        copy.setDate(copy.getDate() + n);
+        return copy;
+      }
+
+      function weekStartOf(key) {
+        const date = parseDay(key);
+        return addDays(date, -((date.getDay() + 6) % 7));
+      }
+
+      async function refreshWeek() {
+        const day = today;
+        const start = weekStartOf(day);
+        const url =
+          LOG_URL + "/range?start=" + dayKey(start) + "&end=" + dayKey(addDays(start, 6));
+        try {
+          const res = await fetch(url);
+          if (!res.ok || day !== today) return;
+          weekLog = await res.json();
+          paint();
+        } catch (err) {
+          // offline: the week falls back to what is queued locally
+        }
+      }
+
+      // Confirmed + still-queued completions that fall in the current week.
+      function weekEntries() {
+        const start = weekStartOf(today);
+        const lo = dayKey(start);
+        const hi = dayKey(addDays(start, 6));
+        const inWeek = (e) => e.done_on >= lo && e.done_on <= hi;
+        const confirmed = weekLog.filter(inWeek);
+        const known = new Set(confirmed.map((e) => e.client_id));
+        const queued = pending.filter((e) => inWeek(e) && !known.has(e.client_id));
+        return confirmed.concat(queued);
+      }
+
       // A new calendar day: position back to the start, today's log re-read.
       function syncDay() {
         const day = dayKey(new Date());
@@ -832,6 +1015,7 @@
         rotation = Object.assign({}, DEFAULT_ROTATION);
         saveRotation(today, rotation);
         todayLog = [];
+        weekLog = [];
         refreshToday();
       }
 
@@ -894,6 +1078,13 @@
         render();
       }
 
+      function openStats() {
+        syncDay();
+        mode = "stats";
+        render();
+        refreshWeek();
+      }
+
       function resetProgress(evt) {
         const ok = window.confirm(
           "Riparto da capo per oggi? Rotazione e livelli tornano al primo esercizio. " +
@@ -916,6 +1107,200 @@
             ? "Oggi: ancora niente"
             : "Oggi: " + total + (total === 1 ? " esercizio fatto" : " esercizi fatti");
         return waiting > 0 ? base + " · " + waiting + " da sincronizzare" : base;
+      }
+
+      const DAY_LABELS = ["L", "M", "M", "G", "V", "S", "D"];
+      const DAY_NAMES = [
+        "lunedì",
+        "martedì",
+        "mercoledì",
+        "giovedì",
+        "venerdì",
+        "sabato",
+        "domenica",
+      ];
+
+      function categoryColor(name) {
+        const cat = CATEGORIES.find((c) => c.name === name);
+        return cat ? cat.color : "#a8a29e";
+      }
+
+      function timeLabel(iso) {
+        return new Date(iso).toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function countLabel(n) {
+        return n + (n === 1 ? " esercizio" : " esercizi");
+      }
+
+      // Today's completions folded by exercise: name, category, one time per tap.
+      function groupByExercise(entries) {
+        const groups = [];
+        const byName = new Map();
+        for (const e of entries) {
+          let group = byName.get(e.exercise);
+          if (!group) {
+            group = { name: e.exercise, category: e.category, times: [] };
+            byName.set(e.exercise, group);
+            groups.push(group);
+          }
+          group.times.push(timeLabel(e.completed_at));
+        }
+        return groups;
+      }
+
+      function todaySection(entries) {
+        const children = [
+          el("h2", { class: "stats__h", text: "Oggi" }),
+          el("p", {
+            class: "stats__sub",
+            text: parseDay(today).toLocaleDateString("it-IT", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }),
+          }),
+        ];
+        if (entries.length === 0) {
+          children.push(
+            el("p", {
+              class: "stats__empty",
+              text: "Ancora niente oggi. Un giro breve dura ~2 minuti.",
+            }),
+          );
+          return el("section", { class: "stats__card" }, children);
+        }
+        children.push(el("p", { class: "stats__big", text: countLabel(entries.length) }));
+        const list = el("ul", { class: "stats__list" });
+        for (const group of groupByExercise(entries)) {
+          list.appendChild(
+            el("li", { class: "stats__row" }, [
+              el("span", {
+                class: "stats__dot",
+                style: { backgroundColor: categoryColor(group.category) },
+                attrs: { "aria-hidden": "true" },
+              }),
+              el("span", { class: "stats__name", text: group.name }),
+              el("span", { class: "stats__count", text: "×" + group.times.length }),
+              el("span", { class: "stats__times", text: group.times.join(" · ") }),
+            ]),
+          );
+        }
+        children.push(list);
+        return el("section", { class: "stats__card" }, children);
+      }
+
+      function weekSection(entries) {
+        const start = weekStartOf(today);
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+          const key = dayKey(addDays(start, i));
+          days.push({ key, count: entries.filter((e) => e.done_on === key).length });
+        }
+        const peak = Math.max(1, ...days.map((d) => d.count));
+        const activeDays = days.filter((d) => d.count > 0).length;
+
+        const bars = el("div", { class: "bars" });
+        days.forEach((d, i) => {
+          const isToday = d.key === today;
+          const height = d.count === 0 ? 0 : Math.max(8, Math.round((d.count / peak) * 100));
+          bars.appendChild(
+            el(
+              "div",
+              {
+                class: "bar" + (d.key > today ? " bar--future" : ""),
+                attrs: { role: "img", "aria-label": DAY_NAMES[i] + ": " + d.count },
+              },
+              [
+                el("span", { class: "bar__n", text: d.count > 0 ? String(d.count) : "" }),
+                el("div", { class: "bar__track" }, [
+                  el("div", {
+                    class: "bar__fill" + (isToday ? " bar__fill--today" : ""),
+                    style: { height: height + "%" },
+                  }),
+                ]),
+                el("span", {
+                  class: "bar__d" + (isToday ? " bar__d--today" : ""),
+                  text: DAY_LABELS[i],
+                }),
+              ],
+            ),
+          );
+        });
+
+        const perCategory = CATEGORIES.map((cat) => ({
+          name: cat.name,
+          color: cat.color,
+          count: entries.filter((e) => e.category === cat.name).length,
+        }));
+        const topCount = Math.max(1, ...perCategory.map((c) => c.count));
+        const cats = el("ul", { class: "stats__list" });
+        for (const cat of perCategory) {
+          cats.appendChild(
+            el("li", { class: "catrow" }, [
+              el("span", { class: "catrow__name", text: cat.name }),
+              el("span", { class: "catrow__track" }, [
+                el("span", {
+                  class: "catrow__fill",
+                  style: {
+                    width: Math.round((cat.count / topCount) * 100) + "%",
+                    backgroundColor: cat.color,
+                  },
+                }),
+              ]),
+              el("span", { class: "catrow__n", text: String(cat.count) }),
+            ]),
+          );
+        }
+
+        const range =
+          start.toLocaleDateString("it-IT", { day: "numeric", month: "short" }) +
+          " – " +
+          addDays(start, 6).toLocaleDateString("it-IT", {
+            day: "numeric",
+            month: "short",
+          });
+        const summary =
+          countLabel(entries.length) +
+          " · " +
+          activeDays +
+          (activeDays === 1 ? " giorno" : " giorni") +
+          " su 7";
+
+        return el("section", { class: "stats__card" }, [
+          el("h2", { class: "stats__h", text: "Questa settimana" }),
+          el("p", { class: "stats__sub", text: range }),
+          el("p", { class: "stats__big", text: summary }),
+          bars,
+          cats,
+        ]);
+      }
+
+      function statsScreen() {
+        const entries = weekEntries();
+        const waiting = pending.length;
+        const children = [
+          el("button", {
+            class: "linkbtn stats__back",
+            text: "← Menu",
+            onClick: backToMenu,
+          }),
+          el("h1", { class: "title", text: "Progressi" }),
+          todaySection(entries.filter((e) => e.done_on === today)),
+          weekSection(entries),
+        ];
+        if (waiting > 0) {
+          children.push(
+            el("p", {
+              class: "stats__empty",
+              text: waiting + " da sincronizzare — compaiono qui appena torni online.",
+            }),
+          );
+        }
+        return el("div", { class: "screen" }, children);
       }
 
       function menuScreen() {
@@ -947,6 +1332,10 @@
               }),
             ],
           ),
+          el("button", { class: "big big--light", onClick: openStats }, [
+            el("span", { class: "big__label", text: "Progressi" }),
+            el("span", { class: "big__sub", text: "Cosa hai fatto oggi e questa settimana" }),
+          ]),
           el("button", {
             class: "linkbtn",
             text: "Riparti da capo (oggi)",
@@ -1105,7 +1494,10 @@
 
       // paint() redraws in place; render() is for navigation and resets scroll.
       function paint() {
-        root.replaceChildren(mode === null ? menuScreen() : sessionScreen());
+        let screen = sessionScreen();
+        if (mode === null) screen = menuScreen();
+        else if (mode === "stats") screen = statsScreen();
+        root.replaceChildren(screen);
       }
 
       function render() {
@@ -1120,6 +1512,7 @@
         if (document.visibilityState !== "visible") return;
         if (mode === null) syncDay();
         refreshToday();
+        if (mode === "stats") refreshWeek();
         flushPending();
         if (mode === null) paint();
       });

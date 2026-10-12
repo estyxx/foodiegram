@@ -157,3 +157,47 @@ def test_api_rejects_naive_timestamp(client: TestClient) -> None:
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_list_between_is_inclusive_and_bounded(repo: ExerciseLogRepository) -> None:
+    """A week query returns both edges and nothing outside the range."""
+    repo.add(_completion("before", done_on=date(2026, 10, 11)))
+    repo.add(_completion("monday", done_on=date(2026, 10, 12)))
+    repo.add(_completion("sunday", done_on=date(2026, 10, 18)))
+    repo.add(_completion("after", done_on=date(2026, 10, 19)))
+
+    week = repo.list_between(start=date(2026, 10, 12), end=date(2026, 10, 18))
+
+    assert [entry.client_id for entry in week] == ["monday", "sunday"]
+
+
+def test_api_range_spans_days(client: TestClient) -> None:
+    """GET /range returns every completion across the requested days."""
+    client.post("/api/exercise-log", json=_body("a"))
+    other_day = _body("b") | {"done_on": "2026-10-14"}
+    client.post("/api/exercise-log", json=other_day)
+
+    listed = client.get(
+        "/api/exercise-log/range",
+        params={"start": "2026-10-12", "end": "2026-10-18"},
+    ).json()
+
+    assert [row["done_on"] for row in listed] == ["2026-10-12", "2026-10-14"]
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [("2026-10-18", "2026-10-12"), ("2026-01-01", "2026-12-31")],
+)
+def test_api_range_rejects_reversed_or_huge_spans(
+    client: TestClient,
+    start: str,
+    end: str,
+) -> None:
+    """A reversed or year-wide range is a 422, not a table scan."""
+    response = client.get(
+        "/api/exercise-log/range",
+        params={"start": start, "end": end},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
