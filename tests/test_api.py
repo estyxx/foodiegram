@@ -570,11 +570,13 @@ def test_basic_auth_blocks_and_allows(db_engine: Engine) -> None:
     assert unauthorized.status_code == HTTPStatus.UNAUTHORIZED
     assert unauthorized.headers["WWW-Authenticate"] == 'Basic realm="dispensa"'
 
-    ok = client.get("/api/targets", auth=("user", "pass"))
-    assert ok.status_code == HTTPStatus.OK
-
+    # Before the successful login: that sets a session cookie which would
+    # (rightly) authorize every later request from this client.
     wrong = client.get("/api/targets", auth=("user", "nope"))
     assert wrong.status_code == HTTPStatus.UNAUTHORIZED
+
+    ok = client.get("/api/targets", auth=("user", "pass"))
+    assert ok.status_code == HTTPStatus.OK
 
 
 def test_recipe_detail_is_reachable_without_credentials(db_engine: Engine) -> None:
@@ -658,3 +660,135 @@ def test_serves_spa_from_configured_frontend_dir(
 
     assert response.status_code == HTTPStatus.OK
     assert "<h1>hi</h1>" in response.text
+
+
+class _Clock:
+    """A movable wall clock, so cookie expiry is tested without sleeping."""
+
+    def __init__(self, now: float) -> None:
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+
+_THIRTY_DAYS = 30 * 24 * 60 * 60
+_COOKIE = "dispensa_session"
+
+
+def _session_client(
+    engine: Engine,
+    *,
+    clock: _Clock,
+    creds: Sequence[str] = ("user", "pass"),
+) -> TestClient:
+    """Build an auth-enabled client whose session cookie follows clock."""
+    app = create_app(
+        deps=_make_deps(engine),
+        auth=AuthConfig(username=creds[0], password=creds[1]),
+        clock=clock,
+    )
+    return TestClient(app)
+
+
+def test_basic_login_sets_a_remember_me_cookie(db_engine: Engine) -> None:
+    """A valid Basic login also hands the browser a hardened 30-day cookie."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+
+    response = client.get("/api/targets", auth=("user", "pass"))
+
+    cookie = response.headers["set-cookie"]
+    assert cookie.startswith(f"{_COOKIE}=")
+    assert "HttpOnly" in cookie
+    assert "SameSite=strict" in cookie
+    assert f"Max-Age={_THIRTY_DAYS}" in cookie
+
+
+def test_cookie_alone_authorizes_later_requests(db_engine: Engine) -> None:
+    """After one login, requests with no Authorization header still pass."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+    client.get("/api/targets", auth=("user", "pass"))
+
+    assert client.get("/api/targets").status_code == HTTPStatus.OK
+
+
+def test_failed_login_sets_no_cookie(db_engine: Engine) -> None:
+    """A wrong password gets a 401 and no session."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+
+    response = client.get("/api/targets", auth=("user", "nope"))
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert "set-cookie" not in response.headers
+
+
+def test_tampered_cookie_is_rejected(db_engine: Engine) -> None:
+    """Changing any part of the signed value logs the browser out."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+    token = client.get("/api/targets", auth=("user", "pass")).cookies[_COOKIE]
+    forged = _session_client(db_engine, clock=_Clock(1_000.0))
+    forged.cookies.set(_COOKIE, token[:-1] + ("0" if token[-1] != "0" else "1"))
+
+    assert forged.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_cookie_stops_working_after_it_expires(db_engine: Engine) -> None:
+    """The cookie is good for 30 days from login, not a second longer."""
+    clock = _Clock(1_000.0)
+    client = _session_client(db_engine, clock=clock)
+    client.get("/api/targets", auth=("user", "pass"))
+
+    clock.now = 1_000.0 + _THIRTY_DAYS - 1
+    assert client.get("/api/targets").status_code == HTTPStatus.OK
+
+    clock.now = 1_000.0 + _THIRTY_DAYS + 1
+    assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_changing_the_password_invalidates_old_cookies(db_engine: Engine) -> None:
+    """A cookie minted under the old password is useless once it changes."""
+    old = _session_client(db_engine, clock=_Clock(1_000.0), creds=("user", "old"))
+    token = old.get("/api/targets", auth=("user", "old")).cookies[_COOKIE]
+    new = _session_client(db_engine, clock=_Clock(1_000.0), creds=("user", "new"))
+    new.cookies.set(_COOKIE, token)
+
+    assert new.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_cookie_is_marked_secure_behind_a_tls_proxy(db_engine: Engine) -> None:
+    """X-Forwarded-Proto: https (FastAPI Cloud's proxy) turns on Secure."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+
+    response = client.get(
+        "/api/targets",
+        auth=("user", "pass"),
+        headers={"X-Forwarded-Proto": "https"},
+    )
+
+    assert "Secure" in response.headers["set-cookie"]
+
+
+def test_public_pages_never_issue_a_cookie(db_engine: Engine) -> None:
+    """Only a real login mints a session; the open SPA shell does not."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+
+    assert "set-cookie" not in client.get("/").headers
+
+
+def test_pages_are_stored_but_revalidated(db_engine: Engine) -> None:
+    """Both the index route and static files carry no-cache."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+
+    for path in ("/", "/schiena.html"):
+        assert client.get(path).headers["cache-control"] == "no-cache"
+
+
+def test_static_file_answers_a_conditional_request_with_304(db_engine: Engine) -> None:
+    """Revalidation is cheap: an unchanged file is a 304 that keeps no-cache."""
+    client = _session_client(db_engine, clock=_Clock(1_000.0))
+    etag = client.get("/schiena.html").headers["etag"]
+
+    again = client.get("/schiena.html", headers={"If-None-Match": etag})
+
+    assert again.status_code == HTTPStatus.NOT_MODIFIED
+    assert again.headers["cache-control"] == "no-cache"
