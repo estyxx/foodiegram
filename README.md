@@ -280,8 +280,17 @@ uvx fastapi deploy        # or: fastapi deploy
 then edit something and redeploy — the edit must survive (proves the DB, not the
 ephemeral disk, is the source of truth).
 
-> Auth is enforced over **everything** (static + API) whenever `BASIC_AUTH_USERNAME` is
-> set; leave it empty only for local dev.
+> Auth is enforced on the **API** whenever `BASIC_AUTH_USERNAME` is set; leave it empty
+> only for local dev. The static pages (SPA shell, `schiena.html`) are public by design
+> so a shared recipe link can open; only `/api/*` calls demand the password.
+>
+> **Staying logged in.** After one valid Basic login the API also sets a signed
+> `dispensa_session` cookie (HttpOnly, SameSite=Strict, `Secure` behind HTTPS, 30 days).
+> Phones drop cached Basic credentials between visits, so without it every reload
+> re-prompts; with it you sign in about once a month. The signing key is derived from the
+> username and password, so changing `BASIC_AUTH_PASSWORD` logs every browser out. Static
+> files are sent with `Cache-Control: no-cache`: the browser keeps a copy but revalidates
+> it by ETag on each use, so a deploy is never masked by a stale page.
 
 ---
 

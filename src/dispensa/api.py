@@ -1,6 +1,8 @@
 import functools
 import logging
+import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import uvicorn
 from fastapi import FastAPI
@@ -14,9 +16,38 @@ from dispensa.deps import AuthConfig, Deps, auth_from_settings, build_deps
 from dispensa.routers import exercise_log, meta, pantry, plans, recipes, targets
 from dispensa.settings import Settings
 
+if TYPE_CHECKING:
+    import os
+    from collections.abc import Callable
+
+    from starlette.responses import Response
+    from starlette.types import Scope
+
 logger = logging.getLogger(__name__)
 
 _FRONTEND = Path(__file__).parent.parent.parent / "frontend"
+
+# Static files are not fingerprinted, so a deploy replaces them in place. "no-cache"
+# lets the browser keep a copy but check its ETag on every use (a cheap 304, and a
+# public request, so it never triggers a login). With no header at all browsers
+# guess freshness from Last-Modified and can show a stale page for days.
+_REVALIDATE = "no-cache"
+
+
+class _RevalidatingStaticFiles(StaticFiles):
+    """Static files the browser may store but must revalidate on every use."""
+
+    def file_response(
+        self,
+        full_path: str | os.PathLike[str],
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
+        """Serve the file with Cache-Control: no-cache (also kept on a 304)."""
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = _REVALIDATE
+        return response
 
 
 def create_app(
@@ -26,6 +57,7 @@ def create_app(
     cors_origins: list[str] | None = None,
     frontend_dir: Path | None = None,
     git_sha: str = "",
+    clock: Callable[[], float] = time.time,
 ) -> FastAPI:
     """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
     auth = auth or AuthConfig()
@@ -38,6 +70,7 @@ def create_app(
         BasicAuthMiddleware,
         username=auth.username,
         password=auth.password,
+        clock=clock,
     )
     # The all-recipes list is a large JSON payload; compress it (and the JS/CSS)
     # so transfer time doesn't dominate load on slower connections.
@@ -63,9 +96,12 @@ def create_app(
     @app.get("/")
     async def serve_index() -> FileResponse:
         """Serve the frontend SPA."""
-        return FileResponse(frontend / "index.html")
+        return FileResponse(
+            frontend / "index.html",
+            headers={"Cache-Control": _REVALIDATE},
+        )
 
-    app.mount("/", StaticFiles(directory=frontend), name="static")
+    app.mount("/", _RevalidatingStaticFiles(directory=frontend), name="static")
     return app
 
 
