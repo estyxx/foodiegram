@@ -234,11 +234,35 @@
         margin-top: 0.25rem;
       }
 
-      .stats__back {
-        text-align: left;
-        padding-left: 0;
-        width: auto;
-        align-self: flex-start;
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .topbar__back {
+        background: none;
+        border: 0;
+        font: inherit;
+        font-size: 0.9rem;
+        color: #78716c;
+        min-height: 2.75rem;
+        padding: 0 0.75rem 0 0;
+        cursor: pointer;
+      }
+      .topbar__ctx {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #a8a29e;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+      .pair .big {
+        padding: 1.1rem 0.5rem;
       }
       .stats__card {
         background: #fff;
@@ -634,6 +658,59 @@
         })),
       );
 
+      // --- Sections by body position ------------------------------------
+      // Names, not copies: a section is a filtered view of the catalogue above, in
+      // catalogue order (so Strengthen stays easy → hard). Exercises done on all
+      // fours, seated or in a plank fit neither section.
+      const POSITIONS = [
+        {
+          id: "standing",
+          label: "In piedi",
+          names: [
+            "Hip Extension",
+            "Forward Bend",
+            "Marching",
+            "Hip Up and Out",
+            "Shoulder Blade Squeeze",
+            "Standing Bow and Arrow",
+            "Split Stance Hip Hinge",
+            "Forward Bend Hip Hinge",
+            "Squat",
+            "Jefferson Curl",
+            "Exercise Top End",
+            "Lunge and Twist",
+          ],
+        },
+        {
+          id: "lying",
+          label: "Sdraiata",
+          names: [
+            "Pelvic Lift",
+            "Knee Rolling",
+            "Hip Flex",
+            "Knees to Chest",
+            "Front Lying Back Lift",
+            "Leg Cross Overs",
+            "Static Glutes",
+            "Bilateral Bridge",
+            "Offset Bridge",
+            "Superman",
+            "Deadbug",
+          ],
+        },
+      ];
+
+      for (const position of POSITIONS) {
+        for (const name of position.names) {
+          if (!FLAT.some((ex) => ex.name === name)) {
+            console.warn("unknown exercise in " + position.id + ": " + name);
+          }
+        }
+      }
+
+      const MODE_LABELS = { breve: "Giro breve", completo: "Sessione completa" };
+      for (const position of POSITIONS) MODE_LABELS[position.id] = position.label;
+
       // --- Stick-figure poses (inline SVG, no assets) ------------------------
       const SVGNS = "http://www.w3.org/2000/svg";
       const POSES = {
@@ -896,6 +973,8 @@
             };
           });
         }
+        const position = POSITIONS.find((p) => p.id === mode);
+        if (position) return FLAT.filter((ex) => position.names.includes(ex.name));
         return FLAT;
       }
 
@@ -1063,7 +1142,8 @@
       }
 
       function backToMenu() {
-        if (mode === "breve") {
+        // Leaving mid-round (or from another section) must not skip an exercise.
+        if (mode === "breve" && index >= currentList().length) {
           const next = Object.assign({}, rotation);
           for (const name of ["Mobilize", "Move"]) {
             const cat = CATEGORIES.find((c) => c.name === name);
@@ -1099,6 +1179,14 @@
       }
 
       // --- Screens ----------------------------------------------------
+      // Every screen except the menu starts with the way back, plus where you are.
+      function topBar(label) {
+        return el("div", { class: "topbar" }, [
+          el("button", { class: "topbar__back", text: "← Menu", onClick: backToMenu }),
+          el("span", { class: "topbar__ctx", text: label || "" }),
+        ]);
+      }
+
       function todaySummary() {
         const total = doneTodayTotal();
         const waiting = pending.length;
@@ -1283,11 +1371,7 @@
         const entries = weekEntries();
         const waiting = pending.length;
         const children = [
-          el("button", {
-            class: "linkbtn stats__back",
-            text: "← Menu",
-            onClick: backToMenu,
-          }),
+          topBar(""),
           el("h1", { class: "title", text: "Progressi" }),
           todaySection(entries.filter((e) => e.done_on === today)),
           weekSection(entries),
@@ -1331,6 +1415,23 @@
                 text: "Tutti i " + FLAT.length + " esercizi in sequenza",
               }),
             ],
+          ),
+          el(
+            "div",
+            { class: "pair" },
+            POSITIONS.map((position) =>
+              el(
+                "button",
+                { class: "big big--light", onClick: () => startMode(position.id) },
+                [
+                  el("span", { class: "big__label", text: position.label }),
+                  el("span", {
+                    class: "big__sub",
+                    text: position.names.length + " esercizi",
+                  }),
+                ],
+              ),
+            ),
           ),
           el("button", { class: "big big--light", onClick: openStats }, [
             el("span", { class: "big__label", text: "Progressi" }),
@@ -1442,6 +1543,7 @@
           );
         }
         return el("div", { class: "screen" }, [
+          topBar(MODE_LABELS[mode]),
           progressBar(list),
           box,
           el("button", {
@@ -1469,6 +1571,7 @@
         }
 
         return el("div", { class: "screen" }, [
+          topBar(MODE_LABELS[mode]),
           progressBar(list),
           badgeRow,
           exerciseCard(ex),
