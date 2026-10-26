@@ -145,7 +145,10 @@ function buildSlot(meal, handlers) {
   cancel.addEventListener("click", () => {
     pickerOpen = false;
     layout();
-    addButton.focus();
+    // Back to whichever control opened the picker: "Change" on a filled slot,
+    // "+ add" on an empty one.
+    const change = body.querySelector(".meal-card__change");
+    (change instanceof HTMLElement ? change : addButton).focus();
   });
 
   const picker = GapSuggestions({
@@ -170,6 +173,12 @@ function buildSlot(meal, handlers) {
 
   function layout() {
     body.replaceChildren();
+    // An open picker wins over the placed meal: "Change" opens it on a slot
+    // that already holds one.
+    if (pickerOpen) {
+      body.append(picker.element);
+      return;
+    }
     if (latest.plannedMeal && latest.display) {
       body.append(
         buildMealCard(latest.plannedMeal, latest.display, handlers, () => {
@@ -180,11 +189,7 @@ function buildSlot(meal, handlers) {
       );
       return;
     }
-    if (pickerOpen) {
-      body.append(picker.element);
-    } else {
-      body.append(addButton);
-    }
+    body.append(addButton);
   }
 
   return {
@@ -244,7 +249,7 @@ function buildMealCard(plannedMeal, display, handlers, onChange) {
   actions.className = "meal-card__actions";
   const change = document.createElement("button");
   change.type = "button";
-  change.className = "btn-ghost";
+  change.className = "btn-ghost meal-card__change";
   change.textContent = "Change";
   change.addEventListener("click", onChange);
   const remove = document.createElement("button");
