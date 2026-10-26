@@ -114,9 +114,15 @@ session.
       remove) shared by the router and `mcp_server/pantry_tools.py`.
       `get_planning_context` pantry entries now carry `id`, `location`,
       `quantity`.
-- [ ] 10.6 `search_recipes` slim view gains `mediterranean_categories` and
+- [x] 10.6 `search_recipes` slim view gains `mediterranean_categories` and
       `difficulty` (cheap fields that stop the per-hit `get_recipe` fan-out).
       Optional `category` and `pantry_only` filters.
+      → `category` reuses `facets_for` (what the balance counts).
+      `pantry_only` = uses at least one pantry item (owner's call), filtered
+      before the limit; every hit also carries `pantry_have` /
+      `pantry_missing` line counts. Use-case:
+      `app/search_recipes.search_recipes_for_planning`. The tool fn is now
+      tested directly (closes AUDIT §7's search_recipes gap).
 - **Done when:** a full week is planned in one Claude chat with no
   re-explaining: context in one call, a custom variant saved and slotted, the
   pantry updated, nothing typed twice.

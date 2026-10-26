@@ -93,3 +93,15 @@ Things noticed while working a phase that belong to a later one. Not acted on he
 - **Adding does not merge by name.** Two "ceci" rows can coexist (one in the
   fridge, one tinned in the pantry), which is intended; names stay free-text
   per D31.
+
+## From Phase 10.6 (search fields and filters)
+
+- **The synonym layer has no eggs ↔ uova pair.** A pantry "eggs" does not
+  match an ingredient line "2 uova" (chickpeas ↔ ceci does). This affects
+  `pantry_have` / `pantry_only`, the shopping list and kitchen_match alike.
+  Worth an audit of `domain/synonyms.py` against the most common pantry
+  words in both languages.
+- **The slim view's new fields also show in plan `suggestions`.** `to_mcp_view`
+  is shared, so gap suggestions in `get_planning_context` and the write tools
+  now carry `difficulty` and `mediterranean_categories` too: a few more tokens
+  per suggestion, and one less reason to call `get_recipe`.
