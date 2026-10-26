@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 _PACKAGE = "dispensa"
-_SHORT_SHA_LEN = 7
+_SHORT_SHA_LEN = 6
 _UNKNOWN = "unknown"
 # app/version.py -> app -> dispensa -> src -> repo root.
 _ROOT = Path(__file__).resolve().parents[3]
