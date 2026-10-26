@@ -102,3 +102,12 @@ class Difficulty(StrEnum):
     MEDIUM = "medium"
     HARD = "hard"
     UNKNOWN = "unknown"
+
+
+class PantryLocation(StrEnum):
+    """Where a pantry item is kept (D31)."""
+
+    FRIDGE = "fridge"
+    FREEZER = "freezer"
+    PANTRY = "pantry"
+    UNKNOWN = "unknown"

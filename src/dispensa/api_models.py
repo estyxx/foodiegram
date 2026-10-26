@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from dispensa.domain.enums import PantryLocation
 from dispensa.domain.exercise_log import ExerciseCategory
 from dispensa.domain.models import ExtractedCategoryServing, Recipe
 
@@ -228,6 +229,8 @@ class PantryItemOut(BaseModel):
     id: int | None
     name: str
     kind: str
+    location: str
+    quantity: str
     expires: date | None
 
 
@@ -238,6 +241,8 @@ class PantryItemCreate(BaseModel):
 
     name: str
     kind: Literal["staple", "fresh"]
+    location: PantryLocation = PantryLocation.UNKNOWN
+    quantity: str = ""
     expires: date | None = None
 
 

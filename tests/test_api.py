@@ -196,6 +196,27 @@ def test_pantry_crud(client: TestClient) -> None:
     assert client.delete(f"/api/pantry/{item_id}").status_code == HTTPStatus.NOT_FOUND
 
 
+def test_pantry_item_carries_location_and_quantity(client: TestClient) -> None:
+    """D31: location and free-text quantity are accepted and returned."""
+    created = client.post(
+        "/api/pantry",
+        json={
+            "name": "ceci",
+            "kind": "fresh",
+            "location": "fridge",
+            "quantity": "mezzo barattolo",
+        },
+    ).json()
+    assert created["location"] == "fridge"
+    assert created["quantity"] == "mezzo barattolo"
+
+    rejected = client.post(
+        "/api/pantry",
+        json={"name": "ceci", "kind": "fresh", "location": "garage"},
+    )
+    assert rejected.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 def test_targets_seeded_and_updatable(client: TestClient) -> None:
     """Targets are seeded on init and updatable via PUT."""
     seeded = client.get("/api/targets").json()

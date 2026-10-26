@@ -89,6 +89,13 @@ def _ensure_schema_patches(engine: Engine) -> None:
         connection.execute(
             text("ALTER TABLE recipes DROP COLUMN IF EXISTS edited_by_user"),
         )
+        # Pantry location and free-text quantity (D31).
+        connection.execute(
+            text("ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS location TEXT"),
+        )
+        connection.execute(
+            text("ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS quantity TEXT"),
+        )
         # Staging table dropped (D32); `sync ingest` writes recipe stubs directly.
         connection.execute(text("DROP TABLE IF EXISTS posts"))
 

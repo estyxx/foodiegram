@@ -3,8 +3,11 @@ from typing import TYPE_CHECKING, Any
 from dispensa.api_models import RecipeDetail
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dispensa.app.plan_week import PlanningContext, WeekPlanView
     from dispensa.domain.models import Recipe
+    from dispensa.domain.pantry import PantryItem
 
 
 def to_mcp_view(
@@ -66,6 +69,21 @@ def to_mcp_plan(view: WeekPlanView) -> dict[str, Any]:
     }
 
 
+def to_mcp_pantry(items: Sequence[PantryItem]) -> list[dict[str, Any]]:
+    """Serialise pantry items for the MCP wire; `id` is what removal takes."""
+    return [
+        {
+            "id": item.id,
+            "name": item.name,
+            "kind": item.kind,
+            "location": item.location.value,
+            "quantity": item.quantity,
+            "expires": item.expires.isoformat() if item.expires else None,
+        }
+        for item in items
+    ]
+
+
 def to_planning_context(context: PlanningContext) -> dict[str, Any]:
     """Serialise the week's planning payload for the MCP wire.
 
@@ -82,14 +100,7 @@ def to_planning_context(context: PlanningContext) -> dict[str, Any]:
             }
             for target in context.targets
         ],
-        "pantry": [
-            {
-                "name": item.name,
-                "kind": item.kind,
-                "expires": item.expires.isoformat() if item.expires else None,
-            }
-            for item in context.pantry
-        ],
+        "pantry": to_mcp_pantry(context.pantry),
         "favourite_codes": list(context.favourite_codes),
     }
 
