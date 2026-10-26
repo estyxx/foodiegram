@@ -18,8 +18,11 @@ from dispensa.domain.models import (
     Extraction,
     Recipe,
 )
+from dispensa.domain.planning import DEFAULT_TARGETS, CategoryTarget
+from dispensa.storage.db import init_db
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.recipes_db import RecipeRepository
+from dispensa.storage.targets_db import TargetRepository
 from dispensa.storage.user_state_db import UserStateRepository
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
@@ -484,3 +487,21 @@ def test_user_state_upsert(engine: Engine) -> None:
 
     repo.set_favorite("XYZ", is_favorite=True)
     assert repo.all_favorites() == ["ABC", "XYZ"]
+
+
+def test_init_db_backfills_a_missing_target_and_keeps_edits(engine: Engine) -> None:
+    """A database seeded before plant_protein existed gains it; edits survive."""
+    targets = TargetRepository(engine)
+    edited = CategoryTarget(category=MedCategory.FISH, min_servings=3, max_servings=4)
+    targets.set_all([edited])
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM targets WHERE category = 'plant_protein'"))
+    assert len(targets.list_all()) == len(DEFAULT_TARGETS) - 1
+
+    init_db(engine)
+    init_db(engine)
+
+    by_category = {target.category: target for target in targets.list_all()}
+    assert set(by_category) == {target.category for target in DEFAULT_TARGETS}
+    assert by_category[MedCategory.FISH] == edited
+    assert MedCategory.PLANT_PROTEIN in by_category
