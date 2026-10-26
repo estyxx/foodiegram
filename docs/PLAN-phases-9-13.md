@@ -87,11 +87,23 @@ session.
       `scripts/save_custom_recipe.py` with it. `POST /api/recipes` exposes it.
 - [ ] 10.2 MCP `get_planning_context(week_start)` → one payload: meals,
       balance, oily fish, gap suggestions, targets, pantry, favourites codes.
-- [ ] 10.3 MCP `set_meal(week_start, day, slot, code | draft, portions)`,
+- [x] 10.3 MCP `set_meal(week_start, day, slot, code | draft, portions)`,
       `clear_meal`, `set_portions` — thin wrappers over the same use-cases
       `PUT /plans/{week}/meals` calls (D23).
-- [ ] 10.4 MCP `save_recipe` (custom, with `inspired_by`) and
+      → PUT had no use-case (router called the repo directly), so one was
+      extracted: `app/plan_meals.py` (`set_meal`, `set_draft_meal`,
+      `clear_meal`, `set_portions`). Slot rules in `domain/planning.py`
+      (`check_meal_slot`, `check_portions`, `WeekPlan.meal_at`); PUT now
+      404s an unknown code and 422s a day outside Mon..Sun. Tools in
+      `mcp_server/write_tools.py` return `to_mcp_plan` (meals with titles,
+      balance, oily_fish, suggestions).
+- [x] 10.4 MCP `save_recipe` (custom, with `inspired_by`) and
       `update_recipe(code, notes?, is_favorite?, edited fields...)`.
+      → `save_recipe` wraps `save_custom_recipe` (same `RecipeCreate` body as
+      POST). PATCH logic moved to `app/update_recipe.py` +
+      `domain/editing.apply_user_edit`; router and MCP share it. 9.2
+      invariant held; end-to-end test added (MCP edit → promote keeps
+      `base_servings`).
 - [ ] 10.5 Pantry (D31): add `location`, `quantity`, `expires_on` to
       `PantryItem`; MCP `get_pantry`, `add_pantry_items`,
       `remove_pantry_items`.

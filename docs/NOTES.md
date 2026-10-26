@@ -42,3 +42,30 @@ Things noticed while working a phase that belong to a later one. Not acted on he
   archived batch input, hash-aware submit dedup to avoid re-extracting the
   ~900-recipe pre-D26 backlog). Plan sketch is in this session's history if
   picked up later. `recipes.caption_hash` column remains write-only (AUDIT F6).
+
+## From Phase 10.3 / 10.4 (MCP write tools)
+
+- **PUT `/api/plans/{week}/meals` behaviour changed.** It now goes through
+  `app/plan_meals.set_meal`, so an unknown `recipe_code` is 404 (was silently
+  stored) and a `day` outside Mon..Sun of the week or `portions < 1` is 422.
+  The web UI only slots real codes from the current week, so it should not
+  notice.
+- **DELETE `/api/plans/{week}/meals/{id}` still calls the repository
+  directly.** It is id-keyed and has no MCP twin (`clear_meal` is keyed by
+  day+slot because the MCP meal view carries no id). Left as is; fold it into
+  `app/plan_meals` if the router is touched again.
+- **`RecipeCreate.instructions` is required**, so a `set_meal` draft must send
+  `instructions: []`. D23 names only title + ingredients + categories. Making
+  it default to `[]` would loosen POST too; owner's call.
+- **`inspired_by` codes are not checked to exist** (neither by POST nor by
+  `save_recipe`). A typo leaves a dangling reference.
+- **`get_recipe` still returns `None` for an unknown code.** It is a read
+  tool, and the brief's raise-don't-return-None rule was for writes. Worth
+  aligning so the model gets a message instead of `null`.
+- **`update_recipe(user_notes="")` stores `""`, not NULL**, same as PATCH.
+  Harmless, but it is two spellings of "no notes".
+- **The deployed MCP endpoint can now write.** `asgi.py` mounts the same
+  `mcp` instance behind WorkOS OAuth, so these tools reach Neon in prod.
+- **Local test infra:** the `test_storage_db` timezone failure goes away
+  when the cluster default is UTC (`ALTER DATABASE template1 SET timezone TO
+  'UTC'` before the test DB is created). Only the superuser one remains.
