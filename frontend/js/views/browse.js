@@ -1,15 +1,12 @@
 // @ts-check
 
-import {
-  getAllRecipes,
-  getRecipeCounts,
-  searchRecipesSemantic,
-  updateRecipe,
-} from "../api/client.js";
+import { searchRecipesSemantic } from "../api/client.js";
 import { FilterPanel, FiltersToggle } from "../components/FilterPanel.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { SEGMENTS, segmentCount, segmentHint } from "../lib/facets.js";
+import { searchLocally } from "../lib/localFilter.js";
+import { loadRecipeIndex, setFavourite } from "../lib/recipeIndex.js";
 import {
   activeCount,
   cleared,
@@ -148,30 +145,29 @@ export async function renderBrowse(container, options) {
   }
 
   async function refetch() {
-    const query = toQuery(filters, { favourites });
     const request = (latestRequest += 1);
     searchError = "";
 
-    if (mode === "ai") {
-      await refetchAi(query, request);
-      return;
-    }
-
-    const [fetched, fetchedCounts] = await Promise.all([
-      getAllRecipes(query),
-      getRecipeCounts(query),
-    ]);
+    // Lexical search and every count run on the session's index (D27): no
+    // request per keystroke. Only semantic search still asks the server.
+    const index = await loadRecipeIndex();
     if (request !== latestRequest) {
       return;
     }
-    results = fetched;
-    counts = fetchedCounts;
+    const local = searchLocally(index, filters, { favourites });
+    counts = local.counts;
+
+    if (mode === "ai") {
+      await refetchAi(toQuery(filters, { favourites }), request);
+      return;
+    }
+    results = local.results;
     renderAll();
   }
 
   /**
    * Semantic search is server-side (it embeds the query), so it gets its own
-   * loading/error handling instead of sharing the lexical fetch's happy path.
+   * loading/error handling; its counts come from the local index like lexical.
    * @param {import("../api/client.js").RecipeFilters} query
    * @param {number} request
    * @returns {Promise<void>}
@@ -179,25 +175,18 @@ export async function renderBrowse(container, options) {
   async function refetchAi(query, request) {
     if (filters.query.trim() === "") {
       results = [];
-      counts = await getRecipeCounts(query);
-      if (request === latestRequest) {
-        renderAll();
-      }
+      renderAll();
       return;
     }
 
     searching = true;
     renderAll();
     try {
-      const [fetched, fetchedCounts] = await Promise.all([
-        searchRecipesSemantic(query, AI_RESULT_LIMIT),
-        getRecipeCounts(query),
-      ]);
+      const fetched = await searchRecipesSemantic(query, AI_RESULT_LIMIT);
       if (request !== latestRequest) {
         return;
       }
       results = fetched;
-      counts = fetchedCounts;
     } catch {
       if (request !== latestRequest) {
         return;
@@ -342,7 +331,16 @@ export async function renderBrowse(container, options) {
    * @param {RecipeSummary} recipe
    */
   async function onToggleFavourite(recipe) {
-    await updateRecipe(recipe.code, { is_favorite: !recipe.is_favorite });
+    const isFavorite = await setFavourite(recipe.code, !recipe.is_favorite);
+    if (mode === "ai") {
+      // Re-ranking would cost another embedding call; patch the hit in place.
+      results = results
+        .map((hit) => (hit.code === recipe.code ? { ...hit, is_favorite: isFavorite } : hit))
+        .filter((hit) => !favourites || hit.is_favorite);
+      counts = searchLocally(await loadRecipeIndex(), filters, { favourites }).counts;
+      renderAll();
+      return;
+    }
     await refetch();
   }
 

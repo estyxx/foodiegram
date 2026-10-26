@@ -129,10 +129,18 @@ session.
 
 ## Phase 11 — Web speed and Plan UI catch-up
 
-- [ ] 11.1 Client-side slim index (D27): fetch `/api/recipes` slim once per
+- [x] 11.1 Client-side slim index (D27): fetch `/api/recipes` slim once per
       session into memory; lexical filter, facet counts and favourite toggle
       all local; one PATCH on toggle, no refetch. Measure keystroke latency
       before/after.
+      → `GET /api/recipes/index` (summaries + server-derived `facets`,
+      `is_complete`, `is_recipe`, `search_text`, plus synonym groups, so JS
+      re-derives no domain rule). `lib/recipeIndex.js` (once per session,
+      `setFavourite`) + pure `lib/localFilter.js`. Parity vs server `find()`:
+      34/34 filter combos identical (results + counts). 1,300 synthetic
+      recipes, 200 ms debounce in both: keystroke → results median 302 → 206
+      ms on localhost, 384 → 206 ms with +80 ms network latency; API calls
+      while typing 10 chars 30 → 0. Index 2.4 MB raw / 305 KB gzip.
 - [ ] 11.2 Plan view: cache `recipesByCode` across mounts; detail view reuses
       the index for header data.
 - [ ] 11.3 Vector cache + numpy dot product in `find_similar` (D28).

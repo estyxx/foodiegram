@@ -1,6 +1,7 @@
 // @ts-check
 
 import { getRecipe, updateRecipe } from "../api/client.js";
+import { setFavourite } from "../lib/recipeIndex.js";
 import { Chip } from "../components/Chip.js";
 import { displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
 
@@ -611,8 +612,8 @@ function buildSaveButton(recipe) {
   button.addEventListener("click", async () => {
     button.disabled = true;
     try {
-      const updated = await updateRecipe(recipe.code, { is_favorite: !favourite });
-      favourite = updated.is_favorite;
+      // Through the index, so Browse shows the new flag without refetching.
+      favourite = await setFavourite(recipe.code, !favourite);
       paint();
     } finally {
       button.disabled = false;

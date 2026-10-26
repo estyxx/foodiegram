@@ -24,6 +24,22 @@
  */
 
 /**
+ * A slim recipe plus the server-derived fields Browse filters on locally (D27).
+ * @typedef {RecipeSummary & {
+ *   is_recipe: boolean,
+ *   is_complete: boolean,
+ *   facets: string[],
+ *   search_text: string,
+ * }} RecipeIndexEntry
+ */
+
+/**
+ * @typedef {object} RecipeIndex
+ * @property {RecipeIndexEntry[]} recipes Ordered by code, like GET /recipes.
+ * @property {string[][]} synonyms Lowercased cross-language synonym groups.
+ */
+
+/**
  * @typedef {object} MedCategory
  * @property {string} category
  * @property {number} servings
@@ -144,8 +160,6 @@ async function apiFetch(path, options) {
   return res.json();
 }
 
-const MAX_PAGE = 500;
-
 /**
  * Serialise filters into query parameters, dropping empty values.
  * Array values repeat the key, which is how the API reads multi-value facets.
@@ -186,23 +200,6 @@ export async function getRecipes(filters, page) {
 }
 
 /**
- * Fetch every recipe matching filters by paging through the server limit.
- * @param {RecipeFilters} [filters]
- * @returns {Promise<RecipeSummary[]>}
- */
-export async function getAllRecipes(filters) {
-  /** @type {RecipeSummary[]} */
-  const all = [];
-  for (let offset = 0; ; offset += MAX_PAGE) {
-    const chunk = await getRecipes(filters, { limit: MAX_PAGE, offset });
-    all.push(...chunk);
-    if (chunk.length < MAX_PAGE) {
-      return all;
-    }
-  }
-}
-
-/**
  * Rank recipes by meaning against `filters.q`, under the same facets as getRecipes.
  * Returns [] for an empty query without making a request.
  * @param {RecipeFilters} [filters]
@@ -222,20 +219,13 @@ export async function searchRecipesSemantic(filters, limit) {
 }
 
 /**
- * Fetch all three segment totals under the given filters.
- * The segment parameters are ignored: the endpoint always reports every tier.
- * @param {RecipeFilters} [filters]
- * @returns {Promise<RecipeCounts>}
+ * Fetch every recipe's slim index entry and the synonym groups in one call.
+ * Callers should go through lib/recipeIndex.js, which fetches once per session.
+ * @returns {Promise<RecipeIndex>}
  */
-export async function getRecipeCounts(filters) {
-  const params = toParams(filters);
-  params.delete("is_recipe");
-  params.delete("complete");
-  const query = params.toString();
-  const result = await apiFetch(
-    query ? `/recipes/count?${query}` : "/recipes/count",
-  );
-  return /** @type {RecipeCounts} */ (result);
+export async function getRecipeIndex() {
+  const result = await apiFetch("/recipes/index");
+  return /** @type {RecipeIndex} */ (result);
 }
 
 /**

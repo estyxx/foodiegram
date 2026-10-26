@@ -105,3 +105,24 @@ Things noticed while working a phase that belong to a later one. Not acted on he
   is shared, so gap suggestions in `get_planning_context` and the write tools
   now carry `difficulty` and `mediterranean_categories` too: a few more tokens
   per suggestion, and one less reason to call `get_recipe`.
+
+## From Phase 11.1 (client-side index)
+
+- **The 200 ms search debounce is now most of the latency.** Local filtering
+  takes ~6 ms; the debounce was sized for a network round trip. Dropping it
+  for lexical mode (keeping it for AI mode, which still calls the server)
+  would make typing feel instant. Small change in `SearchBar.js`, not done
+  here.
+- **Index size.** 2.4 MB raw / 305 KB gzip for 1,300 synthetic recipes;
+  `search_text` (full captions) is most of it. Real captions compress worse
+  than the synthetic ones. If it hurts on mobile, captions could leave the
+  lexical match (a behaviour change vs `find()`), or the index could be
+  cached with an ETag.
+- **New recipes appear on reload.** The index is per session (D27), so a
+  recipe saved from Claude mid-session is missing from Browse until the page
+  reloads. The plan view and detail view read live, so they are unaffected.
+- **No JS test runner.** `localFilter.js` parity with `find()` was checked by
+  a one-off script against a running server (34 combos). `node --test` would
+  run a pure-module test with no dependency if we want it in the gate.
+- **`#plan` search still hits the server per keystroke** (`getRecipes` in
+  `plan.js`); that is 11.2's territory.
