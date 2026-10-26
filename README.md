@@ -276,6 +276,13 @@ uvx fastapi deploy        # or: fastapi deploy
 #      CORS_ALLOW_ORIGINS    = (leave empty — the SPA is same-origin)
 ```
 
+**Deploy on push.** `.github/workflows/deploy.yml` deploys every push to `main`. It
+first sets `GIT_SHA` to the pushed commit, which the footer shows (the artifact ships
+without `.git`). It needs the repo secrets `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID`; run
+`uv run fastapi cloud setup-ci --secrets-only` once to create the token and set both. Turn off FastAPI Cloud's own
+GitHub auto-deploy, or each push deploys twice and the footer can show the previous
+commit.
+
 **Smoke test after deploy:** open the URL (expect a Basic-auth prompt), load a recipe,
 then edit something and redeploy — the edit must survive (proves the DB, not the
 ephemeral disk, is the source of truth).
