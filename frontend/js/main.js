@@ -7,6 +7,12 @@ import { renderPlan } from "./views/plan.js";
 
 const view = requireElement("view");
 
+/** Pages a recipe can be opened from; anything else falls back to browse. */
+const RETURN_ROUTES = new Set(["browse", "favourites", "plan"]);
+
+/** Last page route, so a recipe's back link returns to where it was opened. */
+let returnTo = "browse";
+
 /**
  * @param {string} id
  * @returns {HTMLElement}
@@ -24,12 +30,15 @@ async function route() {
   const hash = window.location.hash.slice(1) || "browse";
   const [name, param] = hash.split("/");
   markActiveNav(name);
+  if (name !== "recipe") {
+    returnTo = RETURN_ROUTES.has(name) ? hash : "browse";
+  }
   view.replaceChildren();
   view.focus();
 
   try {
     if (name === "recipe" && param) {
-      await renderDetail(view, param);
+      await renderDetail(view, param, { returnTo });
     } else if (name === "plan") {
       await renderPlan(view);
     } else if (name === "favourites") {
