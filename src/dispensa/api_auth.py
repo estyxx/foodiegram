@@ -39,9 +39,12 @@ _KEY_BYTES = 32
 # password required. The static SPA shell has to be exempt too, or the page
 # can't even load for a recipient with no credentials. Everything else — the
 # recipe list, every mutation, every other endpoint — still needs the password.
-# "count" is excluded: /api/recipes/count is the aggregate-stats route, not a
-# recipe code, even though it has the same single-segment shape.
-_PUBLIC_RECIPE_DETAIL = re.compile(r"^/api/recipes/(?!count$)[^/]+$")
+# The fixed routes under /api/recipes/ share the single-segment shape of a
+# recipe code but are not one: count (aggregate stats), index (the whole slim
+# library, D27) and semantic (an OpenAI-billed search) all stay private. No
+# Instagram shortcode or m-{slug}-{suffix} code can collide with these names.
+_RECIPE_DETAIL = re.compile(r"^/api/recipes/([^/]+)$")
+_RESERVED_RECIPE_ROUTES = frozenset({"count", "index", "semantic"})
 
 
 def _is_public(request: Request) -> bool:
@@ -49,7 +52,10 @@ def _is_public(request: Request) -> bool:
     if request.method != "GET":
         return False
     path = request.url.path
-    return not path.startswith("/api/") or bool(_PUBLIC_RECIPE_DETAIL.match(path))
+    if not path.startswith("/api/"):
+        return True
+    match = _RECIPE_DETAIL.match(path)
+    return match is not None and match.group(1) not in _RESERVED_RECIPE_ROUTES
 
 
 def _authorized(header: str | None, *, username: str, password: str) -> bool:

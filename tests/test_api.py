@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
@@ -20,6 +21,8 @@ from dispensa.storage.targets_db import TargetRepository
 from dispensa.storage.user_state_db import UserStateRepository
 
 _MONDAY = "2024-01-01"
+# "/api/recipes/<name>" has three slashes.
+_RECIPE_ROUTE_DEPTH = 3
 _TUESDAY = "2024-01-02"
 _SEEDED_TARGETS = 8
 _TWO_SERVINGS = 2.0
@@ -679,6 +682,31 @@ def test_recipe_count_route_still_requires_credentials(db_engine: Engine) -> Non
     response = client.get("/api/recipes/count")
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_fixed_recipe_routes_all_require_credentials(db_engine: Engine) -> None:
+    """Every fixed /api/recipes/<name> GET route stays private, now and later.
+
+    They share a recipe code's shape, so the share-link exemption must not
+    swallow them: /index is the whole library and /semantic bills OpenAI.
+    """
+    app = create_app(
+        deps=_make_deps(db_engine),
+        auth=AuthConfig(username="user", password="pass"),
+    )
+    fixed = sorted(
+        route.path
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        and "GET" in route.methods
+        and route.path.startswith("/api/recipes/")
+        and route.path.count("/") == _RECIPE_ROUTE_DEPTH
+        and "{" not in route.path
+    )
+    assert fixed == ["/api/recipes/count", "/api/recipes/index", "/api/recipes/semantic"]
+    client = TestClient(app)
+    for path in fixed:
+        assert client.get(path).status_code == HTTPStatus.UNAUTHORIZED, path
 
 
 def test_recipe_mutation_still_requires_credentials(db_engine: Engine) -> None:
