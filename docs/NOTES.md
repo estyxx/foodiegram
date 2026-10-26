@@ -69,3 +69,15 @@ Things noticed while working a phase that belong to a later one. Not acted on he
 - **Local test infra:** the `test_storage_db` timezone failure goes away
   when the cluster default is UTC (`ALTER DATABASE template1 SET timezone TO
   'UTC'` before the test DB is created). Only the superuser one remains.
+- **Prod `targets` has 7 rows; `plant_protein` is missing.** `DEFAULT_TARGETS`
+  has 8, but `_seed_targets` only seeds an empty table, and prod was seeded
+  before plant_protein existed. So the balance (web and MCP) never grades
+  plant_protein. Needs an additive, idempotent insert of the missing default
+  row(s) on Neon.
+- **Stale recipe cache across repositories (fixed).** `RecipeRepository.list_all`
+  cached per instance and only the saving instance invalidated, so a recipe
+  saved via MCP was invisible to the web app's balance (counted 0) until a
+  restart. The cache is now keyed by `(count, max(updated_at))` on `recipes`,
+  one cheap query per `list_all`. This relies on every write going through
+  `save`/`delete` (true today); a raw SQL `UPDATE recipes` that skips
+  `updated_at` would not be noticed.
