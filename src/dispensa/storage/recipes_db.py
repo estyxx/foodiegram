@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlmodel import col, select
+from sqlalchemy import func
+from sqlmodel import Session, col, select
 
 from dispensa.domain.hashing import caption_hash
 from dispensa.domain.models import Recipe
@@ -188,16 +189,25 @@ class RecipeRepository:
     def __init__(self, engine: Engine) -> None:
         """Bind the repository to a database engine."""
         self._engine = engine
-        # Prod is effectively read-only between deploys, so we cache the full,
-        # deserialised recipe set for the process lifetime and rebuild it lazily
-        # after any write. This turns repeated list/find calls (the browse page
-        # loads every recipe) from a full table scan + Pydantic revalidation into
-        # an in-memory read.
+        # The full, deserialised recipe set is cached so repeated list/find
+        # calls (the browse page loads every recipe) skip a full table scan +
+        # Pydantic revalidation. Other writers share the table (the MCP server
+        # holds its own repository, other workers their own process), so the
+        # cache is keyed by a cheap table stamp and reloads when it moves.
         self._all_cache: list[Recipe] | None = None
+        self._cache_stamp: tuple[int, datetime | None] | None = None
 
     def _invalidate(self) -> None:
         """Drop the cached recipe list so the next read reloads from the DB."""
         self._all_cache = None
+        self._cache_stamp = None
+
+    def _table_stamp(self, session: Session) -> tuple[int, datetime | None]:
+        """Return (row count, latest updated_at): moves on any insert/update/delete."""
+        count, latest = session.exec(
+            select(func.count(), func.max(col(RecipeRow.updated_at))),
+        ).one()
+        return count, latest
 
     def get(self, code: str) -> Recipe | None:
         """Return the recipe for code, or None if it does not exist."""
@@ -211,11 +221,13 @@ class RecipeRepository:
             return session.get(RecipeRow, code) is not None
 
     def list_all(self) -> list[Recipe]:
-        """Return every stored recipe, ordered by code (cached per process)."""
-        if self._all_cache is None:
-            with get_session(self._engine) as session:
+        """Return every stored recipe, ordered by code (cached until the table moves)."""
+        with get_session(self._engine) as session:
+            stamp = self._table_stamp(session)
+            if self._all_cache is None or stamp != self._cache_stamp:
                 rows = session.exec(select(RecipeRow).order_by(RecipeRow.code)).all()
                 self._all_cache = [_to_domain(row) for row in rows]
+                self._cache_stamp = stamp
         # Return a shallow copy so callers can filter/sort without mutating the
         # cache; the Recipe elements themselves are frozen and safe to share.
         return list(self._all_cache)
