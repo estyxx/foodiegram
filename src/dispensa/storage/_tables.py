@@ -125,13 +125,16 @@ class PlannedMealRow(SQLModel, table=True):
 
 
 class PantryItemRow(SQLModel, table=True):
-    """A pantry entry: name + staple/fresh + optional expiry."""
+    """A pantry entry: name + staple/fresh + location, quantity, optional expiry."""
 
     __tablename__ = "pantry_items"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str
     kind: str
+    # Nullable: rows from before D31 have neither; read back as unknown / "".
+    location: str | None = None
+    quantity: str | None = None
     expires: date | None = None
 
 

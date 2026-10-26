@@ -79,7 +79,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 "src/dispensa/routers/*" = ["TC001", "TC002", "TC003"]
 # MCP tools: the server builds each tool's JSON schema from its signature
 # annotations at registration, so argument models must stay importable.
-"src/dispensa/mcp_server/write_tools.py" = ["TC001"]
+"src/dispensa/mcp_server/{write,pantry}_tools.py" = ["TC001"]
 # deps: Request is a FastAPI dependency marker resolved at runtime by identity.
 "src/dispensa/deps.py" = ["TC002"]
 # CLI signatures use Path at runtime via typer annotations.

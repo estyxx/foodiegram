@@ -10,6 +10,7 @@ from dispensa.domain.enums import (
     DishType,
     MealType,
     MedCategory,
+    PantryLocation,
     RecipeSource,
 )
 from dispensa.domain.models import (
@@ -18,9 +19,11 @@ from dispensa.domain.models import (
     Extraction,
     Recipe,
 )
+from dispensa.domain.pantry import PantryItem
 from dispensa.domain.planning import DEFAULT_TARGETS, CategoryTarget
 from dispensa.storage.db import init_db
 from dispensa.storage.extractions_db import ExtractionRepository
+from dispensa.storage.pantry_db import PantryRepository
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.targets_db import TargetRepository
 from dispensa.storage.user_state_db import UserStateRepository
@@ -505,3 +508,31 @@ def test_init_db_backfills_a_missing_target_and_keeps_edits(engine: Engine) -> N
     assert set(by_category) == {target.category for target in DEFAULT_TARGETS}
     assert by_category[MedCategory.FISH] == edited
     assert MedCategory.PLANT_PROTEIN in by_category
+
+
+def test_pantry_item_round_trips_location_and_quantity(engine: Engine) -> None:
+    """D31 fields survive a save and read."""
+    repo = PantryRepository(engine)
+    item = PantryItem(
+        name="spinaci",
+        kind="fresh",
+        location=PantryLocation.FREEZER,
+        quantity="1 busta",
+    )
+
+    saved = repo.add(item)
+
+    assert repo.list_all() == [item.model_copy(update={"id": saved.id})]
+
+
+def test_pre_d31_pantry_row_reads_as_unknown_location(engine: Engine) -> None:
+    """A row stored before location/quantity existed reads back as unknown / ''."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO pantry_items (name, kind) VALUES ('sale', 'staple')")
+        )
+
+    (item,) = PantryRepository(engine).list_all()
+
+    assert item.location is PantryLocation.UNKNOWN
+    assert item.quantity == ""

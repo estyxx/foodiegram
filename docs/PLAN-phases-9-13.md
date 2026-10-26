@@ -104,9 +104,16 @@ session.
       `domain/editing.apply_user_edit`; router and MCP share it. 9.2
       invariant held; end-to-end test added (MCP edit → promote keeps
       `base_servings`).
-- [ ] 10.5 Pantry (D31): add `location`, `quantity`, `expires_on` to
+- [x] 10.5 Pantry (D31): add `location`, `quantity`, `expires_on` to
       `PantryItem`; MCP `get_pantry`, `add_pantry_items`,
       `remove_pantry_items`.
+      → `PantryLocation` StrEnum (fridge/freezer/pantry/unknown) and free-text
+      `quantity` on `PantryItem`; the existing `expires` already was the
+      optional expiry, so no rename. Columns added by schema patch; pre-D31
+      rows read as `unknown` / `""`. `app/pantry.py` (add, all-or-nothing
+      remove) shared by the router and `mcp_server/pantry_tools.py`.
+      `get_planning_context` pantry entries now carry `id`, `location`,
+      `quantity`.
 - [ ] 10.6 `search_recipes` slim view gains `mediterranean_categories` and
       `difficulty` (cheap fields that stop the per-hit `get_recipe` fan-out).
       Optional `category` and `pantry_only` filters.

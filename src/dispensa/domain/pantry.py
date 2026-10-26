@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from dispensa.domain.enums import PantryLocation
 from dispensa.domain.synonyms import expand_term
 
 if TYPE_CHECKING:
@@ -19,6 +20,9 @@ class PantryItem(BaseModel):
     id: int | None = None
     name: str
     kind: Literal["staple", "fresh"]
+    location: PantryLocation = PantryLocation.UNKNOWN
+    # Free text ("half a jar", "500 g"): never parsed, like ingredient lines.
+    quantity: str = ""
     expires: date | None = None
 
 

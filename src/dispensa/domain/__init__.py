@@ -16,6 +16,7 @@ from dispensa.domain.enums import (
     DishType,
     MealType,
     MedCategory,
+    PantryLocation,
     ProteinTier,
     RecipeSource,
 )
@@ -25,6 +26,7 @@ from dispensa.domain.errors import (
     ExtractionError,
     InstagramFetchError,
     MealNotFoundError,
+    PantryItemNotFoundError,
     RecipeNotFoundError,
     StorageError,
 )
@@ -98,6 +100,8 @@ __all__ = [
     "MealType",
     "MedCategory",
     "PantryItem",
+    "PantryItemNotFoundError",
+    "PantryLocation",
     "PlannedMeal",
     "ProteinTier",
     "Recipe",

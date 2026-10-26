@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import select
 
+from dispensa.domain.enums import PantryLocation
 from dispensa.domain.pantry import PantryItem
 from dispensa.storage._tables import PantryItemRow
 from dispensa.storage.db import get_session
@@ -17,6 +18,8 @@ def _to_item(row: PantryItemRow) -> PantryItem:
             "id": row.id,
             "name": row.name,
             "kind": row.kind,
+            "location": row.location or PantryLocation.UNKNOWN,
+            "quantity": row.quantity or "",
             "expires": row.expires,
         },
     )
@@ -38,7 +41,13 @@ class PantryRepository:
     def add(self, item: PantryItem) -> PantryItem:
         """Insert a pantry item and return it with its assigned id."""
         with get_session(self._engine) as session:
-            row = PantryItemRow(name=item.name, kind=item.kind, expires=item.expires)
+            row = PantryItemRow(
+                name=item.name,
+                kind=item.kind,
+                location=item.location.value,
+                quantity=item.quantity,
+                expires=item.expires,
+            )
             session.add(row)
             session.commit()
             session.refresh(row)

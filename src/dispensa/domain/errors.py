@@ -32,3 +32,7 @@ class RecipeNotFoundError(DispensaError):
 
 class MealNotFoundError(DispensaError):
     """Raised when a write targets a plan slot that holds no meal."""
+
+
+class PantryItemNotFoundError(DispensaError):
+    """Raised when a write names a pantry item id that is not stored."""

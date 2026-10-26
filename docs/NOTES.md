@@ -81,3 +81,15 @@ Things noticed while working a phase that belong to a later one. Not acted on he
   one cheap query per `list_all`. This relies on every write going through
   `save`/`delete` (true today); a raw SQL `UPDATE recipes` that skips
   `updated_at` would not be noticed.
+
+## From Phase 10.5 (pantry)
+
+- **`kind` (staple/fresh) stays alongside `location`.** D31 added location
+  without retiring kind; they overlap (fresh ≈ fridge) but answer different
+  questions. Revisit if `kind` ends up unused once the PantryList UI (11.6)
+  exists.
+- **No pantry update tool.** Changing a quantity or expiry is remove + add.
+  Fine for v1; an `update_pantry_item` is cheap if the live test asks for it.
+- **Adding does not merge by name.** Two "ceci" rows can coexist (one in the
+  fridge, one tinned in the pantry), which is intended; names stay free-text
+  per D31.
