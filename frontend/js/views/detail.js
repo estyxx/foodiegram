@@ -16,16 +16,17 @@ const NUMBER_RE = /(\d+\.?\d*)/;
  * scaling panel on the right.
  * @param {HTMLElement} container
  * @param {string} code
+ * @param {{ returnTo: string }} options route hash the back link returns to
  * @returns {Promise<void>}
  */
-export async function renderDetail(container, code) {
+export async function renderDetail(container, code, { returnTo }) {
   const recipe = await getRecipe(code);
   container.replaceChildren();
 
   const back = document.createElement("a");
   back.className = "detail__back";
-  back.href = "#browse";
-  back.textContent = "\u2190 Back to browse";
+  back.href = `#${returnTo}`;
+  back.textContent = `\u2190 Back to ${returnTo.split("/")[0]}`;
 
   const left = document.createElement("div");
   left.className = "detail__left";
