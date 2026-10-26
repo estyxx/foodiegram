@@ -64,7 +64,10 @@ function renderError(error) {
   view.replaceChildren(el);
 }
 
-/** Populate the footer with the deployed version, once at startup. */
+/**
+ * Populate the footer with the deployed commit, once at startup. The package
+ * version is never bumped, so the commit is what identifies a build.
+ */
 async function showVersion() {
   const el = document.getElementById("app-version");
   if (el === null) {
@@ -72,9 +75,7 @@ async function showVersion() {
   }
   try {
     const info = await getVersion();
-    const commit =
-      info.commit && info.commit !== "unknown" ? ` \u00b7 ${info.commit}` : "";
-    el.textContent = `v${info.version}${commit}`;
+    el.textContent = info.commit && info.commit !== "unknown" ? info.commit : "";
   } catch {
     el.textContent = "";
   }
