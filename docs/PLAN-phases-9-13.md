@@ -185,9 +185,18 @@ session.
       = `POST /api/recipes` then the slot PUT (a failed slot retry never
       saves twice). Also fixed "Change" never opening the picker on a filled
       slot (5e1f6c3). Browser-checked end to end on the bench DB.
-- [ ] 11.6 Minimal `PantryList` view (list, add, remove, location filter).
+- [x] 11.6 Minimal `PantryList` view (list, add, remove, location filter).
+      → `#pantry` (`views/pantry.js`, nav link): location filter with counts
+      (a "Not set" option appears only for pre-D31 rows), add form (name
+      required; fridge/fresh defaults), remove, expiry flagged when within 2
+      days or past. `apiFetch` now returns null on 204 (pantry delete).
+      Browser-checked desktop and 375 px; fixed the header overflowing
+      phones on the way (pre-existing, made worse by the 4th nav link).
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
+  → Met for 11.1/11.2/11.3/11.5/11.6. 11.4 (cold start) is parked on the
+  owner's decision to wait for a FastAPI Cloud EU region; the app/DB
+  Atlantic split, not code, is the remaining latency.
 
 ## Phase 12 — Capture automation
 

@@ -1987,3 +1987,133 @@
     }
   }
 }
+
+/* ---- Pantry (#pantry, 11.6 / D31) ----------------------------------------- */
+.pantry__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+}
+
+.pantry__summary {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.pantry-add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  align-items: end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.pantry-add__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pantry-add__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.pantry-add__control {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: var(--text-sm);
+}
+
+.pantry-add__submit {
+  justify-content: center;
+}
+
+.pantry-add__error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.pantry__filters {
+  margin-bottom: var(--space-4);
+}
+
+.pantry__filters .segmented__option {
+  min-height: 44px;
+}
+
+.pantry__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pantry-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.pantry-item__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pantry-item__name {
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.pantry-item__quantity,
+.pantry-item__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--ink-muted);
+}
+
+.pantry-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.pantry-item__expiry--soon {
+  color: var(--accent-ochre);
+}
+
+.pantry-item__expiry--past {
+  color: var(--cat-red-meat-fg);
+}
+
+@media (max-width: 599px) {
+  .pantry-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pantry-item__meta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+}

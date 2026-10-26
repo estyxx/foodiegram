@@ -3,6 +3,7 @@
 import { getVersion } from "./api/client.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
+import { renderPantry } from "./views/pantry.js";
 import { renderPlan } from "./views/plan.js";
 
 const view = requireElement("view");
@@ -41,6 +42,8 @@ async function route() {
       await renderDetail(view, param, { returnTo });
     } else if (name === "plan") {
       await renderPlan(view);
+    } else if (name === "pantry") {
+      await renderPantry(view);
     } else if (name === "favourites") {
       await renderBrowse(view, { favourites: true });
     } else {

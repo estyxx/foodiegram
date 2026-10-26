@@ -157,7 +157,8 @@ async function apiFetch(path, options) {
   if (!res.ok) {
     throw new Error(`Request failed (${res.status}): ${path}`);
   }
-  return res.json();
+  // 204 No Content (e.g. a pantry delete) has no body to parse.
+  return res.status === 204 ? null : res.json();
 }
 
 /**
@@ -290,6 +291,61 @@ export async function deleteMeal(weekStart, mealId) {
     method: "DELETE",
   });
   return /** @type {PlanResponse} */ (result);
+}
+
+/**
+ * Where a pantry item is kept (D31); "unknown" for items stored before D31.
+ * @typedef {"fridge" | "freezer" | "pantry" | "unknown"} PantryLocation
+ */
+
+/**
+ * @typedef {object} PantryItem
+ * @property {number} id
+ * @property {string} name
+ * @property {"staple" | "fresh"} kind
+ * @property {PantryLocation} location
+ * @property {string} quantity Free text, e.g. "half a jar"; "" when unset.
+ * @property {string | null} expires ISO date.
+ */
+
+/**
+ * @typedef {object} PantryItemCreate
+ * @property {string} name
+ * @property {"staple" | "fresh"} kind
+ * @property {PantryLocation} location
+ * @property {string} quantity
+ * @property {string | null} expires
+ */
+
+/**
+ * Everything in the kitchen, ordered by name.
+ * @returns {Promise<PantryItem[]>}
+ */
+export async function getPantry() {
+  const result = await apiFetch("/pantry");
+  return /** @type {PantryItem[]} */ (result);
+}
+
+/**
+ * Add one pantry item and return it with its id.
+ * @param {PantryItemCreate} item
+ * @returns {Promise<PantryItem>}
+ */
+export async function addPantryItem(item) {
+  const result = await apiFetch("/pantry", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+  return /** @type {PantryItem} */ (result);
+}
+
+/**
+ * Remove one pantry item by id.
+ * @param {number} id
+ * @returns {Promise<void>}
+ */
+export async function deletePantryItem(id) {
+  await apiFetch(`/pantry/${id}`, { method: "DELETE" });
 }
 
 /**
