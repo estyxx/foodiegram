@@ -85,6 +85,12 @@ def _ensure_schema_patches(engine: Engine) -> None:
         connection.execute(
             text("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS inspired_by JSON"),
         )
+        connection.execute(
+            text(
+                "ALTER TABLE recipe_embeddings "
+                "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITHOUT TIME ZONE",
+            ),
+        )
         # Retired by edited_fields (D25); drop the dead column where it still exists.
         connection.execute(
             text("ALTER TABLE recipes DROP COLUMN IF EXISTS edited_by_user"),

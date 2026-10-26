@@ -152,7 +152,15 @@ session.
       ~280 → ~100 ms; plan search 1 → 0 requests; recipe title 238 → 68 ms.
       Found and fixed on the way: the share-link auth exemption also matched
       `/api/recipes/index` and `/semantic` (commit 9056fc5).
-- [ ] 11.3 Vector cache + numpy dot product in `find_similar` (D28).
+- [x] 11.3 Vector cache + numpy dot product in `find_similar` (D28).
+      → numpy added (owner OK'd). `RecipeRepository` keeps every embedding
+      as one unit-row float64 matrix, rebuilt when a `(count, max created_at,
+      max updated_at)` stamp on `recipe_embeddings` moves (`updated_at` added
+      by schema patch: a re-embed keeps `created_at`). Pure math in
+      `domain/similarity.py` (`unit_rows`, `cosine_scores`). 1,300 × 1536-dim
+      bench: identical top-20 codes and scores on 12 queries; per query 851
+      → 4 ms; first search after a start or re-embed ~1.1 s to build;
+      16 MB resident.
 - [ ] 11.4 Measure cold start: `/api/version` cold vs warm; check Neon
       suspend timeout and FastAPI Cloud min instances. Decide, don't guess.
 - [ ] 11.5 Plan UI: "+ add" offers "my version of…" (inline draft → MANUAL

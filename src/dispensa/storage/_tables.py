@@ -100,6 +100,9 @@ class RecipeEmbeddingRow(SQLModel, table=True):
     # `embed --changed` detect a stale embedding. Nullable until backfilled.
     embedding_source_hash: str | None = None
     created_at: datetime
+    # Moves on every save, so a process-level vector cache can tell a re-embed
+    # (which keeps created_at) from no change. NULL on rows from before it.
+    updated_at: datetime | None = None
 
 
 class WeekPlanRow(SQLModel, table=True):
