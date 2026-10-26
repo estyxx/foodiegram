@@ -24,3 +24,11 @@ class ImageUploadError(DispensaError):
 
 class ConfigurationError(DispensaError):
     """Raised when a required setting is missing for the requested operation."""
+
+
+class RecipeNotFoundError(DispensaError):
+    """Raised when a write names a recipe code that is not in the library."""
+
+
+class MealNotFoundError(DispensaError):
+    """Raised when a write targets a plan slot that holds no meal."""
