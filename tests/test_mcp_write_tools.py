@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from datetime import date
 from unittest.mock import patch
 
@@ -6,17 +6,22 @@ import pytest
 from sqlalchemy import Engine
 
 from dispensa.api_models import RecipeCreate
+from dispensa.app.promotion import promote_version
 from dispensa.deps import Deps
 from dispensa.domain.enums import MedCategory, RecipeSource
 from dispensa.domain.models import (
     CategoryServing,
     ExtractedCategoryServing,
+    ExtractedRecipe,
+    Extraction,
     Recipe,
 )
 from dispensa.mcp_server.write_tools import (
     clear_meal,
+    save_recipe,
     set_meal,
     set_portions,
+    update_recipe,
 )
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
@@ -29,6 +34,8 @@ from dispensa.storage.user_state_db import UserStateRepository
 _MONDAY = "2024-01-01"
 _TUESDAY = "2024-01-02"
 _NEXT_MONDAY = "2024-01-08"
+_EDITED_SERVINGS = 4
+_EXTRACTED_SERVINGS = 6
 _THREE_PORTIONS = 3
 
 
@@ -234,3 +241,70 @@ def test_set_portions_rejects_an_empty_slot_and_zero(deps: Deps) -> None:
     set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
     with pytest.raises(ValueError, match="portions must be at least 1"):
         set_portions(week_start=_MONDAY, day=_MONDAY, slot="lunch", portions=0)
+
+
+# --- save_recipe / update_recipe ------------------------------------------------
+
+
+def test_save_recipe_stores_a_manual_recipe_with_inspired_by(deps: Deps) -> None:
+    """save_recipe returns the stored detail; inspired_by may name a non-recipe."""
+    deps.recipes.save(
+        _recipe("POST1", category=MedCategory.LEGUMES).model_copy(
+            update={"is_recipe": False},
+        ),
+    )
+
+    result = save_recipe(draft=_draft(inspired_by=("POST1",)))
+
+    assert result["code"].startswith("m-")
+    assert result["source"] == RecipeSource.MANUAL.value
+    assert result["inspired_by"] == ["POST1"]
+    assert result["ingredients"] == ["200g ceci", "160g pasta"]
+    assert deps.recipes.exists(result["code"])
+
+
+def test_update_recipe_applies_only_the_passed_fields(deps: Deps) -> None:
+    """Omitted arguments stay as they were; base_servings becomes user-owned."""
+    deps.recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
+    update_recipe(code="LEG1", user_notes="weeknight winner")
+
+    result = update_recipe(code="LEG1", is_favorite=True, base_servings=4)
+
+    assert result["is_favorite"] is True
+    assert result["user_notes"] == "weeknight winner"
+    assert result["base_servings"] == _EDITED_SERVINGS
+    assert result["edited_fields"] == ["base_servings"]
+
+
+def test_update_recipe_unknown_code_raises(deps: Deps) -> None:
+    """A bad code is a ValueError, not a None return, and writes no user state."""
+    with pytest.raises(ValueError, match="'NOPE' not found"):
+        update_recipe(code="NOPE", is_favorite=True)
+    assert deps.user_state.get("NOPE") is None
+
+
+def test_update_recipe_edit_survives_promotion(
+    deps: Deps,
+    make_extracted: Callable[..., ExtractedRecipe],
+    make_extraction: Callable[..., Extraction],
+) -> None:
+    """9.2 invariant: a hand-edited base_servings is never overwritten by promote."""
+    deps.recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
+    update_recipe(code="LEG1", base_servings=_EDITED_SERVINGS)
+    payload = make_extracted(title="Re-extracted").model_copy(
+        update={"servings": str(_EXTRACTED_SERVINGS)},
+    )
+    deps.extractions.add(make_extraction(code="LEG1", payload=payload))
+
+    report = promote_version(
+        recipes=deps.recipes,
+        extractions=deps.extractions,
+        version="2",
+        dry_run=False,
+    )
+
+    promoted = deps.recipes.get("LEG1")
+    assert promoted is not None
+    assert report.promoted == 1
+    assert promoted.title == "Re-extracted"
+    assert promoted.base_servings == _EDITED_SERVINGS

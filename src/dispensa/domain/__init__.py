@@ -6,6 +6,7 @@ from dispensa.domain.diffing import (
 from dispensa.domain.editing import (
     EXTRACTION_FIELDS,
     PROTECTED_FIELDS,
+    apply_user_edit,
     promote,
 )
 from dispensa.domain.enums import (
@@ -106,6 +107,7 @@ __all__ = [
     "StorageError",
     "UserState",
     "WeekPlan",
+    "apply_user_edit",
     "canonical_term",
     "caption_hash",
     "categories_for",

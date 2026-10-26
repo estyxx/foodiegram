@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING
+
 from dispensa.domain.models import Extraction, Recipe
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # Fields promote() must never touch: identity, media, and editing bookkeeping.
 PROTECTED_FIELDS: frozenset[str] = frozenset(
@@ -79,3 +84,23 @@ def promote(current: Recipe, extraction: Extraction) -> Recipe:
     update["extracted_at"] = extraction.extracted_at
 
     return current.model_copy(update=update)
+
+
+def apply_user_edit(recipe: Recipe, changes: Mapping[str, object]) -> Recipe:
+    """Apply hand edits to recipe fields and record each one in edited_fields.
+
+    Recording the field is what makes it user-owned: promote() never overwrites
+    a field in edited_fields. Keys that are not Recipe fields are rejected.
+    """
+    unknown = sorted(set(changes) - set(Recipe.model_fields))
+    if unknown:
+        msg = f"Not recipe fields: {', '.join(unknown)}"
+        raise ValueError(msg)
+    if not changes:
+        return recipe
+    return recipe.model_copy(
+        update={
+            **changes,
+            "edited_fields": recipe.edited_fields | frozenset(changes),
+        },
+    )

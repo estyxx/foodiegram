@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
-from dispensa.domain.editing import PROTECTED_FIELDS, promote
+import pytest
+
+from dispensa.domain.editing import PROTECTED_FIELDS, apply_user_edit, promote
 from dispensa.domain.enums import Course, MedCategory, RecipeSource
 from dispensa.domain.models import (
     ExtractedCategoryServing,
@@ -10,6 +12,7 @@ from dispensa.domain.models import (
 )
 
 _EXTRACTED_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
+_EDITED_SERVINGS = 4
 
 
 def _extracted() -> ExtractedRecipe:
@@ -135,3 +138,17 @@ def test_promote_never_touches_protected_fields() -> None:
     assert promoted.thumbnail_url == "https://cdn/thumb.jpg"
     assert promoted.archived is True
     assert promoted.edited_fields == frozenset({"ingredients"})
+
+
+def test_apply_user_edit_records_the_edited_fields() -> None:
+    """A hand edit sets the value and adds the field to edited_fields."""
+    edited = apply_user_edit(_current(), {"base_servings": _EDITED_SERVINGS})
+
+    assert edited.base_servings == _EDITED_SERVINGS
+    assert edited.edited_fields == frozenset({"ingredients", "base_servings"})
+
+
+def test_apply_user_edit_rejects_non_recipe_fields() -> None:
+    """App-state keys like is_favorite are not recipe fields."""
+    with pytest.raises(ValueError, match="is_favorite"):
+        apply_user_edit(_current(), {"is_favorite": True})

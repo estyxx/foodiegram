@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
@@ -16,6 +16,8 @@ from dispensa.api_models import (
 )
 from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.search_recipes import search_recipes_semantic
+from dispensa.app.update_recipe import RecipeEdit
+from dispensa.app.update_recipe import update_recipe as update_recipe_use_case
 from dispensa.deps import DepsDep, OpenAIClientDep
 from dispensa.domain.enums import (
     CuisineType,
@@ -24,7 +26,7 @@ from dispensa.domain.enums import (
     MealType,
     MedCategory,
 )
-from dispensa.domain.errors import StorageError
+from dispensa.domain.errors import RecipeNotFoundError, StorageError
 from dispensa.domain.models import Recipe
 
 logger = logging.getLogger(__name__)
@@ -291,33 +293,20 @@ async def update_recipe(code: str, body: RecipeUpdate, deps: DepsDep) -> RecipeD
     base_servings maps to a Recipe field (added to edited_fields); is_favorite and
     user_notes are per-user app state and are written to user_state instead.
     """
-    recipe = deps.recipes.get(code)
-    if recipe is None:
-        msg = f"Recipe {code!r} not found"
-        raise HTTPException(status_code=404, detail=msg)
-
-    recipe_changes: dict[str, Any] = {
-        key: value
-        for key, value in body.model_dump().items()
-        if key in body.model_fields_set and key in Recipe.model_fields
-    }
-    if recipe_changes:
-        recipe_changes["edited_fields"] = recipe.edited_fields | frozenset(
-            recipe_changes,
+    edit = RecipeEdit.model_validate(body.model_dump(exclude_unset=True))
+    try:
+        recipe = update_recipe_use_case(
+            code,
+            edit=edit,
+            recipes=deps.recipes,
+            user_state=deps.user_state,
         )
-        recipe = recipe.model_copy(update=recipe_changes)
-        try:
-            deps.recipes.save(recipe)
-        except StorageError as exc:
-            logger.exception("Failed to save recipe %s", code)
-            msg = f"Could not persist recipe {code!r}"
-            raise HTTPException(status_code=500, detail=msg) from exc
-
-    if "is_favorite" in body.model_fields_set and body.is_favorite is not None:
-        deps.user_state.set_favorite(code, is_favorite=body.is_favorite)
-    if "user_notes" in body.model_fields_set:
-        deps.user_state.set_notes(code, notes=body.user_notes)
-
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StorageError as exc:
+        logger.exception("Failed to save recipe %s", code)
+        msg = f"Could not persist recipe {code!r}"
+        raise HTTPException(status_code=500, detail=msg) from exc
     return _detail(recipe, deps=deps)
 
 
