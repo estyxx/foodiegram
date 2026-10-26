@@ -1,6 +1,6 @@
 import logging
 from datetime import date
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -9,9 +9,15 @@ from dispensa.app.plan_meals import clear_meal as clear_meal_use_case
 from dispensa.app.plan_meals import set_draft_meal
 from dispensa.app.plan_meals import set_meal as set_meal_use_case
 from dispensa.app.plan_meals import set_portions as set_portions_use_case
+from dispensa.app.save_custom_recipe import save_custom_recipe
+from dispensa.app.update_recipe import RecipeEdit
+from dispensa.app.update_recipe import update_recipe as update_recipe_use_case
 from dispensa.domain.errors import MealNotFoundError, RecipeNotFoundError
 from dispensa.mcp_server.runtime import get_deps, mcp
-from dispensa.mcp_server.serializers import to_mcp_plan
+from dispensa.mcp_server.serializers import to_mcp_detail, to_mcp_plan
+
+if TYPE_CHECKING:
+    from dispensa.domain.models import Recipe
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +41,16 @@ def _parse_date(name: str, value: str) -> date:
     except ValueError as exc:
         msg = f"{name} must be an ISO date, e.g. '2024-01-01'; got {value!r}"
         raise ValueError(msg) from exc
+
+
+def _detail(recipe: Recipe) -> dict[str, Any]:
+    """Return the full MCP recipe detail with its current favourite and notes."""
+    state = get_deps().user_state.get(recipe.code)
+    return to_mcp_detail(
+        recipe,
+        is_favorite=bool(state and state.is_favorite),
+        user_notes=state.user_notes if state else None,
+    )
 
 
 @mcp.tool()
@@ -165,3 +181,77 @@ def set_portions(
     except (MealNotFoundError, RecipeNotFoundError) as exc:
         raise ValueError(str(exc)) from exc
     return to_mcp_plan(view)
+
+
+@mcp.tool()
+def save_recipe(
+    *,
+    draft: Annotated[
+        RecipeCreate,
+        Field(
+            description=(
+                "The custom recipe: title, ingredients and instructions verbatim "
+                "(any language), mediterranean_categories set by hand, and "
+                "inspired_by listing the codes of the posts it is a version of."
+            ),
+        ),
+    ],
+) -> dict[str, Any]:
+    """Save a custom recipe (your own version of a dish) to the library.
+
+    `inspired_by` may name any saved post, including ones that are not full
+    recipes. Returns the stored recipe with its new `code` (starting 'm-'),
+    which set_meal accepts.
+    """
+    logger.info("save_recipe: title=%r", draft.title)
+    recipe = save_custom_recipe(draft.model_dump(), recipes=get_deps().recipes)
+    return _detail(recipe)
+
+
+@mcp.tool()
+def update_recipe(
+    *,
+    code: Annotated[str, Field(description=f"The recipe to edit. {_CODE_HINT}")],
+    is_favorite: Annotated[
+        bool | None,
+        Field(description="Mark or unmark as a favourite. Omit to leave unchanged."),
+    ] = None,
+    user_notes: Annotated[
+        str | None,
+        Field(description="Replace the notes; '' clears them. Omit to leave unchanged."),
+    ] = None,
+    base_servings: Annotated[
+        int | None,
+        Field(
+            description=(
+                "How many servings the recipe makes as written. A hand edit: later "
+                "re-extractions never overwrite it. Omit to leave unchanged."
+            ),
+        ),
+    ] = None,
+) -> dict[str, Any]:
+    """Edit a recipe's favourite flag, notes, or base servings.
+
+    Only the arguments you pass change. Returns the full updated recipe.
+    """
+    logger.info("update_recipe: code=%r", code)
+    provided = {
+        "is_favorite": is_favorite,
+        "user_notes": user_notes,
+        "base_servings": base_servings,
+    }
+    edit = RecipeEdit.model_validate(
+        {field: value for field, value in provided.items() if value is not None},
+    )
+    deps = get_deps()
+    try:
+        recipe = update_recipe_use_case(
+            code,
+            edit=edit,
+            recipes=deps.recipes,
+            user_state=deps.user_state,
+        )
+    except RecipeNotFoundError as exc:
+        msg = f"{exc}. {_CODE_HINT}"
+        raise ValueError(msg) from exc
+    return _detail(recipe)
