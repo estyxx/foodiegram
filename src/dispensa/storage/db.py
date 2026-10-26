@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,8 @@ from dispensa.storage._tables import TargetRow
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
+
+logger = logging.getLogger(__name__)
 
 _PROD_HOST_MARKERS = ("neon.tech", "neon.build")
 
@@ -54,7 +57,7 @@ def get_session(engine: Engine) -> Session:
 
 
 def init_db(engine: Engine) -> None:
-    """Create all tables and seed default targets when the table is empty."""
+    """Create all tables and seed any default target category that is missing."""
     SQLModel.metadata.create_all(engine)
     _ensure_schema_patches(engine)
     _seed_targets(engine)
@@ -102,11 +105,19 @@ def truncate_all_tables(engine: Engine) -> None:
 
 
 def _seed_targets(engine: Engine) -> None:
-    """Insert DEFAULT_TARGETS if the targets table has no rows."""
+    """Insert each DEFAULT_TARGETS category that has no row yet.
+
+    Additive and idempotent: existing rows (possibly user-edited) are never
+    touched, and a category added to the defaults after a database was first
+    seeded (plant_protein) is backfilled on the next startup.
+    """
     with get_session(engine) as session:
-        if session.exec(select(TargetRow)).first() is not None:
+        present = set(session.exec(select(TargetRow.category)).all())
+        missing = [t for t in DEFAULT_TARGETS if t.category.value not in present]
+        if not missing:
             return
-        for target in DEFAULT_TARGETS:
+        logger.info("Seeding missing targets: %s", [t.category.value for t in missing])
+        for target in missing:
             session.add(
                 TargetRow(
                     category=target.category.value,
