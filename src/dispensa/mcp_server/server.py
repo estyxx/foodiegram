@@ -101,8 +101,9 @@ def get_planning_context(
     tally, `suggestions` of recipes that would fill each under-target category
     (slim views — call `get_recipe` for the full recipe), the weekly `targets`,
     the current `pantry` contents, and the user's `favourite_codes`. Call this
-    once at the start of a planning session; after changing a meal, the
-    write tool's response already carries the fresh balance.
+    once at the start of a planning session; set_meal, clear_meal and
+    set_portions each return the fresh week, so there is no need to call this
+    again after a change.
     """
     logger.info("get_planning_context: week_start=%r", week_start)
     try:

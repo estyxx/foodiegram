@@ -155,6 +155,30 @@ def test_delete_meal(client: TestClient, deps: Deps) -> None:
     assert missing.status_code == HTTPStatus.NOT_FOUND
 
 
+def test_upsert_meal_rejects_an_unknown_recipe_code(client: TestClient) -> None:
+    """Slotting a code that is not in the library is a 404, and nothing is stored."""
+    response = client.put(
+        f"/api/plans/{_MONDAY}/meals",
+        json={"day": _MONDAY, "meal": "lunch", "recipe_code": "NOPE"},
+    )
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert client.get(f"/api/plans/{_MONDAY}").json()["meals"] == []
+
+
+def test_upsert_meal_rejects_a_day_outside_the_week(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """A day from another week is a 422 with the valid range in the detail."""
+    deps.recipes.save(_fish_recipe("F1"))
+    response = client.put(
+        f"/api/plans/{_MONDAY}/meals",
+        json={"day": "2024-01-08", "meal": "lunch", "recipe_code": "F1"},
+    )
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "outside the week" in response.json()["detail"]
+
+
 def test_pantry_crud(client: TestClient) -> None:
     """Pantry items can be created, listed, and deleted."""
     created = client.post(

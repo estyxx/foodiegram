@@ -11,6 +11,8 @@ from dispensa.domain.planning import (
     CategoryTarget,
     PlannedMeal,
     WeekPlan,
+    check_meal_slot,
+    check_portions,
     gap_suggestions,
     oily_fish_count,
     week_balance,
@@ -269,3 +271,38 @@ def test_gap_suggestions_skips_non_under_categories() -> None:
     ]
     result = gap_suggestions(statuses, [])
     assert result == {}
+
+
+def test_check_meal_slot_accepts_monday_through_sunday() -> None:
+    """Every day from the Monday to the following Sunday is a plannable slot."""
+    for offset in range(7):
+        check_meal_slot(week_start=_MONDAY, day=date(2024, 1, 1 + offset))
+
+
+def test_check_meal_slot_rejects_a_non_monday_week() -> None:
+    """A week must start on a Monday."""
+    with pytest.raises(ValueError, match="2024-01-02 is not a Monday"):
+        check_meal_slot(week_start=_TUESDAY, day=_TUESDAY)
+
+
+def test_check_meal_slot_rejects_a_day_outside_the_week() -> None:
+    """The day before and the Monday after both fall outside the week."""
+    for day in (date(2023, 12, 31), date(2024, 1, 8)):
+        with pytest.raises(ValueError, match="outside the week"):
+            check_meal_slot(week_start=_MONDAY, day=day)
+
+
+def test_check_portions_rejects_below_one() -> None:
+    """Zero or negative portions cannot be cooked."""
+    check_portions(1)
+    with pytest.raises(ValueError, match="at least 1"):
+        check_portions(0)
+
+
+def test_meal_at_finds_the_slot_or_none() -> None:
+    """meal_at matches on both day and slot."""
+    lunch = PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="A")
+    plan = WeekPlan(week_start=_MONDAY, meals=(lunch,))
+    assert plan.meal_at(_MONDAY, "lunch") == lunch
+    assert plan.meal_at(_MONDAY, "dinner") is None
+    assert plan.meal_at(_TUESDAY, "lunch") is None

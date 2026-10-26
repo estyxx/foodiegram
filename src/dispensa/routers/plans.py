@@ -16,12 +16,14 @@ from dispensa.api_models import (
     RecipeSummary,
     ShoppingItemOut,
 )
+from dispensa.app.plan_meals import set_meal
 from dispensa.app.plan_week import (
     WeekPlanView,
     build_shopping_list,
     build_week_plan_view,
 )
 from dispensa.deps import DepsDep
+from dispensa.domain.errors import RecipeNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -100,24 +102,22 @@ async def upsert_meal(
 ) -> PlanResponse:
     """Insert or replace the meal in a (day, slot); return the updated plan."""
     try:
-        deps.plans.upsert_meal(
+        view = set_meal(
             week_start=week_start,
             day=body.day,
             meal=body.meal,
             recipe_code=body.recipe_code,
             portions=body.portions,
-        )
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=_NOT_MONDAY) from exc
-    return _to_response(
-        build_week_plan_view(
-            week_start=week_start,
             recipes=deps.recipes,
             plans=deps.plans,
             targets=deps.targets,
             user_state=deps.user_state,
-        ),
-    )
+        )
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_response(view)
 
 
 @router.delete("/{week_start}/meals/{meal_id}")

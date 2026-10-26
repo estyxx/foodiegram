@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 # date.weekday() index for Monday; week plans always start on a Monday.
 _MONDAY = 0
+# A plan spans Monday..Sunday; whether the UI shows weekends is a UI call (11.5).
+_LAST_DAY_OFFSET = 6
 
 
 class CategoryTarget(BaseModel):
@@ -75,6 +77,42 @@ class WeekPlan(BaseModel):
             msg = "week_start must be a Monday"
             raise ValueError(msg)
         return value
+
+    def meal_at(self, day: date, meal: Literal["lunch", "dinner"]) -> PlannedMeal | None:
+        """Return the meal planned in the (day, slot), or None if it is empty."""
+        return next(
+            (
+                planned
+                for planned in self.meals
+                if (planned.day, planned.meal) == (day, meal)
+            ),
+            None,
+        )
+
+
+def check_meal_slot(*, week_start: date, day: date) -> None:
+    """Reject a slot whose week is not Monday-anchored or whose day is outside it.
+
+    Messages name the bad value and the valid range, so an API client or a model
+    can correct the call without reading the code.
+    """
+    if week_start.weekday() != _MONDAY:
+        msg = f"week_start {week_start.isoformat()} is not a Monday"
+        raise ValueError(msg)
+    last_day = week_start + timedelta(days=_LAST_DAY_OFFSET)
+    if not week_start <= day <= last_day:
+        msg = (
+            f"day {day.isoformat()} is outside the week "
+            f"{week_start.isoformat()}..{last_day.isoformat()}"
+        )
+        raise ValueError(msg)
+
+
+def check_portions(portions: int) -> None:
+    """Reject a portion count below one; portions scale the shopping list."""
+    if portions < 1:
+        msg = f"portions must be at least 1, got {portions}"
+        raise ValueError(msg)
 
 
 class CategoryStatus(BaseModel):
