@@ -1,12 +1,14 @@
 import math
 
+import numpy as np
+import pytest
 from sqlalchemy import Engine, func, select
 
 from dispensa.ai.embeddings import recipe_document
 from dispensa.domain.enums import MealType
 from dispensa.domain.hashing import document_hash
 from dispensa.domain.models import Recipe
-from dispensa.domain.similarity import cosine_similarity
+from dispensa.domain.similarity import cosine_scores, cosine_similarity, unit_rows
 from dispensa.storage._tables import RecipeEmbeddingRow
 from dispensa.storage.db import get_session
 from dispensa.storage.recipes_db import RecipeRepository
@@ -146,3 +148,47 @@ def test_cosine_similarity_handles_identical_orthogonal_and_zero_vectors() -> No
     assert math.isclose(cosine_similarity([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]), 1.0)
     assert math.isclose(cosine_similarity([1.0, 0.0, 0.0], [0.0, 1.0, 0.0]), 0.0)
     assert math.isclose(cosine_similarity([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]), 0.0)
+
+
+def test_cosine_scores_match_cosine_similarity() -> None:
+    """The numpy path scores exactly like the per-pair function, zeros included."""
+    rng = np.random.default_rng(3)
+    vectors: list[list[float]] = rng.uniform(-1, 1, (20, 8)).tolist()
+    vectors.append([0.0] * 8)
+    query: list[float] = rng.uniform(-1, 1, 8).tolist()
+
+    scores = cosine_scores(unit_rows(vectors), query)
+
+    for vector, score in zip(vectors, scores, strict=True):
+        assert math.isclose(score, cosine_similarity(query, vector), abs_tol=1e-12)
+    assert cosine_scores(unit_rows(vectors), [0.0] * 8).tolist() == [0.0] * 21
+
+
+def test_cosine_scores_reject_mismatched_lengths() -> None:
+    """Ragged vectors and a wrong-length query are errors, not silent zeros."""
+    with pytest.raises(ValueError, match="Vector lengths must match"):
+        unit_rows([[1.0, 0.0], [1.0, 0.0, 0.0]])
+    with pytest.raises(ValueError, match="Vector lengths must match"):
+        cosine_scores(unit_rows([[1.0, 0.0]]), [1.0, 0.0, 0.0])
+
+
+def test_find_similar_sees_embeddings_written_by_another_repository(
+    engine: Engine,
+) -> None:
+    """The vector cache reloads on a new embedding and on a re-embed elsewhere.
+
+    A re-embed keeps created_at, so only updated_at tells the cache it moved.
+    """
+    server = RecipeRepository(engine)
+    pipeline = RecipeRepository(engine)
+    for code in ("A1", "B1"):
+        server.save(_recipe(code))
+    pipeline.save_embedding("A1", [1.0, 0.0, 0.0], model=_MODEL)
+    query = [1.0, 0.0, 0.0]
+    assert [r.code for r, _ in server.find_similar(query)] == ["A1"]
+
+    pipeline.save_embedding("B1", [0.9, 0.1, 0.0], model=_MODEL)
+    assert [r.code for r, _ in server.find_similar(query)] == ["A1", "B1"]
+
+    pipeline.save_embedding("A1", [0.0, 1.0, 0.0], model=_MODEL)
+    assert [r.code for r, _ in server.find_similar(query)] == ["B1", "A1"]

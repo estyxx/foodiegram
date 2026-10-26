@@ -1,13 +1,14 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
+import numpy as np
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from dispensa.domain.hashing import caption_hash
 from dispensa.domain.models import Recipe
 from dispensa.domain.proteins import facets_for
-from dispensa.domain.similarity import cosine_similarity
+from dispensa.domain.similarity import cosine_scores, unit_rows
 from dispensa.domain.synonyms import expand_term
 from dispensa.storage._tables import RecipeEmbeddingRow, RecipeRow
 from dispensa.storage.db import ensure_utc, get_session
@@ -183,6 +184,18 @@ def _filter_attributes(
     return recipes
 
 
+# (row count, latest created_at, latest updated_at) of recipe_embeddings.
+type _EmbeddingStamp = tuple[int, datetime | None, datetime | None]
+
+
+class _EmbeddingMatrix(NamedTuple):
+    """Every stored embedding as unit-length rows, with each code's row index."""
+
+    rows: dict[str, int]
+    matrix: np.ndarray
+    stamp: _EmbeddingStamp
+
+
 class RecipeRepository:
     """DB-backed store for Recipe objects, keyed by recipe code."""
 
@@ -196,6 +209,9 @@ class RecipeRepository:
         # cache is keyed by a cheap table stamp and reloads when it moves.
         self._all_cache: list[Recipe] | None = None
         self._cache_stamp: tuple[int, datetime | None] | None = None
+        # D28: semantic search scores against one in-memory matrix instead of
+        # loading and comparing JSON vectors per query; same stamp idea.
+        self._embeddings: _EmbeddingMatrix | None = None
 
     def _invalidate(self) -> None:
         """Drop the cached recipe list so the next read reloads from the DB."""
@@ -354,6 +370,7 @@ class RecipeRepository:
                     embedding=embedding,
                     embedding_source_hash=source_hash,
                     created_at=created_at,
+                    updated_at=now,
                 ),
             )
             session.commit()
@@ -407,21 +424,42 @@ class RecipeRepository:
         if not candidates:
             return []
 
-        codes = [recipe.code for recipe in candidates]
+        embeddings = self._embedding_matrix()
+        scored = [
+            (recipe, row)
+            for recipe in candidates
+            if (row := embeddings.rows.get(recipe.code)) is not None
+        ]
+        if not scored:
+            return []
+        scores = cosine_scores(
+            embeddings.matrix[[row for _recipe, row in scored]],
+            query_vector,
+        )
+        # Stable, so equal scores keep candidate (code) order, as before.
+        best = np.argsort(-scores, kind="stable")[:limit]
+        return [(scored[index][0], float(scores[index])) for index in best]
+
+    def _embedding_matrix(self) -> _EmbeddingMatrix:
+        """Return the cached embedding matrix, rebuilding it if the table moved."""
         with get_session(self._engine) as session:
-            rows = session.exec(
-                select(RecipeEmbeddingRow).where(
-                    col(RecipeEmbeddingRow.recipe_code).in_(codes),
+            count, created, updated = session.exec(
+                select(
+                    func.count(),
+                    func.max(col(RecipeEmbeddingRow.created_at)),
+                    func.max(col(RecipeEmbeddingRow.updated_at)),
                 ),
+            ).one()
+            stamp: _EmbeddingStamp = (count, created, updated)
+            if self._embeddings is not None and self._embeddings.stamp == stamp:
+                return self._embeddings
+            rows = session.exec(
+                select(RecipeEmbeddingRow).order_by(RecipeEmbeddingRow.recipe_code),
             ).all()
-            embeddings_by_code = {row.recipe_code: row.embedding for row in rows}
-
-        scored: list[tuple[Recipe, float]] = []
-        for recipe in candidates:
-            stored = embeddings_by_code.get(recipe.code)
-            if stored is None:
-                continue
-            scored.append((recipe, cosine_similarity(query_vector, stored)))
-
-        scored.sort(key=lambda item: item[1], reverse=True)
-        return scored[:limit]
+        matrix = unit_rows([row.embedding for row in rows]) if rows else np.zeros((0, 0))
+        self._embeddings = _EmbeddingMatrix(
+            rows={row.recipe_code: index for index, row in enumerate(rows)},
+            matrix=matrix,
+            stamp=stamp,
+        )
+        return self._embeddings
