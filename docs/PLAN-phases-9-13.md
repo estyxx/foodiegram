@@ -23,6 +23,7 @@ session.
 | D30 | Instagram capture v1 is an iOS Shortcut posting to `/api/instagram/queue`. No Expo app; the RN Web migration is off the board. |
 | D31 | Pantry items have `location: fridge \| freezer \| pantry`, optional free-text quantity and optional expiry. Names stay free-text; no canonicalisation. |
 | D32 | `posts` staging table is dropped. `sync ingest` writing stubs directly is the design. |
+| D33 | The plan page shows **Mon–Fri by default**, with Sat–Sun on request (a toggle remembered per browser). Plans and the balance always cover all seven days; the toggle says how many weekend meals are hidden. |
 
 ---
 
@@ -175,8 +176,15 @@ session.
       Cold/warm timings still unmeasured: this environment's network policy
       blocks beltrami.family; the `fastapi-cloud-cli` (0.20.0) has no region
       option, only a read-only `region` field per app.
-- [ ] 11.5 Plan UI: "+ add" offers "my version of…" (inline draft → MANUAL
+- [x] 11.5 Plan UI: "+ add" offers "my version of…" (inline draft → MANUAL
       recipe via 10.1). Decide Mon–Fri vs Mon–Sun and record it.
+      → D33 recorded (Mon–Fri default, weekend toggle). Each picker row has
+      "My version" and the picker has "Write my own": a native `<dialog>`
+      (`components/CustomRecipeDialog.js`) prefilled from the base recipe,
+      categories + servings set by hand, `inspired_by=[base]`; "Save & add"
+      = `POST /api/recipes` then the slot PUT (a failed slot retry never
+      saves twice). Also fixed "Change" never opening the picker on a filled
+      slot (5e1f6c3). Browser-checked end to end on the bench DB.
 - [ ] 11.6 Minimal `PantryList` view (list, add, remove, location filter).
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.

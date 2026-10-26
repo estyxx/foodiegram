@@ -126,3 +126,13 @@ Things noticed while working a phase that belong to a later one. Not acted on he
   run a pure-module test with no dependency if we want it in the gate.
 - **`#plan` search still hits the server per keystroke** (`getRecipes` in
   `plan.js`); that is 11.2's territory.
+
+## From Phase 11.5 (my version of… / weekend toggle)
+
+- **Picker titles truncate hard in the Mon–Fri columns.** A wide category
+  chip (PLANT PROTEIN) leaves a few characters of title ("Me…"). Pre-dates
+  11.5; the rows are as wide as before. Wrapping the title or dropping the
+  chip text to a dot in narrow columns would fix it.
+- **A recipe saved from the plan page is missing from Browse until reload**,
+  same as one saved from Claude (the session index, D27). The plan page shows
+  it because it keeps the saved recipe's display itself.

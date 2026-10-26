@@ -293,6 +293,30 @@ export async function deleteMeal(weekStart, mealId) {
 }
 
 /**
+ * A hand-written recipe (D23), saved as source=manual. `inspired_by` lists the
+ * codes of the saves it is a version of.
+ * @typedef {object} RecipeDraft
+ * @property {string} title
+ * @property {string[]} ingredients
+ * @property {string[]} instructions
+ * @property {MedCategory[]} mediterranean_categories
+ * @property {string[]} inspired_by
+ */
+
+/**
+ * Save a hand-written recipe and return it as stored, with its new code.
+ * @param {RecipeDraft} draft
+ * @returns {Promise<RecipeDetail>}
+ */
+export async function createRecipe(draft) {
+  const result = await apiFetch("/recipes", {
+    method: "POST",
+    body: JSON.stringify(draft),
+  });
+  return /** @type {RecipeDetail} */ (result);
+}
+
+/**
  * Apply a partial update (favourite, notes, servings) to a recipe.
  * @param {string} code
  * @param {Partial<Pick<RecipeDetail, "is_favorite" | "user_notes" | "base_servings">>} patch

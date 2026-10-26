@@ -15,6 +15,8 @@ const SEARCH_DEBOUNCE_MS = 200;
  * @typedef {object} GapSuggestionsHandlers
  * @property {(recipe: RecipeSummary) => void} onAdd
  * @property {(query: string) => Promise<RecipeSummary[]>} onSearch
+ * @property {(base: RecipeSummary | null) => void} onCustom "My version of…"
+ *   a recipe, or a recipe written from scratch when base is null.
  */
 
 /**
@@ -49,8 +51,14 @@ export function GapSuggestions(handlers) {
   searchToggle.textContent = "Search all recipes";
   searchToggle.setAttribute("aria-expanded", "false");
 
-  const searchPanel = buildSearchPanel(handlers.onSearch, handlers.onAdd);
+  const searchPanel = buildSearchPanel(handlers);
   searchPanel.element.hidden = true;
+
+  const writeOwn = document.createElement("button");
+  writeOwn.type = "button";
+  writeOwn.className = "btn-ghost gap-suggestions__search-toggle";
+  writeOwn.textContent = "Write my own";
+  writeOwn.addEventListener("click", () => handlers.onCustom(null));
 
   searchToggle.addEventListener("click", () => {
     const open = searchPanel.element.hidden;
@@ -61,13 +69,13 @@ export function GapSuggestions(handlers) {
     }
   });
 
-  wrap.append(list, empty, searchToggle, searchPanel.element);
+  wrap.append(list, empty, searchToggle, searchPanel.element, writeOwn);
 
   return {
     element: wrap,
     render(balance, suggestions) {
       const ranked = rankByDeficit(balance, suggestions);
-      list.replaceChildren(...ranked.map((entry) => buildRow(entry, handlers.onAdd)));
+      list.replaceChildren(...ranked.map((entry) => buildRow(entry, handlers)));
       empty.hidden = ranked.length > 0;
     },
     focusFirst() {
@@ -128,18 +136,19 @@ function rankByDeficit(balance, suggestions) {
 }
 
 /**
+ * A one-tap pick plus a secondary "My version" for the same recipe.
  * @param {{ recipe: RecipeSummary, category?: string }} entry
- * @param {(recipe: RecipeSummary) => void} onAdd
+ * @param {GapSuggestionsHandlers} handlers
  * @returns {HTMLLIElement}
  */
-function buildRow(entry, onAdd) {
+function buildRow(entry, handlers) {
   const item = document.createElement("li");
   item.className = "gap-suggestions__row";
 
   const button = document.createElement("button");
   button.type = "button";
   button.className = "gap-suggestions__pick";
-  button.addEventListener("click", () => onAdd(entry.recipe));
+  button.addEventListener("click", () => handlers.onAdd(entry.recipe));
 
   if (entry.category) {
     const chip = CategoryChip(entry.category);
@@ -152,7 +161,15 @@ function buildRow(entry, onAdd) {
   title.textContent = displayTitle(entry.recipe);
 
   button.append(title);
-  item.append(button);
+
+  const mine = document.createElement("button");
+  mine.type = "button";
+  mine.className = "btn-ghost gap-suggestions__mine";
+  mine.textContent = "My version";
+  mine.setAttribute("aria-label", `Make my version of ${displayTitle(entry.recipe)}`);
+  mine.addEventListener("click", () => handlers.onCustom(entry.recipe));
+
+  item.append(button, mine);
   return item;
 }
 
@@ -163,11 +180,10 @@ function buildRow(entry, onAdd) {
  */
 
 /**
- * @param {(query: string) => Promise<RecipeSummary[]>} onSearch
- * @param {(recipe: RecipeSummary) => void} onAdd
+ * @param {GapSuggestionsHandlers} handlers
  * @returns {SearchPanelView}
  */
-function buildSearchPanel(onSearch, onAdd) {
+function buildSearchPanel(handlers) {
   const panel = document.createElement("div");
   panel.className = "gap-suggestions__search";
 
@@ -198,12 +214,12 @@ function buildSearchPanel(onSearch, onAdd) {
       results.replaceChildren();
       return;
     }
-    const matches = await onSearch(query);
+    const matches = await handlers.onSearch(query);
     if (request !== latestRequest) {
       return;
     }
     results.replaceChildren(
-      ...matches.slice(0, MAX_SEARCH_RESULTS).map((recipe) => buildRow({ recipe }, onAdd)),
+      ...matches.slice(0, MAX_SEARCH_RESULTS).map((recipe) => buildRow({ recipe }, handlers)),
     );
   }
 
