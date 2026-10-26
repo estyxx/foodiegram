@@ -63,7 +63,7 @@ def test_get_planning_context_returns_one_payload(engine: Engine) -> None:
     deps.pantry.add(PantryItem(name="olive oil", kind="staple"))
     deps.user_state.set_favorite("LEG1", is_favorite=True)
 
-    with patch("dispensa.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server.get_deps", return_value=deps):
         result = get_planning_context(week_start="2024-01-01")
 
     assert result["week_start"] == "2024-01-01"
@@ -82,7 +82,7 @@ def test_get_planning_context_non_monday_raises(engine: Engine) -> None:
     """A non-Monday week_start is a clear ValueError, not a pydantic dump."""
     deps = _deps(engine)
     with (
-        patch("dispensa.mcp_server.server._deps", return_value=deps),
+        patch("dispensa.mcp_server.server.get_deps", return_value=deps),
         pytest.raises(ValueError, match="Monday"),
     ):
         get_planning_context(week_start="2024-01-02")
@@ -92,7 +92,7 @@ def test_get_planning_context_bad_date_raises(engine: Engine) -> None:
     """A malformed week_start is rejected before any repository read."""
     deps = _deps(engine)
     with (
-        patch("dispensa.mcp_server.server._deps", return_value=deps),
+        patch("dispensa.mcp_server.server.get_deps", return_value=deps),
         pytest.raises(ValueError, match="ISO date"),
     ):
         get_planning_context(week_start="not-a-date")

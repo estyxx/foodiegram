@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from dispensa.mcp_server.server import mcp
+from dispensa.mcp_server import mcp
 
 # stdio is the protocol channel, so every log line goes to stderr; configuring
 # it here (not in the library modules) is the one place we own the entrypoint.
