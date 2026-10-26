@@ -1,7 +1,8 @@
 // @ts-check
 
-import { deleteMeal, getPlan, getRecipe, upsertMeal } from "../api/client.js";
+import { createRecipe, deleteMeal, getPlan, getRecipe, upsertMeal } from "../api/client.js";
 import { BalancePanel } from "../components/BalancePanel.js";
+import { CustomRecipeDialog } from "../components/CustomRecipeDialog.js";
 import { DayColumn } from "../components/DayColumn.js";
 import { emptyFilters } from "../lib/filters.js";
 import { formatDayLabel, formatWeekRange } from "../lib/format.js";
@@ -18,8 +19,12 @@ import { addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
 
 const WEEK_STEP_DAYS = 7;
 const SEARCH_LIMIT = 20;
-// The planner shows Monday-Friday only; the week is still Monday-anchored.
-const VISIBLE_DAYS = 5;
+// D33: Monday-Friday by default, Saturday-Sunday on request; the week is
+// still Monday-anchored and the balance always counts all seven days.
+const WEEKDAYS = 5;
+const WEEK_DAYS = 7;
+const WEEKEND_KEY = "dispensa.plan.showWeekend";
+const DEFAULT_PORTIONS = 2;
 
 /**
  * Render the plan view (#plan): a live BalancePanel above a Monday-Sunday
@@ -44,6 +49,7 @@ export async function renderPlan(container) {
   /** @type {import("../api/client.js").RecipeIndex | null} */
   let index = null;
   let error = "";
+  let showWeekend = readShowWeekend();
 
   const header = document.createElement("header");
   header.className = "plan__header";
@@ -58,10 +64,16 @@ export async function renderPlan(container) {
 
   const nav = document.createElement("div");
   nav.className = "plan__nav";
+  const weekendToggle = navButton("Show weekend", () => {
+    showWeekend = !showWeekend;
+    saveShowWeekend(showWeekend);
+    renderAll();
+  });
   nav.append(
     navButton("← Previous week", () => void changeWeek(-WEEK_STEP_DAYS)),
     navButton("This week", () => void goToWeek(mondayOf(new Date()))),
     navButton("Next week →", () => void changeWeek(WEEK_STEP_DAYS)),
+    weekendToggle,
   );
 
   header.append(title, nav, range);
@@ -81,11 +93,21 @@ export async function renderPlan(container) {
   grid.hidden = true;
 
   const handlers = { onAdd: handleAdd, onPortionsChange: handlePortionsChange,
-    onRemove: handleRemove, onSearch: handleSearch };
-  const columns = visibleDays(weekStart).map(() => DayColumn(handlers));
+    onRemove: handleRemove, onSearch: handleSearch, onCustom: handleCustom };
+  // All seven are built once; Saturday and Sunday are hidden unless asked for.
+  const columns = weekDays(weekStart).map(() => DayColumn(handlers));
   grid.append(...columns.map((column) => column.element));
 
-  container.append(header, balancePanel.element, errorMsg, loading, grid);
+  const customDialog = CustomRecipeDialog();
+
+  container.append(
+    header,
+    balancePanel.element,
+    errorMsg,
+    loading,
+    grid,
+    customDialog.element,
+  );
 
   /**
    * @param {string} code
@@ -141,12 +163,16 @@ export async function renderPlan(container) {
       return;
     }
 
-    range.textContent = formatWeekRange(weekStart, addDays(weekStart, VISIBLE_DAYS - 1));
+    const shown = showWeekend ? WEEK_DAYS : WEEKDAYS;
+    range.textContent = formatWeekRange(weekStart, addDays(weekStart, shown - 1));
     balancePanel.render(plan.balance, plan.oily_fish);
+    renderWeekendToggle();
+    grid.classList.toggle("plan__grid--week", showWeekend);
 
     const mealsByDay = groupMeals(plan.meals);
-    visibleDays(weekStart).forEach((day, index) => {
-      columns[index].render({
+    weekDays(weekStart).forEach((day, position) => {
+      columns[position].element.hidden = position >= shown;
+      columns[position].render({
         day,
         label: formatDayLabel(day),
         isToday: day === today,
@@ -155,6 +181,61 @@ export async function renderPlan(container) {
         balance: plan?.balance ?? [],
         suggestions: plan?.suggestions ?? [],
       });
+    });
+  }
+
+  /**
+   * The balance counts weekend meals even while they are hidden, so the
+   * toggle says how many there are rather than hiding them silently.
+   */
+  function renderWeekendToggle() {
+    const weekend = new Set(weekDays(weekStart).slice(WEEKDAYS));
+    const count = (plan?.meals ?? []).filter((meal) => weekend.has(meal.day)).length;
+    const suffix = count > 0 ? ` \u00b7 ${count} ${count === 1 ? "meal" : "meals"}` : "";
+    weekendToggle.textContent = `${showWeekend ? "Hide" : "Show"} weekend${suffix}`;
+    weekendToggle.setAttribute("aria-pressed", String(showWeekend));
+  }
+
+  /**
+   * "My version of…" a recipe, or one written from scratch: save it as a
+   * MANUAL recipe (D23), then put it in the slot.
+   * @param {string} day
+   * @param {MealSlot} meal
+   * @param {RecipeSummary | null} base
+   * @returns {Promise<boolean>} True once saved and slotted.
+   */
+  async function handleCustom(day, meal, base) {
+    if (plan === null) {
+      return false;
+    }
+    /** @type {RecipeDetail | null} */
+    let detail = null;
+    if (base !== null) {
+      try {
+        detail = await getRecipe(base.code);
+      } catch {
+        error = "Couldn't open that recipe — try again.";
+        renderAll();
+        return false;
+      }
+    }
+    /** @type {RecipeDetail | null} Kept across retries so a retry never saves twice. */
+    let created = null;
+    return customDialog.open({
+      base: detail,
+      slotLabel: `${formatDayLabel(day)} \u00b7 ${meal === "lunch" ? "Lunch" : "Dinner"}`,
+      onSave: async (draft) => {
+        created ??= await createRecipe(draft);
+        rememberDisplay(created);
+        plan = await upsertMeal(weekStart, {
+          day,
+          meal,
+          recipe_code: created.code,
+          portions: DEFAULT_PORTIONS,
+        });
+        error = "";
+        renderAll();
+      },
     });
   }
 
@@ -206,13 +287,13 @@ export async function renderPlan(container) {
       ...plan,
       meals: [
         ...plan.meals.filter((m) => !(m.day === day && m.meal === meal)),
-        { id: null, day, meal, recipe_code: recipe.code, portions: 2 },
+        { id: null, day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS },
       ],
     };
     error = "";
     renderAll();
     try {
-      plan = await upsertMeal(weekStart, { day, meal, recipe_code: recipe.code, portions: 2 });
+      plan = await upsertMeal(weekStart, { day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS });
     } catch {
       plan = previous;
       error = "Couldn't save that meal — try again.";
@@ -292,12 +373,27 @@ export async function renderPlan(container) {
 }
 
 /**
- * The weekday dates shown in the planner: Monday through Friday.
- * @param {string} weekStart ISO date (Monday).
- * @returns {string[]}
+ * Whether this browser last chose to see the weekend. A per-viewer
+ * convenience only, so any storage failure just means "no".
+ * @returns {boolean}
  */
-function visibleDays(weekStart) {
-  return weekDays(weekStart).slice(0, VISIBLE_DAYS);
+function readShowWeekend() {
+  try {
+    return window.localStorage.getItem(WEEKEND_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {boolean} show
+ */
+function saveShowWeekend(show) {
+  try {
+    window.localStorage.setItem(WEEKEND_KEY, show ? "1" : "0");
+  } catch {
+    // Private mode or blocked storage: the toggle still works for this visit.
+  }
 }
 
 /**

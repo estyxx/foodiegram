@@ -28,6 +28,8 @@ import { MEAL_SLOTS } from "../lib/week.js";
  * @property {(plannedMeal: PlannedMeal, portions: number) => void} onPortionsChange
  * @property {(plannedMeal: PlannedMeal) => void} onRemove
  * @property {(query: string) => Promise<RecipeSummary[]>} onSearch
+ * @property {(day: string, meal: MealSlot, base: RecipeSummary | null) => Promise<boolean>} onCustom
+ *   Write "my version" for the slot; resolves true once saved and slotted.
  */
 
 /**
@@ -157,6 +159,13 @@ function buildSlot(meal, handlers) {
       handlers.onAdd(day, meal, recipe);
       pickerOpen = false;
       layout();
+    },
+    onCustom: async (base) => {
+      // The picker stays open behind the dialog, so cancelling returns there.
+      if (await handlers.onCustom(day, meal, base)) {
+        pickerOpen = false;
+        layout();
+      }
     },
   });
   picker.element.classList.add("day-slot__picker");

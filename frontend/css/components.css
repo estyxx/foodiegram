@@ -1632,8 +1632,14 @@
   align-items: start;
 }
 
+/* D33: Saturday and Sunday on request. */
+.plan__grid--week {
+  grid-template-columns: repeat(7, 1fr);
+}
+
 @media (max-width: 767px) {
-  .plan__grid {
+  .plan__grid,
+  .plan__grid--week {
     grid-template-columns: 1fr;
   }
 }
@@ -1733,8 +1739,18 @@
   list-style: none;
 }
 
+/* The pick keeps the full width (day columns are narrow); "My version" sits
+   on its own line under it rather than squeezing the title out. */
 .gap-suggestions__row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   margin: 0;
+}
+
+.gap-suggestions__mine {
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
 }
 
 .gap-suggestions__pick {
@@ -1843,4 +1859,117 @@
 .meal-card__actions .btn-ghost {
   min-height: auto;
   padding: 0;
+}
+
+/* ---- "My version of…" dialog (D23 from the web) -------------------------- */
+.custom-recipe {
+  width: min(36rem, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-6));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.custom-recipe::backdrop {
+  background: rgb(44 40 32 / 0.45);
+}
+
+.custom-recipe__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.custom-recipe__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  line-height: var(--lh-snug);
+}
+
+.custom-recipe__where {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.custom-recipe__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.custom-recipe__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-muted);
+}
+
+.custom-recipe__control,
+.custom-recipe__servings {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: var(--text-sm);
+}
+
+.custom-recipe__categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.custom-recipe__categories legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.custom-recipe__category {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.custom-recipe__category label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+}
+
+.custom-recipe__servings {
+  width: 5.5rem;
+}
+
+.custom-recipe__servings:disabled {
+  opacity: 0.45;
+}
+
+.custom-recipe__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .custom-recipe[open] {
+    animation: custom-recipe-in 160ms ease-out;
+  }
+
+  @keyframes custom-recipe-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
 }
