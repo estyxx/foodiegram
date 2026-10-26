@@ -354,6 +354,33 @@ def test_patch_base_servings_marks_recipe_edited(
     assert "base_servings" in detail["edited_fields"]
 
 
+def test_recipe_index_carries_server_derived_filter_fields(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """D27: one payload with facets, completeness, search text and synonyms."""
+    deps.recipes.save(
+        _fish_recipe("F1").model_copy(
+            update={"caption": "Salmone al FORNO", "proteins": ["tofu"]},
+        ),
+    )
+    deps.recipes.save(_inspiration_recipe("I1"))
+    client.patch("/api/recipes/F1", json={"is_favorite": True})
+
+    body = client.get("/api/recipes/index").json()
+
+    by_code = {entry["code"]: entry for entry in body["recipes"]}
+    assert list(by_code) == ["F1", "I1"]
+    fish = by_code["F1"]
+    assert fish["is_favorite"] is True
+    assert fish["is_recipe"] is True
+    # facets_for: the LLM category plus plant_protein derived from "tofu".
+    assert fish["facets"] == ["fish", "plant_protein"]
+    assert "salmone al forno" in fish["search_text"]
+    assert by_code["I1"]["is_recipe"] is False
+    assert ["ceci", "chickpea", "chickpeas", "garbanzo", "garbanzos"] in body["synonyms"]
+
+
 def test_list_recipes_filters_on_is_recipe(client: TestClient, deps: Deps) -> None:
     """The is_recipe parameter selects a segment; omitting it returns both."""
     deps.recipes.save(_fish_recipe("F1"))

@@ -6,6 +6,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from dispensa.domain.enums import PantryLocation
 from dispensa.domain.exercise_log import ExerciseCategory
 from dispensa.domain.models import ExtractedCategoryServing, Recipe
+from dispensa.domain.proteins import facets_for
 
 # Longest caption snippet surfaced as a card description; the card clamps to two
 # lines, so this only bounds payload size (the full caption stays on the detail).
@@ -81,6 +82,52 @@ class RecipeSummary(BaseModel):
             has_instructions=bool(recipe.instructions),
             score=score,
         )
+
+
+class RecipeIndexEntry(RecipeSummary):
+    """A slim recipe plus the server-derived fields Browse filters on locally (D27).
+
+    facets, is_complete and search_text are computed here so the browser never
+    re-derives a domain rule: it only compares, intersects and substring-matches.
+    """
+
+    is_recipe: bool
+    is_complete: bool
+    facets: list[str]
+    # Lowercased title, ingredient lines and caption, newline-joined: the text
+    # the server's lexical search (q and ingredient chips) matches against.
+    search_text: str
+
+    @classmethod
+    def from_recipe_for_index(
+        cls,
+        recipe: Recipe,
+        *,
+        is_favorite: bool,
+    ) -> RecipeIndexEntry:
+        """Build the index entry for recipe with its favourite state applied."""
+        summary = RecipeSummary.from_recipe(recipe, is_favorite=is_favorite)
+        return cls.model_validate(
+            {
+                **summary.model_dump(),
+                "is_recipe": recipe.is_recipe,
+                "is_complete": recipe.is_complete,
+                "facets": sorted(category.value for category in facets_for(recipe)),
+                "search_text": "\n".join(
+                    [recipe.title or "", *recipe.ingredients, recipe.caption or ""],
+                ).lower(),
+            },
+        )
+
+
+class RecipeIndex(BaseModel):
+    """Everything Browse needs to search and count locally, fetched once per session."""
+
+    model_config = ConfigDict(frozen=True)
+
+    recipes: list[RecipeIndexEntry]
+    # Cross-language synonym groups (domain/synonyms.py), lowercased.
+    synonyms: list[list[str]]
 
 
 class RecipeCounts(BaseModel):

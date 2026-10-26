@@ -9,6 +9,8 @@ from dispensa.api_models import (
     RecipeCounts,
     RecipeCreate,
     RecipeDetail,
+    RecipeIndex,
+    RecipeIndexEntry,
     RecipeSummary,
     RecipeUpdate,
     ScaledIngredient,
@@ -28,6 +30,7 @@ from dispensa.domain.enums import (
 )
 from dispensa.domain.errors import RecipeNotFoundError, StorageError
 from dispensa.domain.models import Recipe
+from dispensa.domain.synonyms import SYNONYM_GROUPS
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +185,26 @@ async def create_recipe(body: RecipeCreate, deps: DepsDep) -> RecipeDetail:
         msg = "Could not persist the custom recipe"
         raise HTTPException(status_code=500, detail=msg) from exc
     return _detail(recipe, deps=deps)
+
+
+@router.get("/recipes/index")
+async def recipe_index(deps: DepsDep) -> RecipeIndex:
+    """Return every recipe's slim index entry plus the synonym groups (D27).
+
+    Browse fetches this once per session and does lexical search, facet
+    counts and favourites locally; semantic search stays server-side.
+    """
+    favourites = set(deps.user_state.all_favorites())
+    return RecipeIndex(
+        recipes=[
+            RecipeIndexEntry.from_recipe_for_index(
+                recipe,
+                is_favorite=recipe.code in favourites,
+            )
+            for recipe in deps.recipes.list_all()
+        ],
+        synonyms=[sorted(term.lower() for term in group) for group in SYNONYM_GROUPS],
+    )
 
 
 @router.get("/recipes/count")
