@@ -1217,6 +1217,10 @@
   }
 }
 
+.detail__method {
+  margin-top: var(--space-10);
+}
+
 .detail__section-title {
   font-family: var(--font-display);
   font-weight: var(--fw-medium);
