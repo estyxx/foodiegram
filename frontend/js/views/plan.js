@@ -1,9 +1,12 @@
 // @ts-check
 
-import { deleteMeal, getPlan, getRecipe, getRecipes, upsertMeal } from "../api/client.js";
+import { deleteMeal, getPlan, getRecipe, upsertMeal } from "../api/client.js";
 import { BalancePanel } from "../components/BalancePanel.js";
 import { DayColumn } from "../components/DayColumn.js";
+import { emptyFilters } from "../lib/filters.js";
 import { formatDayLabel, formatWeekRange } from "../lib/format.js";
+import { searchLocally } from "../lib/localFilter.js";
+import { indexedRecipe, loadRecipeIndex } from "../lib/recipeIndex.js";
 import { addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
 
 /** @typedef {import("../api/client.js").PlanResponse} PlanResponse */
@@ -32,8 +35,14 @@ export async function renderPlan(container) {
   const today = isoDate(new Date());
   /** @type {PlanResponse | null} */
   let plan = null;
-  /** @type {Map<string, MealDisplay>} */
+  /**
+   * Displays the session index cannot supply: recipes saved after it loaded
+   * (e.g. a custom recipe Claude just slotted) and freshly added search hits.
+   * @type {Map<string, MealDisplay>}
+   */
   const recipesByCode = new Map();
+  /** @type {import("../api/client.js").RecipeIndex | null} */
+  let index = null;
   let error = "";
 
   const header = document.createElement("header");
@@ -83,7 +92,7 @@ export async function renderPlan(container) {
    * @returns {MealDisplay}
    */
   function pickDisplay(code) {
-    const known = recipesByCode.get(code);
+    const known = recipesByCode.get(code) ?? (index ? indexedRecipe(index, code) : undefined);
     if (known) {
       return known;
     }
@@ -108,8 +117,10 @@ export async function renderPlan(container) {
    * @param {PlannedMeal[]} meals
    */
   async function hydrateDisplays(meals) {
+    // The session index covers almost every meal; only codes it lacks cost a
+    // full-recipe fetch.
     const missing = [...new Set(meals.map((meal) => meal.recipe_code))].filter(
-      (code) => !recipesByCode.has(code),
+      (code) => !recipesByCode.has(code) && !(index && indexedRecipe(index, code)),
     );
     if (missing.length === 0) {
       return;
@@ -159,7 +170,12 @@ export async function renderPlan(container) {
     error = "";
     renderAll();
     try {
-      const fetched = await getPlan(weekStart);
+      const [fetched, loadedIndex] = await Promise.all([
+        getPlan(weekStart),
+        // A failed index load only costs the per-meal fallback fetches.
+        loadRecipeIndex().catch(() => null),
+      ]);
+      index = loadedIndex;
       await hydrateDisplays(fetched.meals);
       plan = fetched;
     } catch {
@@ -262,7 +278,14 @@ export async function renderPlan(container) {
    * @returns {Promise<RecipeSummary[]>}
    */
   async function handleSearch(query) {
-    return getRecipes({ q: query }, { limit: SEARCH_LIMIT });
+    // Same match as Browse's search box, over every save, on the session index.
+    const loadedIndex = await loadRecipeIndex();
+    const { results } = searchLocally(
+      loadedIndex,
+      { ...emptyFilters(), query, segment: "all" },
+      { favourites: false },
+    );
+    return results.slice(0, SEARCH_LIMIT);
   }
 
   await goToWeek(weekStart);

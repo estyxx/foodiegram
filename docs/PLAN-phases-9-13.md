@@ -141,8 +141,17 @@ session.
       recipes, 200 ms debounce in both: keystroke → results median 302 → 206
       ms on localhost, 384 → 206 ms with +80 ms network latency; API calls
       while typing 10 chars 30 → 0. Index 2.4 MB raw / 305 KB gzip.
-- [ ] 11.2 Plan view: cache `recipesByCode` across mounts; detail view reuses
+- [x] 11.2 Plan view: cache `recipesByCode` across mounts; detail view reuses
       the index for header data.
+      → The session index is the cross-mount cache: plan cards resolve from
+      it and fetch only codes it lacks (recipes saved after it loaded); the
+      "+ add" search filters it locally. Detail shows photo + title from the
+      index at once (only if already loaded, so a password-less share link
+      never asks for it) and fills in the body when `getRecipe` lands.
+      With 80 ms latency, 10-meal week: opening Plan 11 → 1 request, titles
+      ~280 → ~100 ms; plan search 1 → 0 requests; recipe title 238 → 68 ms.
+      Found and fixed on the way: the share-link auth exemption also matched
+      `/api/recipes/index` and `/semantic` (commit 9056fc5).
 - [ ] 11.3 Vector cache + numpy dot product in `find_similar` (D28).
 - [ ] 11.4 Measure cold start: `/api/version` cold vs warm; check Neon
       suspend timeout and FastAPI Cloud min instances. Decide, don't guess.

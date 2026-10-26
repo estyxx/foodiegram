@@ -1,11 +1,15 @@
 // @ts-check
 
 import { getRecipe, updateRecipe } from "../api/client.js";
-import { setFavourite } from "../lib/recipeIndex.js";
+import { indexedRecipe, peekRecipeIndex, setFavourite } from "../lib/recipeIndex.js";
 import { Chip } from "../components/Chip.js";
 import { displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
 
 /** @typedef {import("../api/client.js").RecipeDetail} RecipeDetail */
+/**
+ * What the cover (photo + title) needs; the session index already has it.
+ * @typedef {Pick<RecipeDetail, "title" | "author_username" | "cloudinary_url" | "thumbnail_url">} CoverFields
+ */
 
 const NUMBER_RE = /(\d+\.?\d*)/;
 
@@ -20,13 +24,17 @@ const NUMBER_RE = /(\d+\.?\d*)/;
  * @returns {Promise<void>}
  */
 export async function renderDetail(container, code, { returnTo }) {
+  // Opened from inside the app, the index already has the cover: show it now
+  // and fill in the method and ingredients when the full recipe lands.
+  const index = peekRecipeIndex();
+  const cover = index ? indexedRecipe(index, code) : undefined;
+  if (cover) {
+    container.replaceChildren(buildBack(returnTo), ...buildPreview(cover));
+  }
+
   const recipe = await getRecipe(code);
   container.replaceChildren();
-
-  const back = document.createElement("a");
-  back.className = "detail__back";
-  back.href = `#${returnTo}`;
-  back.textContent = `\u2190 Back to ${returnTo.split("/")[0]}`;
+  const back = buildBack(returnTo);
 
   const left = document.createElement("div");
   left.className = "detail__left";
@@ -44,6 +52,35 @@ export async function renderDetail(container, code, { returnTo }) {
     buildTags(recipe),
     buildNotes(recipe),
   );
+}
+
+/**
+ * @param {string} returnTo
+ * @returns {HTMLAnchorElement}
+ */
+function buildBack(returnTo) {
+  const back = document.createElement("a");
+  back.className = "detail__back";
+  back.href = `#${returnTo}`;
+  back.textContent = `\u2190 Back to ${returnTo.split("/")[0]}`;
+  return back;
+}
+
+/**
+ * The cover from the session index while the full recipe loads.
+ * @param {CoverFields} cover
+ * @returns {HTMLElement[]}
+ */
+function buildPreview(cover) {
+  const head = document.createElement("header");
+  head.className = "detail__head";
+  head.append(buildTitle(cover));
+
+  const loading = document.createElement("p");
+  loading.className = "state-msg";
+  loading.setAttribute("role", "status");
+  loading.textContent = "Loading the recipe\u2026";
+  return [buildPhoto(cover), head, loading];
 }
 
 /* ---- Left column: head + method ---------------------------------------- */
@@ -78,7 +115,7 @@ function buildHead(recipe) {
 
 /**
  * The lead photo (Cloudinary preferred, Instagram thumbnail as fallback).
- * @param {RecipeDetail} recipe
+ * @param {CoverFields} recipe
  * @returns {HTMLElement}
  */
 function buildPhoto(recipe) {
@@ -270,7 +307,7 @@ function formatRecipe(recipe) {
 /**
  * Split a title so the last phrase can be italicised (Italian "all'" aware).
  * A stand-in for a missing title gets none of that flourish — it is not a name.
- * @param {RecipeDetail} recipe
+ * @param {CoverFields} recipe
  * @returns {HTMLElement}
  */
 function buildTitle(recipe) {
