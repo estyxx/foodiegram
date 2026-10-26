@@ -1,24 +1,17 @@
 import logging
 from datetime import date
-from functools import cache
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
-from mcp.server import MCPServer
-from openai import OpenAI
 from pydantic import Field, ValidationError
 
 from dispensa.app.plan_week import build_planning_context
 from dispensa.app.search_recipes import search_recipes_semantic
-from dispensa.deps import build_deps
+from dispensa.mcp_server.runtime import get_deps, get_openai_client, mcp
 from dispensa.mcp_server.serializers import (
     to_mcp_detail,
     to_mcp_view,
     to_planning_context,
 )
-from dispensa.settings import Settings
-
-if TYPE_CHECKING:
-    from dispensa.deps import Deps
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +19,6 @@ logger = logging.getLogger(__name__)
 # library: the point of the slim view is to keep the model's context small.
 _DEFAULT_SEARCH_LIMIT = 20
 _MAX_SEARCH_LIMIT = 100
-
-# FastMCP was renamed MCPServer in the 2.0 SDK; the instance is still the object
-# tools hang off and that `mcp.run(...)` starts.
-mcp = MCPServer("dispensa")
-
-
-@cache
-def _deps() -> Deps:
-    """Wire the repositories once per process, lazily on the first tool call."""
-    logger.info("Wiring repositories on first use")
-    return build_deps(Settings().database_url)
-
-
-@cache
-def _openai_client() -> OpenAI:
-    """Create one OpenAI client per process for query embeddings."""
-    return OpenAI(api_key=Settings().require_openai_api_key())
 
 
 @mcp.tool()
@@ -82,12 +58,12 @@ def search_recipes(
     call `get_recipe` with that result's `code`.
     """
     logger.info("search_recipes: query=%r limit=%d", query, limit)
-    deps = _deps()
+    deps = get_deps()
     favourites = set(deps.user_state.all_favorites())
     capped_limit = min(max(limit, 1), _MAX_SEARCH_LIMIT)
     matches = search_recipes_semantic(
         recipes=deps.recipes,
-        client=_openai_client(),
+        client=get_openai_client(),
         query=query,
         is_recipe=True,
         limit=capped_limit,
@@ -135,7 +111,7 @@ def get_planning_context(
         msg = "week_start must be an ISO date, e.g. '2024-01-01'"
         raise ValueError(msg) from exc
 
-    deps = _deps()
+    deps = get_deps()
     try:
         context = build_planning_context(
             week_start=target,
@@ -172,7 +148,7 @@ def get_recipe(
     the user wants the actual recipe. Handles one recipe per call.
     """
     logger.info("get_recipe: code=%r", code)
-    deps = _deps()
+    deps = get_deps()
     recipe = deps.recipes.get(code)
     if recipe is None:
         logger.info("get_recipe: %r not found", code)

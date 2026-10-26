@@ -1,3 +1,5 @@
-from dispensa.mcp_server.server import mcp
+from dispensa.mcp_server import server
+from dispensa.mcp_server.runtime import mcp
 
-__all__ = ["mcp"]
+# Importing the tool modules registers their tools on `mcp`.
+__all__ = ["mcp", "server"]

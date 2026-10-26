@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 from dispensa.api_models import RecipeDetail
 
 if TYPE_CHECKING:
-    from dispensa.app.plan_week import PlanningContext
+    from dispensa.app.plan_week import PlanningContext, WeekPlanView
     from dispensa.domain.models import Recipe
 
 
@@ -35,16 +35,16 @@ def to_mcp_view(
     return view
 
 
-def to_planning_context(context: PlanningContext) -> dict[str, Any]:
-    """Serialise the week's planning payload for the MCP wire.
+def to_mcp_plan(view: WeekPlanView) -> dict[str, Any]:
+    """Serialise one week's meals, balance, oily fish and gaps for the MCP wire.
 
-    Slim recipe views for gap suggestions (the model pays to read every field);
-    everything else is small scalars it needs to reason about balance.
+    The MCP twin of the API's PlanResponse: what every plan write tool returns,
+    so a planning conversation never needs a follow-up read. Meals carry their
+    recipe titles so the model can talk about them without a get_recipe call.
     """
-    view = context.week
     return {
         "week_start": view.plan.week_start.isoformat(),
-        "meals": [meal.model_dump(mode="json") for meal in context.meals],
+        "meals": [meal.model_dump(mode="json") for meal in view.meals],
         "balance": [
             {
                 "category": status.category.value,
@@ -63,6 +63,17 @@ def to_planning_context(context: PlanningContext) -> dict[str, Any]:
             }
             for category, recipes_for in view.suggestions.items()
         ],
+    }
+
+
+def to_planning_context(context: PlanningContext) -> dict[str, Any]:
+    """Serialise the week's planning payload for the MCP wire.
+
+    The week as to_mcp_plan shapes it, plus the small reference lists (targets,
+    pantry, favourites) a planner reads once per session.
+    """
+    return {
+        **to_mcp_plan(context.week),
         "targets": [
             {
                 "category": target.category.value,

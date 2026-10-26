@@ -37,7 +37,7 @@ def test_get_recipe_returns_full_detail_with_ingredients_and_instructions(
     RecipeRepository(engine).save(recipe)
     deps = _deps(engine)
 
-    with patch("dispensa.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server.get_deps", return_value=deps):
         result = get_recipe(code=recipe.code)
 
     assert result is not None
@@ -63,7 +63,7 @@ def test_get_recipe_null_title_serialises_as_null(engine: Engine) -> None:
     RecipeRepository(engine).save(recipe)
     deps = _deps(engine)
 
-    with patch("dispensa.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server.get_deps", return_value=deps):
         result = get_recipe(code="NULLT")
 
     assert result is not None
@@ -74,7 +74,7 @@ def test_get_recipe_unknown_code_returns_none(engine: Engine) -> None:
     """An unknown code returns None without raising."""
     deps = _deps(engine)
 
-    with patch("dispensa.mcp_server.server._deps", return_value=deps):
+    with patch("dispensa.mcp_server.server.get_deps", return_value=deps):
         result = get_recipe(code="UNKNOWN")
 
     assert result is None

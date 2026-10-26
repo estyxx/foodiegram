@@ -64,8 +64,8 @@ def test_planning_context_bundles_plan_targets_pantry_favourites(
         user_state=user_state,
     )
 
-    assert [meal.recipe_code for meal in context.meals] == ["FISH1"]
-    assert context.meals[0].title == "Recipe FISH1"
+    assert [meal.recipe_code for meal in context.week.meals] == ["FISH1"]
+    assert context.week.meals[0].title == "Recipe FISH1"
     assert len(context.targets) == _SEEDED_TARGETS
     assert [item.name for item in context.pantry] == ["olive oil"]
     assert context.favourite_codes == ("LEG1",)
