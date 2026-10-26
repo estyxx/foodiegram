@@ -5,7 +5,8 @@ from typing import Annotated, Any
 from pydantic import Field, ValidationError
 
 from dispensa.app.plan_week import build_planning_context
-from dispensa.app.search_recipes import search_recipes_semantic
+from dispensa.app.search_recipes import search_recipes_for_planning
+from dispensa.domain.enums import MedCategory
 from dispensa.mcp_server.runtime import get_deps, get_openai_client, mcp
 from dispensa.mcp_server.serializers import (
     to_mcp_detail,
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 # library: the point of the slim view is to keep the model's context small.
 _DEFAULT_SEARCH_LIMIT = 20
 _MAX_SEARCH_LIMIT = 100
+_CATEGORY_VALUES = tuple(category.value for category in MedCategory)
 
 
 @mcp.tool()
@@ -34,6 +36,25 @@ def search_recipes(
             ),
         ),
     ] = "",
+    category: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Only recipes that count toward this Mediterranean category in the "
+                f"weekly balance: one of {', '.join(_CATEGORY_VALUES)}. Use it to "
+                "fill an under-target category from get_planning_context."
+            ),
+        ),
+    ] = None,
+    pantry_only: Annotated[
+        bool,
+        Field(
+            description=(
+                "Only recipes that use at least one item already in the pantry "
+                "(matched across Italian/English). Empty pantry → no results."
+            ),
+        ),
+    ] = False,
     limit: Annotated[
         int,
         Field(
@@ -53,30 +74,47 @@ def search_recipes(
     (Italian or English both work); do not reduce it to single keywords, and do
     not retry keyword variants if results look sparse — the ranking already handles
     fuzzy meaning. Returns up to `limit` recipe summaries, ranked best-match first,
-    each including `code`, title, dish_type, meal_type, cuisine_type, proteins,
-    total_time, score, is_favorite, and post_url. To open one shortlisted result,
-    call `get_recipe` with that result's `code`.
+    each including `code`, title, dish_type, meal_type, cuisine_type, difficulty,
+    mediterranean_categories (what it adds to the weekly balance), proteins,
+    total_time, score, is_favorite, post_url, and `pantry_have` /
+    `pantry_missing` (how many ingredient lines the pantry covers). To open one
+    shortlisted result, call `get_recipe` with that result's `code`.
     """
-    logger.info("search_recipes: query=%r limit=%d", query, limit)
+    logger.info(
+        "search_recipes: query=%r category=%r pantry_only=%s limit=%d",
+        query,
+        category,
+        pantry_only,
+        limit,
+    )
+    try:
+        wanted = MedCategory(category) if category is not None else None
+    except ValueError as exc:
+        msg = f"category must be one of {', '.join(_CATEGORY_VALUES)}; got {category!r}"
+        raise ValueError(msg) from exc
     deps = get_deps()
     favourites = set(deps.user_state.all_favorites())
-    capped_limit = min(max(limit, 1), _MAX_SEARCH_LIMIT)
-    matches = search_recipes_semantic(
+    hits = search_recipes_for_planning(
         recipes=deps.recipes,
+        pantry=deps.pantry,
         client=get_openai_client(),
         query=query,
-        is_recipe=True,
-        limit=capped_limit,
+        category=wanted,
+        pantry_only=pantry_only,
+        limit=min(max(limit, 1), _MAX_SEARCH_LIMIT),
     )
-    logger.info(
-        "search_recipes: %d match(es), returning %d for query=%r",
-        len(matches),
-        len(matches),
-        query,
-    )
+    logger.info("search_recipes: returning %d hit(s) for query=%r", len(hits), query)
     return [
-        to_mcp_view(recipe, is_favorite=recipe.code in favourites, score=score)
-        for recipe, score in matches
+        {
+            **to_mcp_view(
+                hit.recipe,
+                is_favorite=hit.recipe.code in favourites,
+                score=hit.score,
+            ),
+            "pantry_have": len(hit.pantry.have),
+            "pantry_missing": len(hit.pantry.missing),
+        }
+        for hit in hits
     ]
 
 
