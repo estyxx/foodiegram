@@ -161,8 +161,20 @@ session.
       bench: identical top-20 codes and scores on 12 queries; per query 851
       → 4 ms; first search after a start or re-embed ~1.1 s to build;
       16 MB resident.
-- [ ] 11.4 Measure cold start: `/api/version` cold vs warm; check Neon
+- [~] 11.4 Measure cold start: `/api/version` cold vs warm; check Neon
       suspend timeout and FastAPI Cloud min instances. Decide, don't guess.
+      → Settings checked (2026-10-26): Neon Free plan, AWS Europe West 2
+      (London), 0.25↔2 CU, scales to zero (monitoring shows the endpoint
+      inactive most of the day). FastAPI Cloud: us-east-1, free plan. The
+      app and its database are on opposite sides of the Atlantic, so every
+      query pays ~75-80 ms (typical London↔Virginia RTT, not measured) and a
+      page makes several. That likely dominates over cold start.
+      DECISION (owner): wait for FastAPI Cloud to offer a European region,
+      then move the app next to Neon (and the owner). Fallback if that never
+      comes: new Neon project in us-east-1 via `db dump` / `db restore`.
+      Cold/warm timings still unmeasured: this environment's network policy
+      blocks beltrami.family; the `fastapi-cloud-cli` (0.20.0) has no region
+      option, only a read-only `region` field per app.
 - [ ] 11.5 Plan UI: "+ add" offers "my version of…" (inline draft → MANUAL
       recipe via 10.1). Decide Mon–Fri vs Mon–Sun and record it.
 - [ ] 11.6 Minimal `PantryList` view (list, add, remove, location filter).
