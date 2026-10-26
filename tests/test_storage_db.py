@@ -238,6 +238,28 @@ def test_exists_and_list_all(engine: Engine) -> None:
     assert [r.code for r in repo.list_all()] == ["ABC"]
 
 
+def test_list_all_sees_writes_from_another_repository(engine: Engine) -> None:
+    """A warm list cache reloads after another repository inserts, edits or deletes.
+
+    The web app and the MCP server each hold a RecipeRepository on the same
+    table; a recipe saved through one must reach the other's plan balance.
+    """
+    web = RecipeRepository(engine)
+    mcp = RecipeRepository(engine)
+    original = _full_recipe()
+    web.save(original)
+    assert [r.code for r in web.list_all()] == [original.code]
+
+    mcp.save(original.model_copy(update={"code": "M1"}))
+    assert [r.code for r in web.list_all()] == [original.code, "M1"]
+
+    mcp.save(original.model_copy(update={"title": "Renamed"}))
+    assert web.list_all()[0].title == "Renamed"
+
+    assert mcp.delete("M1")
+    assert [r.code for r in web.list_all()] == [original.code]
+
+
 def test_find_filters_on_is_recipe(engine: Engine) -> None:
     """is_recipe splits real recipes from inspiration saves; None keeps both."""
     repo = RecipeRepository(engine)
