@@ -98,3 +98,81 @@ export function formatWeekRange(weekStart, weekEnd) {
   const end = WEEK_RANGE_FORMATTER.format(new Date(`${weekEnd}T00:00:00`));
   return `${start} – ${end}`;
 }
+
+const WEEKDAY_FORMATTER = new Intl.DateTimeFormat("it-IT", { weekday: "short" });
+
+/**
+ * "MAR" for a board header or day tab.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function formatWeekday(isoDate) {
+  return WEEKDAY_FORMATTER.format(new Date(`${isoDate}T00:00:00`))
+    .replace(".", "")
+    .toUpperCase();
+}
+
+/**
+ * "27 ott" for a board header.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function formatDayMonth(isoDate) {
+  return WEEK_RANGE_FORMATTER.format(new Date(`${isoDate}T00:00:00`));
+}
+
+const FULL_DAY_FORMATTER = new Intl.DateTimeFormat("it-IT", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+
+/**
+ * "Martedì 27 ottobre" for the mobile day heading.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function formatFullDay(isoDate) {
+  return capitalise(FULL_DAY_FORMATTER.format(new Date(`${isoDate}T00:00:00`)));
+}
+
+/** Quarter glyphs, indexed by the number of quarters past the whole. */
+const QUARTERS = ["", "¼", "½", "¾"];
+
+/**
+ * "½", "1½", "2" for a protein weight; "" for exactly one, which needs no
+ * prefix. Weights off the quarter grid fall back to decimals rather than
+ * rounding to a fraction they are not.
+ * @param {number} weight
+ * @returns {string}
+ */
+export function formatPortion(weight) {
+  if (weight === 1) {
+    return "";
+  }
+  const quarters = weight * 4;
+  if (!Number.isInteger(quarters)) {
+    return formatQuantity(weight);
+  }
+  const whole = Math.floor(weight);
+  return `${whole > 0 ? whole : ""}${QUARTERS[quarters % 4]}`;
+}
+
+/** Spoken names for the quarter glyphs in formatPortion. */
+const QUARTER_WORDS = ["", "quarter", "half", "three quarter"];
+
+/**
+ * The words a screen reader says for a protein weight: "half portion",
+ * "1.5 portions"; "" for exactly one.
+ * @param {number} weight
+ * @returns {string}
+ */
+export function portionWords(weight) {
+  if (weight === 1) {
+    return "";
+  }
+  if (weight < 1 && Number.isInteger(weight * 4)) {
+    return `${QUARTER_WORDS[weight * 4]} portion`;
+  }
+  return `${formatQuantity(weight)} portions`;
+}
