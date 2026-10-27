@@ -186,6 +186,20 @@ session.
       saves twice). Also fixed "Change" never opening the picker on a filled
       slot (5e1f6c3). Browser-checked end to end on the bench DB.
 - [ ] 11.6 Minimal `PantryList` view (list, add, remove, location filter).
+- [x] 11.7 Cooking mode on Recipe Detail, per the Dispensa v3 handoff
+      (2026-10-27; added out of order at the owner's request).
+      → "Start cooking" beside Method opens a full-screen `<dialog>`
+      (`components/CookingMode.js`): one step at a time; Back/Next, the
+      progress bar, swipe and ←/→ move; Esc closes. Durations in the step
+      text ("3 minuti", "12–14 minutes") become timer buttons
+      (`lib/cookingSteps.js`, pure). Timers run side by side, survive step
+      and route changes (`lib/cookingSession.js`), chime + vibrate + turn
+      red when done; quick 1–15 min presets. ≥960px: tick-off ingredients
+      (scaled by the page's servings, "this step" marked) | step | timers;
+      below: timer strip + ingredient sheet. Closing with timers set leaves
+      a corner pill back in (`components/CookingPill.js`). Screen Wake Lock
+      while open. Frontend only, no API change. Browser-checked on a mocked
+      recipe at 1280 and 390 px.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
 
