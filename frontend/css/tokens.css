@@ -49,6 +49,10 @@
   --surface: #F6F3EA;      /* cards / panels */
   --surface-raised: #FBFAF5; /* inputs / raised */
   --surface-tint: #F1EFE4; /* quiet inset panels */
+  --surface-card: #FBF9F3; /* planned dish cards */
+  --surface-today: #F3F1E8; /* today's board cells */
+  --surface-hover: #EDE7D8; /* hovered/open icon buttons */
+  --surface-row-hover: #EFEADD; /* hovered picker rows */
 
   /* ---- Ink (text) ---- */
   --ink: #2C2820;          /* primary text */
@@ -70,6 +74,9 @@
   --border: #DCD5C4;       /* default hairline */
   --border-strong: #CDC4AF; /* dashed / emphasised */
   --border-light: #E3DCCB;
+  --border-faint: #E6E0D1;  /* dividers between balance tiles */
+  --border-row: #EAE4D6;    /* list rows */
+  --border-dashed: #D3CAB5; /* "+ add" buttons; the meter's target band */
 
   /* ---- The category key (dot = swatch, bg/fg = chip, tint = empty track) ----
    * One hue per tier, an outlined variant for the second member: poultry/eggs
@@ -126,6 +133,16 @@
   --state-good: #3F6B38;    /* on track / clear */
   --state-over: #A83C22;    /* over target (was #B8492F, darkened for AA) */
   --state-neutral: #6B6353; /* room left / none yet */
+  /* Meter fills: decorative, always beside the status text above. */
+  --state-over-fill: #B4432A;
+  --state-neutral-fill: #A89E89;
+  --switch-off: #C9BFA6;    /* weekend switch track, off */
+  --dot-empty: #B9AF98;     /* day-tab ring for an open meal */
+
+  /* ---- Destructive actions ---- */
+  --danger-fg: #8A3A26;
+  --danger-bg: #F6EDE8;
+  --danger-border: #E8CFC6;
 
   /* ---- Focus (high-contrast; coral alternative available) ---- */
   --focus-ring: #3F6B38;

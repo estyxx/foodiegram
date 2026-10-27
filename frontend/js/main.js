@@ -61,6 +61,11 @@ function markActiveNav(name) {
   for (const link of document.querySelectorAll(".app-nav__link")) {
     const isActive = link.getAttribute("data-route") === active;
     link.classList.toggle("app-nav__link--active", isActive);
+    if (isActive) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
   }
 }
 
