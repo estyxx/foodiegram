@@ -1694,6 +1694,9 @@
 }
 
 .day-slot__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: 44px;
 }
 

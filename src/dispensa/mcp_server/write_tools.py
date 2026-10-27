@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from pydantic import Field
 
 from dispensa.api_models import RecipeCreate
+from dispensa.app.plan_meals import add_draft_meal
+from dispensa.app.plan_meals import add_meal as add_meal_use_case
 from dispensa.app.plan_meals import clear_meal as clear_meal_use_case
-from dispensa.app.plan_meals import set_draft_meal
-from dispensa.app.plan_meals import set_meal as set_meal_use_case
 from dispensa.app.plan_meals import set_portions as set_portions_use_case
 from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.update_recipe import RecipeEdit
@@ -32,6 +32,10 @@ _DAY = Field(
 )
 _SLOT = Field(description="Which meal of the day: 'lunch' or 'dinner'.")
 _CODE_HINT = "Copy a `code` from search_recipes or get_planning_context."
+_DISH_CODE_HINT = (
+    "Which dish in the slot, by its recipe `code` (a slot can hold several, "
+    "e.g. a main and a side)."
+)
 
 
 def _parse_date(name: str, value: str) -> date:
@@ -54,7 +58,7 @@ def _detail(recipe: Recipe) -> dict[str, Any]:
 
 
 @mcp.tool()
-def set_meal(
+def add_meal(
     *,
     week_start: Annotated[str, _WEEK_START],
     day: Annotated[str, _DAY],
@@ -78,20 +82,23 @@ def set_meal(
         Field(description="How many portions to cook; scales the shopping list only."),
     ] = 2,
 ) -> dict[str, Any]:
-    """Put a meal in one lunch/dinner slot of the week, replacing what was there.
+    """Add a dish to one lunch/dinner slot of the week, next to any already there.
 
+    A slot can hold several dishes (a main and a side, a crust and its filling):
+    call this once per dish. Nothing is replaced — to swap a dish, clear_meal it
+    first. Adding a recipe the slot already holds only updates its portions.
     Pass exactly one of `code` (an existing recipe) or `draft` (a new dish, saved
     to the library as a custom recipe before it is slotted). Returns the fresh
     week: meals with titles, the Mediterranean `balance`, `oily_fish`, and gap
     `suggestions` — no need to call get_planning_context again.
     """
-    logger.info("set_meal: %s %s %s code=%r", week_start, day, slot, code)
+    logger.info("add_meal: %s %s %s code=%r", week_start, day, slot, code)
     target = _parse_date("week_start", week_start)
     meal_day = _parse_date("day", day)
     deps = get_deps()
     try:
         if code is not None and draft is None:
-            view = set_meal_use_case(
+            view = add_meal_use_case(
                 week_start=target,
                 day=meal_day,
                 meal=slot,
@@ -103,7 +110,7 @@ def set_meal(
                 user_state=deps.user_state,
             )
         elif draft is not None and code is None:
-            view = set_draft_meal(
+            view = add_draft_meal(
                 draft.model_dump(),
                 week_start=target,
                 day=meal_day,
@@ -129,19 +136,25 @@ def clear_meal(
     week_start: Annotated[str, _WEEK_START],
     day: Annotated[str, _DAY],
     slot: Annotated[Literal["lunch", "dinner"], _SLOT],
+    code: Annotated[
+        str | None,
+        Field(description=f"{_DISH_CODE_HINT} Omit to empty the whole slot."),
+    ] = None,
 ) -> dict[str, Any]:
-    """Empty one lunch/dinner slot of the week.
+    """Remove one dish from a lunch/dinner slot, or empty the slot.
 
-    Fails if the slot is already empty. Returns the fresh week (meals, balance,
-    oily_fish, suggestions), like set_meal.
+    With `code`, only that dish goes; without it, every dish in the slot does.
+    Fails if the slot is already empty or lacks that recipe. Returns the fresh
+    week (meals, balance, oily_fish, suggestions), like add_meal.
     """
-    logger.info("clear_meal: %s %s %s", week_start, day, slot)
+    logger.info("clear_meal: %s %s %s code=%r", week_start, day, slot, code)
     deps = get_deps()
     try:
         view = clear_meal_use_case(
             week_start=_parse_date("week_start", week_start),
             day=_parse_date("day", day),
             meal=slot,
+            recipe_code=code,
             recipes=deps.recipes,
             plans=deps.plans,
             targets=deps.targets,
@@ -159,19 +172,33 @@ def set_portions(
     day: Annotated[str, _DAY],
     slot: Annotated[Literal["lunch", "dinner"], _SLOT],
     portions: Annotated[int, Field(description="The new portion count, at least 1.")],
+    code: Annotated[
+        str | None,
+        Field(
+            description=f"{_DISH_CODE_HINT} May be omitted when it holds only one.",
+        ),
+    ] = None,
 ) -> dict[str, Any]:
-    """Change how many portions the meal already in a slot makes, keeping its recipe.
+    """Change how many portions one dish in a slot makes, keeping its recipe.
 
     Portions scale the shopping list, never the Mediterranean balance. Fails if
-    the slot is empty (use set_meal). Returns the fresh week, like set_meal.
+    the slot is empty (use add_meal). Returns the fresh week, like add_meal.
     """
-    logger.info("set_portions: %s %s %s portions=%d", week_start, day, slot, portions)
+    logger.info(
+        "set_portions: %s %s %s code=%r portions=%d",
+        week_start,
+        day,
+        slot,
+        code,
+        portions,
+    )
     deps = get_deps()
     try:
         view = set_portions_use_case(
             week_start=_parse_date("week_start", week_start),
             day=_parse_date("day", day),
             meal=slot,
+            recipe_code=code,
             portions=portions,
             recipes=deps.recipes,
             plans=deps.plans,
@@ -201,7 +228,7 @@ def save_recipe(
 
     `inspired_by` may name any saved post, including ones that are not full
     recipes. Returns the stored recipe with its new `code` (starting 'm-'),
-    which set_meal accepts.
+    which add_meal accepts.
     """
     logger.info("save_recipe: title=%r", draft.title)
     recipe = save_custom_recipe(draft.model_dump(), recipes=get_deps().recipes)

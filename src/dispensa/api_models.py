@@ -213,7 +213,7 @@ class RecipeUpdate(BaseModel):
 
 
 class PlannedMealOut(BaseModel):
-    """A meal slot in the plan response."""
+    """One dish in a meal slot of the plan response."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -257,13 +257,22 @@ class PlanResponse(BaseModel):
     suggestions: list[GapSuggestion]
 
 
-class MealUpsert(BaseModel):
-    """PUT body for a meal slot; upsert is keyed by (day, meal)."""
+class MealCreate(BaseModel):
+    """POST body adding a dish to a (day, meal) slot; one recipe per slot once."""
 
     model_config = ConfigDict(extra="forbid")
 
     day: date
     meal: Literal["lunch", "dinner"]
+    recipe_code: str
+    portions: int = 2
+
+
+class MealUpdate(BaseModel):
+    """PUT body swapping the recipe or portions of one planned dish, by id."""
+
+    model_config = ConfigDict(extra="forbid")
+
     recipe_code: str
     portions: int = 2
 

@@ -1,6 +1,13 @@
 // @ts-check
 
-import { createRecipe, deleteMeal, getPlan, getRecipe, upsertMeal } from "../api/client.js";
+import {
+  addMeal,
+  createRecipe,
+  deleteMeal,
+  getPlan,
+  getRecipe,
+  updateMeal,
+} from "../api/client.js";
 import { BalancePanel } from "../components/BalancePanel.js";
 import { CustomRecipeDialog } from "../components/CustomRecipeDialog.js";
 import { DayColumn } from "../components/DayColumn.js";
@@ -92,8 +99,9 @@ export async function renderPlan(container) {
   grid.className = "plan__grid";
   grid.hidden = true;
 
-  const handlers = { onAdd: handleAdd, onPortionsChange: handlePortionsChange,
-    onRemove: handleRemove, onSearch: handleSearch, onCustom: handleCustom };
+  const handlers = { onAdd: handleAdd, onReplace: handleReplace,
+    onPortionsChange: handlePortionsChange, onRemove: handleRemove,
+    onSearch: handleSearch, onCustom: handleCustom };
   // All seven are built once; Saturday and Sunday are hidden unless asked for.
   const columns = weekDays(weekStart).map(() => DayColumn(handlers));
   grid.append(...columns.map((column) => column.element));
@@ -198,13 +206,15 @@ export async function renderPlan(container) {
 
   /**
    * "My version of…" a recipe, or one written from scratch: save it as a
-   * MANUAL recipe (D23), then put it in the slot.
+   * MANUAL recipe (D23), then add it to the slot — or swap it in for the dish
+   * whose "Change" opened the picker.
    * @param {string} day
    * @param {MealSlot} meal
    * @param {RecipeSummary | null} base
+   * @param {PlannedMeal | null} replacing
    * @returns {Promise<boolean>} True once saved and slotted.
    */
-  async function handleCustom(day, meal, base) {
+  async function handleCustom(day, meal, base, replacing) {
     if (plan === null) {
       return false;
     }
@@ -227,12 +237,18 @@ export async function renderPlan(container) {
       onSave: async (draft) => {
         created ??= await createRecipe(draft);
         rememberDisplay(created);
-        plan = await upsertMeal(weekStart, {
-          day,
-          meal,
-          recipe_code: created.code,
-          portions: DEFAULT_PORTIONS,
-        });
+        plan =
+          replacing?.id != null
+            ? await updateMeal(weekStart, replacing.id, {
+                recipe_code: created.code,
+                portions: replacing.portions,
+              })
+            : await addMeal(weekStart, {
+                day,
+                meal,
+                recipe_code: created.code,
+                portions: DEFAULT_PORTIONS,
+              });
         error = "";
         renderAll();
       },
@@ -273,6 +289,7 @@ export async function renderPlan(container) {
   }
 
   /**
+   * Add a dish to the slot, beside any already there (D34).
    * @param {string} day
    * @param {MealSlot} meal
    * @param {RecipeSummary} recipe
@@ -283,20 +300,57 @@ export async function renderPlan(container) {
     }
     const previous = plan;
     rememberDisplay(recipe);
+    // The server keeps one row per recipe per slot, so a repeat add shows nothing new.
+    const already = plan.meals.some(
+      (m) => m.day === day && m.meal === meal && m.recipe_code === recipe.code,
+    );
+    if (!already) {
+      plan = {
+        ...plan,
+        meals: [
+          ...plan.meals,
+          { id: null, day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS },
+        ],
+      };
+    }
+    error = "";
+    renderAll();
+    try {
+      plan = await addMeal(weekStart, { day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS });
+    } catch {
+      plan = previous;
+      error = "Couldn't save that meal — try again.";
+    }
+    renderAll();
+  }
+
+  /**
+   * Swap the dish whose "Change" opened the picker for another recipe.
+   * @param {PlannedMeal} plannedMeal
+   * @param {RecipeSummary} recipe
+   */
+  async function handleReplace(plannedMeal, recipe) {
+    // Same mid-flight race as handleRemove: no id yet, nothing to target.
+    if (plan === null || plannedMeal.id === null) {
+      return;
+    }
+    const previous = plan;
+    const id = plannedMeal.id;
+    rememberDisplay(recipe);
     plan = {
       ...plan,
-      meals: [
-        ...plan.meals.filter((m) => !(m.day === day && m.meal === meal)),
-        { id: null, day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS },
-      ],
+      meals: plan.meals.map((m) => (m.id === id ? { ...m, recipe_code: recipe.code } : m)),
     };
     error = "";
     renderAll();
     try {
-      plan = await upsertMeal(weekStart, { day, meal, recipe_code: recipe.code, portions: DEFAULT_PORTIONS });
+      plan = await updateMeal(weekStart, id, {
+        recipe_code: recipe.code,
+        portions: plannedMeal.portions,
+      });
     } catch {
       plan = previous;
-      error = "Couldn't save that meal — try again.";
+      error = "Couldn't change that meal — is it already in this slot?";
     }
     renderAll();
   }
@@ -306,21 +360,18 @@ export async function renderPlan(container) {
    * @param {number} portions
    */
   async function handlePortionsChange(plannedMeal, portions) {
-    if (plan === null) {
+    if (plan === null || plannedMeal.id === null) {
       return;
     }
     const previous = plan;
+    const id = plannedMeal.id;
     plan = {
       ...plan,
-      meals: plan.meals.map((m) =>
-        m.day === plannedMeal.day && m.meal === plannedMeal.meal ? { ...m, portions } : m,
-      ),
+      meals: plan.meals.map((m) => (m.id === id ? { ...m, portions } : m)),
     };
     renderAll();
     try {
-      plan = await upsertMeal(weekStart, {
-        day: plannedMeal.day,
-        meal: plannedMeal.meal,
+      plan = await updateMeal(weekStart, id, {
         recipe_code: plannedMeal.recipe_code,
         portions,
       });
@@ -397,15 +448,16 @@ function saveShowWeekend(show) {
 }
 
 /**
+ * Group the week's dishes by day, then slot, keeping the server's order.
  * @param {PlannedMeal[]} meals
- * @returns {Map<string, Partial<Record<MealSlot, PlannedMeal>>>}
+ * @returns {Map<string, Partial<Record<MealSlot, PlannedMeal[]>>>}
  */
 function groupMeals(meals) {
-  /** @type {Map<string, Partial<Record<MealSlot, PlannedMeal>>>} */
+  /** @type {Map<string, Partial<Record<MealSlot, PlannedMeal[]>>>} */
   const byDay = new Map();
   for (const meal of meals) {
     const forDay = byDay.get(meal.day) ?? {};
-    forDay[meal.meal] = meal;
+    forDay[meal.meal] = [...(forDay[meal.meal] ?? []), meal];
     byDay.set(meal.day, forDay);
   }
   return byDay;

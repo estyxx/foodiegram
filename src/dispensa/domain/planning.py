@@ -48,7 +48,11 @@ DEFAULT_TARGETS: tuple[CategoryTarget, ...] = (
 
 
 class PlannedMeal(BaseModel):
-    """One recipe assigned to a lunch or dinner slot on a given day."""
+    """One dish in a lunch or dinner slot on a given day.
+
+    A slot may hold several dishes (a main and a side, say; D34), each its own
+    PlannedMeal. A recipe appears at most once per slot.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -78,15 +82,16 @@ class WeekPlan(BaseModel):
             raise ValueError(msg)
         return value
 
-    def meal_at(self, day: date, meal: Literal["lunch", "dinner"]) -> PlannedMeal | None:
-        """Return the meal planned in the (day, slot), or None if it is empty."""
-        return next(
-            (
-                planned
-                for planned in self.meals
-                if (planned.day, planned.meal) == (day, meal)
-            ),
-            None,
+    def meals_at(
+        self,
+        day: date,
+        meal: Literal["lunch", "dinner"],
+    ) -> tuple[PlannedMeal, ...]:
+        """Return the dishes planned in the (day, slot), in plan order."""
+        return tuple(
+            planned
+            for planned in self.meals
+            if (planned.day, planned.meal) == (day, meal)
         )
 
 
@@ -142,9 +147,10 @@ def week_balance(
 ) -> list[CategoryStatus]:
     """Sum category servings across the week and grade each target.
 
-    Each meal slot counts a recipe's category servings once — portions never
-    affect the balance. Multi-category recipes contribute to every category
-    they carry. Meals whose recipe code is unknown are skipped (caller logs).
+    Each planned dish counts its recipe's category servings once — portions
+    never affect the balance; two dishes in one slot both count. Multi-category
+    recipes contribute to every category they carry. Meals whose recipe code is
+    unknown are skipped (caller logs).
     """
     totals: dict[MedCategory, float] = {}
     for meal in plan.meals:
@@ -166,7 +172,7 @@ def week_balance(
 
 
 def oily_fish_count(plan: WeekPlan, recipes: Mapping[str, Recipe]) -> float:
-    """Sum oily-fish servings across the week (each slot counted once)."""
+    """Sum oily-fish servings across the week (each planned dish counted once)."""
     total = 0.0
     for meal in plan.meals:
         recipe = recipes.get(meal.recipe_code)

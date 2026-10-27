@@ -25,11 +25,15 @@ import { MEAL_SLOTS } from "../lib/week.js";
 /**
  * @typedef {object} DayColumnHandlers
  * @property {(day: string, meal: MealSlot, recipe: RecipeSummary) => void} onAdd
+ *   Add a dish to the slot, beside any already there.
+ * @property {(plannedMeal: PlannedMeal, recipe: RecipeSummary) => void} onReplace
+ *   Swap one dish for another recipe ("Change").
  * @property {(plannedMeal: PlannedMeal, portions: number) => void} onPortionsChange
  * @property {(plannedMeal: PlannedMeal) => void} onRemove
  * @property {(query: string) => Promise<RecipeSummary[]>} onSearch
- * @property {(day: string, meal: MealSlot, base: RecipeSummary | null) => Promise<boolean>} onCustom
- *   Write "my version" for the slot; resolves true once saved and slotted.
+ * @property {(day: string, meal: MealSlot, base: RecipeSummary | null, replacing: PlannedMeal | null) => Promise<boolean>} onCustom
+ *   Write "my version" for the slot (or in place of `replacing`); resolves
+ *   true once saved and slotted.
  */
 
 /**
@@ -37,7 +41,7 @@ import { MEAL_SLOTS } from "../lib/week.js";
  * @property {string} day ISO date.
  * @property {string} label Display label, e.g. "lun 24 ago".
  * @property {boolean} isToday
- * @property {Partial<Record<MealSlot, PlannedMeal>>} meals
+ * @property {Partial<Record<MealSlot, PlannedMeal[]>>} meals
  * @property {(code: string) => MealDisplay | undefined} resolve
  * @property {CategoryStatus[]} balance
  * @property {GapSuggestion[]} suggestions
@@ -50,9 +54,10 @@ import { MEAL_SLOTS } from "../lib/week.js";
  */
 
 /**
- * One day's lunch/dinner slots. Each empty slot's "+ add" opens the ranked
- * gap-suggestions picker inline — the keyboard-accessible alternative PLAN.md
- * calls for in place of pointer drag-and-drop.
+ * One day's lunch/dinner slots. Each slot lists its dishes (a main and a side
+ * can share one, D34); "+ add" opens the ranked gap-suggestions picker inline
+ * — the keyboard-accessible alternative PLAN.md calls for in place of pointer
+ * drag-and-drop.
  * @param {DayColumnHandlers} handlers
  * @returns {DayColumnView}
  */
@@ -77,11 +82,16 @@ export function DayColumn(handlers) {
       heading.textContent = data.label;
       column.classList.toggle("day-column--today", data.isToday);
       for (const slot of built) {
-        const plannedMeal = data.meals[slot.meal];
+        const dishes = [];
+        for (const plannedMeal of data.meals[slot.meal] ?? []) {
+          const display = data.resolve(plannedMeal.recipe_code);
+          if (display) {
+            dishes.push({ plannedMeal, display });
+          }
+        }
         slot.render({
           day: data.day,
-          plannedMeal: plannedMeal ?? null,
-          display: plannedMeal ? data.resolve(plannedMeal.recipe_code) : undefined,
+          dishes,
           balance: data.balance,
           suggestions: data.suggestions,
         });
@@ -91,10 +101,15 @@ export function DayColumn(handlers) {
 }
 
 /**
+ * @typedef {object} Dish
+ * @property {PlannedMeal} plannedMeal
+ * @property {MealDisplay} display
+ */
+
+/**
  * @typedef {object} SlotData
  * @property {string} day
- * @property {PlannedMeal | null} plannedMeal
- * @property {MealDisplay | undefined} display
+ * @property {Dish[]} dishes
  * @property {CategoryStatus[]} balance
  * @property {GapSuggestion[]} suggestions
  */
@@ -129,42 +144,46 @@ function buildSlot(meal, handlers) {
   // re-renders — a full plan refresh from a sibling slot's action must not
   // slam this one's picker shut mid-interaction.
   let pickerOpen = false;
+  /**
+   * The dish whose "Change" opened the picker; null when "+ add" did.
+   * @type {PlannedMeal | null}
+   */
+  let replacing = null;
 
   const addButton = document.createElement("button");
   addButton.type = "button";
   addButton.className = "day-slot__add";
   addButton.textContent = "+ add";
-  addButton.addEventListener("click", () => {
-    pickerOpen = true;
-    layout();
-    picker.focusFirst();
-  });
+  addButton.addEventListener("click", () => openPicker(null));
 
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "btn-ghost day-slot__cancel";
   cancel.textContent = "Cancel";
   cancel.addEventListener("click", () => {
-    pickerOpen = false;
-    layout();
-    // Back to whichever control opened the picker: "Change" on a filled slot,
-    // "+ add" on an empty one.
-    const change = body.querySelector(".meal-card__change");
+    const opener = replacing;
+    closePicker();
+    // Back to whichever control opened the picker: that dish's "Change", or
+    // "+ add".
+    const change =
+      opener?.id != null ? body.querySelector(`[data-change-id="${opener.id}"]`) : null;
     (change instanceof HTMLElement ? change : addButton).focus();
   });
 
   const picker = GapSuggestions({
     onSearch: handlers.onSearch,
     onAdd: (recipe) => {
-      handlers.onAdd(day, meal, recipe);
-      pickerOpen = false;
-      layout();
+      if (replacing) {
+        handlers.onReplace(replacing, recipe);
+      } else {
+        handlers.onAdd(day, meal, recipe);
+      }
+      closePicker();
     },
     onCustom: async (base) => {
       // The picker stays open behind the dialog, so cancelling returns there.
-      if (await handlers.onCustom(day, meal, base)) {
-        pickerOpen = false;
-        layout();
+      if (await handlers.onCustom(day, meal, base, replacing)) {
+        closePicker();
       }
     },
   });
@@ -174,30 +193,43 @@ function buildSlot(meal, handlers) {
   /** @type {SlotData} */
   let latest = {
     day: "",
-    plannedMeal: null,
-    display: undefined,
+    dishes: [],
     balance: [],
     suggestions: [],
   };
 
+  /**
+   * @param {PlannedMeal | null} target The dish to swap, or null to add one.
+   */
+  function openPicker(target) {
+    replacing = target;
+    pickerOpen = true;
+    layout();
+    picker.focusFirst();
+  }
+
+  function closePicker() {
+    pickerOpen = false;
+    replacing = null;
+    layout();
+  }
+
   function layout() {
     body.replaceChildren();
-    // An open picker wins over the placed meal: "Change" opens it on a slot
-    // that already holds one.
+    // An open picker wins over the placed dishes: "Change" opens it on a slot
+    // that already holds some.
     if (pickerOpen) {
       body.append(picker.element);
       return;
     }
-    if (latest.plannedMeal && latest.display) {
+    for (const dish of latest.dishes) {
       body.append(
-        buildMealCard(latest.plannedMeal, latest.display, handlers, () => {
-          pickerOpen = true;
-          layout();
-          picker.focusFirst();
-        }),
+        buildMealCard(dish.plannedMeal, dish.display, handlers, () =>
+          openPicker(dish.plannedMeal),
+        ),
       );
-      return;
     }
+    addButton.textContent = latest.dishes.length === 0 ? "+ add" : "+ add dish";
     body.append(addButton);
   }
 
@@ -260,6 +292,10 @@ function buildMealCard(plannedMeal, display, handlers, onChange) {
   change.type = "button";
   change.className = "btn-ghost meal-card__change";
   change.textContent = "Change";
+  change.setAttribute("aria-label", `Change ${displayTitle(display)}`);
+  if (plannedMeal.id !== null) {
+    change.dataset.changeId = String(plannedMeal.id);
+  }
   change.addEventListener("click", onChange);
   const remove = document.createElement("button");
   remove.type = "button";
