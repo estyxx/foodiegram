@@ -414,6 +414,11 @@ def test_recipe_index_carries_server_derived_filter_fields(
     assert fish["is_recipe"] is True
     # facets_for: the LLM category plus plant_protein derived from "tofu".
     assert fish["facets"] == ["fish", "plant_protein"]
+    # category_servings_for: the plan's chip weights, fallback included.
+    assert fish["category_servings"] == [
+        {"category": "fish", "servings": 1.0},
+        {"category": "plant_protein", "servings": 1.0},
+    ]
     assert "salmone al forno" in fish["search_text"]
     assert by_code["I1"]["is_recipe"] is False
     assert ["ceci", "chickpea", "chickpeas", "garbanzo", "garbanzos"] in body["synonyms"]

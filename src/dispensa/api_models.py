@@ -6,7 +6,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from dispensa.domain.enums import PantryLocation
 from dispensa.domain.exercise_log import ExerciseCategory
 from dispensa.domain.models import ExtractedCategoryServing, Recipe
-from dispensa.domain.proteins import facets_for
+from dispensa.domain.proteins import category_servings_for, facets_for
 
 # Longest caption snippet surfaced as a card description; the card clamps to two
 # lines, so this only bounds payload size (the full caption stays on the detail).
@@ -23,6 +23,15 @@ def _snippet(caption: str | None) -> str | None:
     if len(text) <= _SNIPPET_MAX:
         return text
     return text[:_SNIPPET_MAX].rstrip() + "\u2026"
+
+
+class CategoryServingSummary(BaseModel):
+    """Servings one recipe adds to one category, as the weekly balance counts them."""
+
+    model_config = ConfigDict(frozen=True)
+
+    category: str
+    servings: float
 
 
 class RecipeSummary(BaseModel):
@@ -43,6 +52,8 @@ class RecipeSummary(BaseModel):
     dietary_tags: list[str]
     proteins: list[str]
     mediterranean_categories: list[str]
+    # The weights behind the plan's half-portion chips (e.g. 0.5 legumes).
+    category_servings: list[CategoryServingSummary]
     thumbnail_url: str | None
     cloudinary_url: str | None
     is_favorite: bool
@@ -75,6 +86,10 @@ class RecipeSummary(BaseModel):
             mediterranean_categories=sorted(
                 {cat.category.value for cat in recipe.mediterranean_categories},
             ),
+            category_servings=[
+                CategoryServingSummary(category=category.value, servings=servings)
+                for category, servings in category_servings_for(recipe).items()
+            ],
             thumbnail_url=recipe.thumbnail_url,
             cloudinary_url=recipe.cloudinary_url,
             is_favorite=is_favorite,
