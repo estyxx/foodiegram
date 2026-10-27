@@ -209,6 +209,22 @@ session.
       considered and parked: FastAPI Cloud scales to zero when idle, so an
       in-process send at the timer's end is not reliable without an
       external scheduler.
+- [x] 11.8 Recipe Detail redesign, "Split workbench" (direction 1a of the
+      recipe-page handoff; 2026-10-27, added out of order at the owner's
+      request).
+      → Start cooking first; Save · Plan (this week's day picker) · Copy ·
+      Export · ⋯ (share link, notes). Chips replace the fit box and tag
+      block; thumbnail only when there is a photo. Sticky ingredients card
+      beside the method: sections, "to taste" and equipment lines, tap an
+      amount to rescale (`lib/recipeDisplay.js`, display-only; a number that
+      is not a leading amount is never scaled). Notes autosave. <720px
+      container width: Ingredients/Method tabs, glyph-only actions.
+      Not built, need data the API lacks: per-line "to buy" flags and "Add
+      missing to shopping list" (pantry match is domain logic, not exposed
+      per recipe; no shopping-list store), "Edit recipe" (no edit flow).
+      Manual recipes read "Your own recipe": web- and Claude-written ones
+      are not told apart in the data. Frontend only, no API change.
+      Browser-checked on mocked recipes at 1280 and 390 px.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
 
