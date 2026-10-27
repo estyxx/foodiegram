@@ -1,6 +1,7 @@
 // @ts-check
 
 import { formatQuantity } from "../lib/format.js";
+import { PHONE_SHORTCUT_NAME, canSetPhoneTimer } from "../lib/phoneTimer.js";
 import { formatClock, mentionsIngredient, parseStep } from "../lib/cookingSteps.js";
 import {
   closeCooking,
@@ -53,6 +54,7 @@ export function CookingMode() {
 
   let sheetOpen = false;
   let presetsOpen = false;
+  let phoneHelpOpen = false;
   /** @type {WakeLockSentinel | null} */
   let wakeLock = null;
   /** @type {HTMLElement | null} */
@@ -376,7 +378,31 @@ export function CookingMode() {
       }
       parts.push(chips);
     }
+    if (canSetPhoneTimer()) {
+      parts.push(buildPhoneHelp());
+    }
     return parts;
+  }
+
+  /** How to make timers ring like an alarm: the one-time Shortcut setup. */
+  function buildPhoneHelp() {
+    const help = document.createElement("details");
+    help.className = "cook__phone-help";
+    help.open = phoneHelpOpen;
+    help.addEventListener("toggle", () => {
+      phoneHelpOpen = help.open;
+    });
+    const summary = document.createElement("summary");
+    summary.dataset.focus = "phone-help";
+    summary.textContent = "⏰ Ring even when the iPhone is locked or on silent";
+    const how = document.createElement("p");
+    how.textContent =
+      "Tap ⏰ on a timer to start the same countdown in the Clock app. " +
+      `Set up once in Shortcuts: a new shortcut named “${PHONE_SHORTCUT_NAME}” ` +
+      "with one “Start Timer” action, its duration set to Shortcut Input " +
+      "and the unit to seconds.";
+    help.append(summary, how);
+    return help;
   }
 
   /**
