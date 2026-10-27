@@ -5,6 +5,9 @@
 /** Lunch and dinner, in display order — every day has exactly these two slots. */
 export const MEAL_SLOTS = /** @type {readonly MealSlot[]} */ (["lunch", "dinner"]);
 
+/** Portions a dish gets when it is first added to a slot. */
+export const DEFAULT_PORTIONS = 2;
+
 // Indexed by Date#getDay() (0=Sunday..6=Saturday): days to subtract to reach
 // that week's Monday.
 const MONDAY_OFFSETS = [-6, 0, -1, -2, -3, -4, -5];

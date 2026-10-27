@@ -15,7 +15,7 @@ import { emptyFilters } from "../lib/filters.js";
 import { formatDayLabel, formatWeekRange } from "../lib/format.js";
 import { searchLocally } from "../lib/localFilter.js";
 import { indexedRecipe, loadRecipeIndex } from "../lib/recipeIndex.js";
-import { addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
+import { DEFAULT_PORTIONS, addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
 
 /** @typedef {import("../api/client.js").PlanResponse} PlanResponse */
 /** @typedef {import("../api/client.js").PlannedMeal} PlannedMeal */
@@ -31,7 +31,6 @@ const SEARCH_LIMIT = 20;
 const WEEKDAYS = 5;
 const WEEK_DAYS = 7;
 const WEEKEND_KEY = "dispensa.plan.showWeekend";
-const DEFAULT_PORTIONS = 2;
 
 /**
  * Render the plan view (#plan): a live BalancePanel above a Monday-Sunday
