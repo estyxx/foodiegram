@@ -1,6 +1,13 @@
 // @ts-check
 
 /**
+ * Servings one recipe adds to one category (0.5 = half a portion).
+ * @typedef {object} CategoryServing
+ * @property {string} category
+ * @property {number} servings
+ */
+
+/**
  * @typedef {object} RecipeSummary
  * @property {string} code
  * @property {string | null} title Absent on saves that were never extracted.
@@ -15,6 +22,7 @@
  * @property {string[]} dietary_tags
  * @property {string[]} proteins
  * @property {string[]} mediterranean_categories
+ * @property {CategoryServing[]} category_servings Weights the balance counts.
  * @property {string | null} thumbnail_url
  * @property {string | null} cloudinary_url
  * @property {boolean} is_favorite
