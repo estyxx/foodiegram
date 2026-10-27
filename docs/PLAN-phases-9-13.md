@@ -225,6 +225,28 @@ session.
       Manual recipes read "Your own recipe": web- and Claude-written ones
       are not told apart in the data. Frontend only, no API change.
       Browser-checked on mocked recipes at 1280 and 390 px.
+- [x] 11.9 Plan page redesign ("Dispensa Plan v5" handoff; 2026-10-27,
+      added out of order at the owner's request).
+      → Toolbar: one ‹ week › stepper, "This week" only off this week, a
+      Weekend switch that counts hidden weekend dishes. Desktop (≥760px):
+      the balance as a strip of eight tiles pinned under the header, and a
+      board with meals as rows and days as columns; dish cards keep the
+      servings stepper out and tuck Change/Remove behind ⋯ (one open at a
+      time). Mobile: a folding balance bar, day tabs (today selected, a dot
+      per meal), one day's lunch and dinner, prev/next. One picker for add
+      and change (drawer / bottom sheet, native modal <dialog>): Fills a gap
+      (recipes with a protein in a category with room left) · All · From
+      Instagram; add mode stays open for more dishes, change mode swaps and
+      closes. Protein chips show half portions ("½ Legumes"), so
+      RecipeSummary now carries `category_servings` (additive API field,
+      from `category_servings_for`). The balance still comes from the
+      server untouched; servings do not multiply it.
+      Kept from before, beyond the handoff: new dishes start at
+      DEFAULT_PORTIONS (2), not the prototype's 1; "Mine" (my version of)
+      per picker row and "Write my own recipe" (D23); the title links to the
+      recipe. Dropped: the oily-fish line under the balance. The picker
+      lists the recipes segment (not inspiration saves), capped at 60 rows.
+      Browser-checked on a mocked API at 1366 and 390 px.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
 
