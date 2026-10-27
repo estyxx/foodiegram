@@ -49,7 +49,9 @@
 /**
  * @typedef {object} RecipeDetail
  * @property {string} code
+ * @property {"instagram" | "manual"} source
  * @property {string | null} author_username
+ * @property {string} summary "" when the extractor wrote none
  * @property {string | null} title
  * @property {string[]} ingredients
  * @property {string[]} instructions
