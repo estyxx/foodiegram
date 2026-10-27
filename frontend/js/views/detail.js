@@ -1,65 +1,150 @@
 // @ts-check
 
 import { getRecipe, updateRecipe } from "../api/client.js";
-import { indexedRecipe, peekRecipeIndex, setFavourite } from "../lib/recipeIndex.js";
+import { indexedRecipe, peekRecipeIndex } from "../lib/recipeIndex.js";
 import { startCooking } from "../lib/cookingSession.js";
-import { Chip } from "../components/Chip.js";
-import { displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
+import { parseStep } from "../lib/cookingSteps.js";
+import { layoutIngredients, rowText, splitTitle } from "../lib/recipeDisplay.js";
+import { capitalise, displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
+import { CategoryChip } from "../components/CategoryChip.js";
+import { IngredientsCard } from "../components/IngredientsCard.js";
+import { RecipeActions } from "../components/RecipeActions.js";
 
 /** @typedef {import("../api/client.js").RecipeDetail} RecipeDetail */
+/** @typedef {import("../lib/recipeDisplay.js").IngredientLayout} IngredientLayout */
 /**
- * What the cover (photo + title) needs; the session index already has it.
+ * What the header needs; the session index already has it.
  * @typedef {Pick<RecipeDetail, "title" | "author_username" | "cloudinary_url" | "thumbnail_url">} CoverFields
  */
 
-const NUMBER_RE = /(\d+\.?\d*)/;
+const STATUS_MS = 2400;
+const NOTES_DEBOUNCE_MS = 600;
+
+/** The diet chips worth a place on the page; vegan says vegetarian already. */
+const DIET_CHIPS = /** @type {const} */ ([
+  ["vegan", "Vegan"],
+  ["vegetarian", "Vegetarian"],
+  ["gluten_free", "Gluten free"],
+]);
+const MAX_DIET_CHIPS = 2;
 
 /**
- * Render the recipe-detail view (Dispensa v3 magazine layout) into container.
+ * Render the recipe-detail view ("Split workbench") into container.
  *
- * Layout mirrors Dispensa v3: method on the left, a sticky ingredients +
- * scaling panel on the right.
+ * Header, one row of actions led by Start cooking, then the ingredients card
+ * beside the method. Below 720px (container query) the two become tabs.
  * @param {HTMLElement} container
  * @param {string} code
  * @param {{ returnTo: string }} options route hash the back link returns to
  * @returns {Promise<void>}
  */
 export async function renderDetail(container, code, { returnTo }) {
-  // Opened from inside the app, the index already has the cover: show it now
-  // and fill in the method and ingredients when the full recipe lands.
+  // Opened from inside the app, the index already has the header: show it now
+  // and fill in the rest when the full recipe lands.
   const index = peekRecipeIndex();
   const cover = index ? indexedRecipe(index, code) : undefined;
   if (cover) {
-    container.replaceChildren(buildBack(returnTo), ...buildPreview(cover));
+    const loading = document.createElement("p");
+    loading.className = "state-msg";
+    loading.setAttribute("role", "status");
+    loading.textContent = "Loading the recipe…";
+    container.replaceChildren(page(buildBack(returnTo), buildHeader(cover, null), loading));
   }
 
   const recipe = await getRecipe(code);
-  container.replaceChildren();
-  const back = buildBack(returnTo);
-
-  // Cooking mode opens with the servings set in the ingredients panel.
+  const layout = layoutIngredients(recipe.ingredients);
+  // Cooking mode, Copy and Export all use the servings set in the card.
   let ratio = 1;
-  const left = document.createElement("div");
-  left.className = "detail__left";
-  left.append(buildHead(recipe), buildMethod(recipe, () => startCooking(recipe, ratio)));
 
-  const grid = document.createElement("div");
-  grid.className = "detail__grid";
-  grid.append(
-    left,
-    buildIngredients(recipe, (next) => {
+  const status = document.createElement("div");
+  status.className = "rd-status";
+  status.setAttribute("aria-live", "polite");
+  let statusTimer = 0;
+  /** @param {string} message */
+  const announce = (message) => {
+    status.textContent = message;
+    window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => {
+      status.textContent = "";
+    }, STATUS_MS);
+  };
+
+  const notes = buildNotes(recipe);
+  const method = buildMethod(recipe, notes.element);
+  const ingredients = IngredientsCard({
+    layout,
+    baseServings: recipe.base_servings,
+    onRatioChange: (next) => {
       ratio = next;
-    }),
-  );
+    },
+    onAnnounce: announce,
+  });
 
-  container.append(
-    back,
-    buildPhoto(recipe),
-    buildSourceBar(recipe),
-    grid,
-    buildTags(recipe),
-    buildNotes(recipe),
+  const body = document.createElement("div");
+  body.className = "rd-body";
+  body.append(ingredients, method);
+  const tabs = buildTabs(body, layout.count, recipe.instructions.length);
+
+  const actions = RecipeActions({
+    recipe,
+    onStartCooking: recipe.instructions.length > 0 ? () => startCooking(recipe, ratio) : null,
+    recipeText: () => formatRecipe(recipe, layout, ratio),
+    menuItems: () => [
+      {
+        glyph: "↗",
+        label: "Copy share link",
+        onSelect: () => copyShareLink(recipe, announce),
+      },
+      {
+        glyph: "✎",
+        label: notes.isOpen() ? "Hide notes" : notes.hasText() ? "Show notes" : "Add a note",
+        onSelect: () => {
+          // On a phone the notes sit in the Method tab.
+          tabs.select("method");
+          notes.setOpen(!notes.isOpen());
+        },
+      },
+    ],
+    onAnnounce: announce,
+  });
+
+  container.replaceChildren(
+    page(
+      buildBack(returnTo),
+      buildHeader(recipe, recipe),
+      ...optional(buildDescription(recipe)),
+      ...optional(buildChips(recipe)),
+      buildSource(recipe),
+      actions,
+      status,
+      tabs.element,
+      body,
+    ),
   );
+}
+
+/**
+ * The query container plus its single child: container queries style only
+ * descendants, so the layout hangs off the inner element.
+ * @param {...HTMLElement} children
+ * @returns {HTMLElement}
+ */
+function page(...children) {
+  const outer = document.createElement("article");
+  outer.className = "rd";
+  const inner = document.createElement("div");
+  inner.className = "rd__page";
+  inner.append(...children);
+  outer.append(inner);
+  return outer;
+}
+
+/**
+ * @param {HTMLElement | null} element
+ * @returns {HTMLElement[]}
+ */
+function optional(element) {
+  return element === null ? [] : [element];
 }
 
 /**
@@ -68,703 +153,398 @@ export async function renderDetail(container, code, { returnTo }) {
  */
 function buildBack(returnTo) {
   const back = document.createElement("a");
-  back.className = "detail__back";
+  back.className = "rd__back";
   back.href = `#${returnTo}`;
-  back.textContent = `\u2190 Back to ${returnTo.split("/")[0]}`;
+  back.textContent = `← Back to ${returnTo.split("/")[0]}`;
   return back;
 }
 
+/* ---- Header ------------------------------------------------------------- */
+
 /**
- * The cover from the session index while the full recipe loads.
+ * Thumbnail (only when there is a photo), kicker, title and meta. While the
+ * full recipe loads, `recipe` is null and only the cover fields show.
  * @param {CoverFields} cover
- * @returns {HTMLElement[]}
- */
-function buildPreview(cover) {
-  const head = document.createElement("header");
-  head.className = "detail__head";
-  head.append(buildTitle(cover));
-
-  const loading = document.createElement("p");
-  loading.className = "state-msg";
-  loading.setAttribute("role", "status");
-  loading.textContent = "Loading the recipe\u2026";
-  return [buildPhoto(cover), head, loading];
-}
-
-/* ---- Left column: head + method ---------------------------------------- */
-
-/**
- * @param {RecipeDetail} recipe
+ * @param {RecipeDetail | null} recipe
  * @returns {HTMLElement}
  */
-function buildHead(recipe) {
-  const head = document.createElement("header");
-  head.className = "detail__head";
+function buildHeader(cover, recipe) {
+  const header = document.createElement("header");
+  header.className = "rd-head";
 
-  const eyebrowText = [recipe.cuisine_type, recipe.course]
-    .filter(hasValue)
-    .map(humanise)
-    .join(" \u00b7 ");
-  if (eyebrowText) {
-    const eyebrow = document.createElement("div");
-    eyebrow.className = "detail__eyebrow";
-    eyebrow.textContent = eyebrowText;
-    head.append(eyebrow);
-  }
-
-  head.append(buildTitle(recipe), buildMeta(recipe));
-
-  const fit = buildFit(recipe);
-  if (fit) {
-    head.append(fit);
-  }
-  return head;
-}
-
-/**
- * The lead photo (Cloudinary preferred, Instagram thumbnail as fallback).
- * @param {CoverFields} recipe
- * @returns {HTMLElement}
- */
-function buildPhoto(recipe) {
-  const figure = document.createElement("figure");
-  figure.className = "detail__photo";
-  const src = recipe.cloudinary_url ?? recipe.thumbnail_url;
+  const src = cover.cloudinary_url ?? cover.thumbnail_url;
   if (src) {
     const img = document.createElement("img");
-    img.className = "detail__photo-img";
+    img.className = "rd-head__thumb";
     img.src = src;
-    img.alt = displayTitle(recipe);
-    img.loading = "lazy";
-    figure.append(img);
-  } else {
-    figure.classList.add("detail__photo--empty");
-    const placeholder = document.createElement("span");
-    placeholder.className = "detail__photo-placeholder";
-    placeholder.textContent = "No photo yet";
-    figure.append(buildPhotoIcon(), placeholder);
+    img.alt = "";
+    header.append(img);
   }
-  return figure;
-}
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-/**
- * A line-art picture glyph for the empty cover state.
- * @returns {SVGSVGElement}
- */
-function buildPhotoIcon() {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "detail__photo-icon");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "1.5");
-  svg.setAttribute("aria-hidden", "true");
-
-  const frame = document.createElementNS(SVG_NS, "rect");
-  frame.setAttribute("x", "3");
-  frame.setAttribute("y", "3");
-  frame.setAttribute("width", "18");
-  frame.setAttribute("height", "18");
-  frame.setAttribute("rx", "2");
-
-  const sun = document.createElementNS(SVG_NS, "circle");
-  sun.setAttribute("cx", "8.5");
-  sun.setAttribute("cy", "8.5");
-  sun.setAttribute("r", "1.5");
-
-  const hill = document.createElementNS(SVG_NS, "path");
-  hill.setAttribute("d", "M21 15l-5-5L5 21");
-  hill.setAttribute("stroke-linecap", "round");
-  hill.setAttribute("stroke-linejoin", "round");
-
-  svg.append(frame, sun, hill);
-  return svg;
-}
-
-/**
- * The bar under the photo: attribution on the left, actions on the right.
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildSourceBar(recipe) {
-  const bar = document.createElement("div");
-  bar.className = "detail__sourcebar";
-  bar.append(buildSavedFrom(recipe), buildSourceActions(recipe));
-  return bar;
-}
-
-/**
- * "Saved from @handle on Instagram", linking the handle to its profile.
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildSavedFrom(recipe) {
-  const line = document.createElement("p");
-  line.className = "detail__savedfrom";
-  const handle = recipe.author_username;
-  if (!handle) {
-    line.textContent = "Saved from Instagram";
-    return line;
-  }
-  const link = document.createElement("a");
-  link.className = "detail__handle";
-  link.href = `https://www.instagram.com/${encodeURIComponent(handle)}/`;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = `@${handle}`;
-  line.append(
-    document.createTextNode("Saved from "),
-    link,
-    document.createTextNode(" on Instagram"),
-  );
-  return line;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildSourceActions(recipe) {
-  const actions = document.createElement("div");
-  actions.className = "detail__sourceactions";
-  actions.append(
-    buildCopyRecipe(recipe),
-    buildShareRecipe(recipe),
-    buildViewOriginal(recipe),
-  );
-  return actions;
-}
-
-/**
- * A button that copies this recipe's own page link to the clipboard. The
- * recipe's page and detail fetch are both reachable without the site
- * password (see api_auth.py), so the link alone is enough to share it.
- * @param {RecipeDetail} recipe
- * @returns {HTMLButtonElement}
- */
-function buildShareRecipe(recipe) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn";
-  const idle = "↗ Share";
-  button.textContent = idle;
-  button.addEventListener("click", async () => {
-    const url = `${window.location.origin}/#recipe/${encodeURIComponent(recipe.code)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      button.textContent = "✓ Link copied";
-    } catch {
-      button.textContent = "Could not copy";
+  const block = document.createElement("div");
+  block.className = "rd-head__text";
+  if (recipe !== null) {
+    const kicker = [recipe.cuisine_type, recipe.course]
+      .filter(hasValue)
+      .map(humanise)
+      .join(" · ");
+    if (kicker) {
+      const eyebrow = document.createElement("div");
+      eyebrow.className = "rd-head__kicker";
+      eyebrow.textContent = kicker;
+      block.append(eyebrow);
     }
-    window.setTimeout(() => {
-      button.textContent = idle;
-    }, 1500);
-  });
-  return button;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLAnchorElement}
- */
-function buildViewOriginal(recipe) {
-  const link = document.createElement("a");
-  link.className = "btn btn--primary";
-  link.href = `https://www.instagram.com/p/${encodeURIComponent(recipe.code)}/`;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = "\u2197 View original post";
-  return link;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLButtonElement}
- */
-function buildCopyRecipe(recipe) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn";
-  const idle = "\u29c9 Copy recipe";
-  button.textContent = idle;
-  button.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(formatRecipe(recipe));
-    button.textContent = "\u2713 Copied";
-    window.setTimeout(() => {
-      button.textContent = idle;
-    }, 1500);
-  });
-  return button;
-}
-
-/**
- * Format the whole recipe (title, ingredients, method) as plain text.
- * @param {RecipeDetail} recipe
- * @returns {string}
- */
-function formatRecipe(recipe) {
-  const parts = [displayTitle(recipe), "", recipe.ingredients.join("\n")];
-  if (recipe.instructions.length > 0) {
-    parts.push("", recipe.instructions.map((step, i) => `${i + 1}. ${step}`).join("\n"));
   }
-  return parts.join("\n");
+  block.append(...buildTitle(cover));
+  if (recipe !== null) {
+    block.append(buildMeta(recipe));
+  }
+  header.append(block);
+  return header;
 }
 
 /**
- * Split a title so the last phrase can be italicised (Italian "all'" aware).
- * A stand-in for a missing title gets none of that flourish — it is not a name.
+ * The h1, plus the subtitle a "(…)" in the title turns into. A stand-in for
+ * a missing title gets none of that flourish — it is not a name.
  * @param {CoverFields} recipe
- * @returns {HTMLElement}
+ * @returns {HTMLElement[]}
  */
 function buildTitle(recipe) {
   const h1 = document.createElement("h1");
-  h1.className = "detail__title";
-
-  const title = recipe.title;
-  if (title === null) {
-    h1.classList.add("detail__title--untitled");
+  h1.className = "rd-head__title";
+  if (recipe.title === null) {
+    h1.classList.add("rd-head__title--untitled");
     h1.textContent = displayTitle(recipe);
-    return h1;
+    return [h1];
   }
 
-  const idx = title.indexOf("all'");
-  let pre = "";
-  let em = title;
-  if (idx > 0) {
-    pre = title.slice(0, idx);
-    em = title.slice(idx);
-  } else {
-    const words = title.split(" ");
-    if (words.length > 1) {
-      pre = `${words.slice(0, -1).join(" ")} `;
-      em = words[words.length - 1];
-    }
+  const parts = splitTitle(recipe.title);
+  h1.append(document.createTextNode(parts.lead));
+  if (parts.emphasis) {
+    const em = document.createElement("em");
+    em.textContent = parts.emphasis;
+    h1.append(em);
   }
-  if (pre) {
-    h1.append(document.createTextNode(pre));
+  if (!parts.subtitle) {
+    return [h1];
   }
-  const emphasis = document.createElement("em");
-  emphasis.textContent = em;
-  h1.append(emphasis);
-  return h1;
+  const subtitle = document.createElement("p");
+  subtitle.className = "rd-head__subtitle";
+  subtitle.textContent = parts.subtitle;
+  return [h1, subtitle];
 }
 
 /**
+ * "⏱ 30 min + 15 min · serves 6 · Easy · Lunch", skipping what is missing.
  * @param {RecipeDetail} recipe
  * @returns {HTMLElement}
  */
 function buildMeta(recipe) {
   const meta = document.createElement("div");
-  meta.className = "detail__meta";
-
-  /** @type {string[]} */
-  const parts = [];
+  meta.className = "rd-head__meta";
   const time = [recipe.prep_time, recipe.cook_time].filter(Boolean).join(" + ");
-  if (time) {
-    parts.push(`\u23f1 ${time}`);
-  }
-  if (recipe.base_servings !== null) {
-    parts.push(`serves ${recipe.base_servings}`);
-  }
-  if (hasValue(recipe.difficulty)) {
-    parts.push(humanise(recipe.difficulty));
-  }
-  if (hasValue(recipe.meal_type)) {
-    parts.push(humanise(recipe.meal_type));
-  }
-
-  parts.forEach((part, index) => {
-    if (index > 0) {
-      const sep = document.createElement("span");
-      sep.setAttribute("aria-hidden", "true");
-      sep.textContent = "\u00b7";
-      meta.append(sep);
-    }
+  const parts = [
+    time ? `⏱ ${time}` : "",
+    recipe.base_servings === null ? "" : `serves ${recipe.base_servings}`,
+    hasValue(recipe.difficulty) ? capitalise(humanise(recipe.difficulty)) : "",
+    hasValue(recipe.meal_type) ? capitalise(humanise(recipe.meal_type)) : "",
+  ];
+  for (const part of parts.filter(Boolean)) {
     const span = document.createElement("span");
     span.textContent = part;
     meta.append(span);
-  });
+  }
   return meta;
 }
 
 /**
- * The "Mediterranean fit" callout, shown only when v2 categories are present.
  * @param {RecipeDetail} recipe
  * @returns {HTMLElement | null}
  */
-function buildFit(recipe) {
-  const cats = recipe.mediterranean_categories;
-  if (cats.length === 0) {
+function buildDescription(recipe) {
+  if (!recipe.summary) {
     return null;
   }
-  const labels = [...new Set(cats.map((c) => humanise(c.category)))];
-  const oily = cats.some((c) => c.is_oily_fish);
+  const p = document.createElement("p");
+  p.className = "rd__description";
+  p.textContent = recipe.summary;
+  return p;
+}
 
-  const box = document.createElement("div");
-  box.className = "detail__fit";
+/**
+ * One chip per Mediterranean category it counts toward, then at most two
+ * diet chips. The rest of the taxonomy stays off this page.
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement | null}
+ */
+function buildChips(recipe) {
+  const categories = [...new Set(recipe.mediterranean_categories.map((c) => c.category))];
+  const tags = new Set(recipe.dietary_tags);
+  const diets = DIET_CHIPS.filter(
+    ([tag]) => tags.has(tag) && !(tag === "vegetarian" && tags.has("vegan")),
+  );
+  if (categories.length === 0 && diets.length === 0) {
+    return null;
+  }
+  const row = document.createElement("div");
+  row.className = "rd__chips";
+  row.append(...categories.map((category) => CategoryChip(category)));
+  for (const [, label] of diets.slice(0, MAX_DIET_CHIPS)) {
+    const chip = document.createElement("span");
+    chip.className = "rd__diet";
+    chip.textContent = label;
+    row.append(chip);
+  }
+  return row;
+}
 
-  const swatch = document.createElement("span");
-  swatch.className = "detail__fit__swatch";
-  swatch.setAttribute("aria-hidden", "true");
+/**
+ * "Saved from @handle on Instagram · View original ↗", or the hand-written
+ * line for a recipe made in Dispensa (by hand or through Claude).
+ * @param {RecipeDetail} recipe
+ * @returns {HTMLElement}
+ */
+function buildSource(recipe) {
+  const line = document.createElement("p");
+  line.className = "rd__source";
+  if (recipe.source === "manual") {
+    line.textContent = "Your own recipe, written in Dispensa";
+    return line;
+  }
+  line.append(document.createTextNode("Saved from "));
+  if (recipe.author_username) {
+    const handle = document.createElement("b");
+    handle.className = "rd__handle";
+    handle.textContent = `@${recipe.author_username}`;
+    line.append(handle, document.createTextNode(" on "));
+  }
+  const link = document.createElement("a");
+  link.href = `https://www.instagram.com/p/${encodeURIComponent(recipe.code)}/`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "View original ↗";
+  line.append(document.createTextNode("Instagram · "), link);
+  return line;
+}
 
-  const body = document.createElement("div");
-  const label = document.createElement("div");
-  label.className = "detail__fit__label";
-  label.textContent = "Mediterranean fit";
-  const text = document.createElement("div");
-  text.className = "detail__fit__text";
-  text.textContent = `Counts toward ${labels.join(" & ")}.${
-    oily ? " An oily fish — exactly what the week wants." : ""
-  }`;
-  body.append(label, text);
+/**
+ * Copy this recipe's own page link. The page and its detail fetch are both
+ * reachable without the site password (see api_auth.py).
+ * @param {RecipeDetail} recipe
+ * @param {(message: string) => void} announce
+ * @returns {Promise<void>}
+ */
+async function copyShareLink(recipe, announce) {
+  const url = `${window.location.origin}/#recipe/${encodeURIComponent(recipe.code)}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    announce("Share link copied");
+  } catch {
+    announce("Couldn't copy — your browser blocked the clipboard.");
+  }
+}
 
-  box.append(swatch, body);
-  return box;
+/**
+ * The whole recipe as plain text, at the servings set in the card.
+ * @param {RecipeDetail} recipe
+ * @param {IngredientLayout} layout
+ * @param {number} ratio
+ * @returns {string}
+ */
+function formatRecipe(recipe, layout, ratio) {
+  const lines = [displayTitle(recipe)];
+  if (recipe.base_servings !== null) {
+    lines.push(`Serves ${formatQuantity(recipe.base_servings * ratio)}`);
+  }
+  for (const section of layout.sections) {
+    lines.push("", section.name || "Ingredients");
+    lines.push(...section.rows.map((row) => `- ${rowText(row, ratio)}`));
+    lines.push(...section.toTaste.map((item) => `- ${item}`));
+  }
+  if (layout.equipment.length > 0) {
+    lines.push("", "Equipment", ...layout.equipment.map((item) => `- ${item}`));
+  }
+  if (recipe.instructions.length > 0) {
+    lines.push("", "Method");
+    recipe.instructions.forEach((step, i) => {
+      const parsed = parseStep(step, i);
+      lines.push(`${i + 1}. ${parsed.title ? `${parsed.title}. ` : ""}${parsed.body}`);
+    });
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/* ---- Body: tabs (phone), method, notes ---------------------------------- */
+
+/**
+ * The phone's Ingredients | Method switch. CSS shows it, and hides the
+ * inactive section, only below 720px; on a wide page it is inert.
+ * @param {HTMLElement} body
+ * @param {number} ingredientCount
+ * @param {number} stepCount
+ * @returns {{ element: HTMLElement, select: (key: "ingredients" | "method") => void }}
+ */
+function buildTabs(body, ingredientCount, stepCount) {
+  const bar = document.createElement("div");
+  bar.className = "rd-tabs";
+  bar.setAttribute("role", "tablist");
+  bar.setAttribute("aria-label", "Recipe sections");
+
+  const tabs = /** @type {const} */ ([
+    ["ingredients", `Ingredients · ${ingredientCount}`],
+    ["method", `Method · ${stepCount}`],
+  ]).map(([key, label]) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "rd-tabs__tab";
+    tab.setAttribute("role", "tab");
+    tab.textContent = label;
+    tab.addEventListener("click", () => select(key));
+    return { key, tab };
+  });
+  bar.append(...tabs.map(({ tab }) => tab));
+  select("ingredients");
+  return { element: bar, select };
+
+  /**
+   * @param {"ingredients" | "method"} key
+   */
+  function select(key) {
+    body.dataset.tab = key;
+    for (const { key: k, tab } of tabs) {
+      tab.setAttribute("aria-selected", String(k === key));
+      tab.tabIndex = k === key ? 0 : -1;
+    }
+  }
 }
 
 /**
  * @param {RecipeDetail} recipe
- * @param {() => void} onStartCooking
+ * @param {HTMLElement} notes
  * @returns {HTMLElement}
  */
-function buildMethod(recipe, onStartCooking) {
+function buildMethod(recipe, notes) {
   const section = document.createElement("section");
-  section.className = "detail__method";
+  section.className = "rd-method";
   section.setAttribute("aria-label", "Method");
 
-  const head = document.createElement("div");
-  head.className = "method__head";
   const heading = document.createElement("h2");
-  heading.className = "detail__section-title";
+  heading.className = "rd-method__title";
   heading.textContent = "Method";
-  head.append(heading);
-  section.append(head);
+  section.append(heading);
 
   if (recipe.instructions.length === 0) {
     const note = document.createElement("p");
-    note.className = "scale-hint";
-    note.textContent = "No method captured for this recipe.";
-    section.append(note);
+    note.className = "rd-method__empty";
+    note.textContent =
+      recipe.source === "instagram"
+        ? "No method was saved with this post. Open the original on Instagram for the steps, or cook it from the ingredient list."
+        : "No method was written for this recipe yet.";
+    section.append(note, notes);
     return section;
   }
 
-  const cook = document.createElement("button");
-  cook.type = "button";
-  cook.className = "btn btn--cook";
-  const play = document.createElement("span");
-  play.setAttribute("aria-hidden", "true");
-  play.textContent = "▶";
-  cook.append(play, document.createTextNode("Start cooking"));
-  cook.addEventListener("click", onStartCooking);
-  head.append(cook);
-
   const list = document.createElement("ol");
-  list.className = "method__list";
+  list.className = "rd-method__list";
   recipe.instructions.forEach((step, index) => {
+    const parsed = parseStep(step, index);
     const item = document.createElement("li");
-    item.className = "method__item";
+    item.className = "rd-method__step";
     const num = document.createElement("span");
-    num.className = "method__num";
+    num.className = "rd-method__num";
     num.setAttribute("aria-hidden", "true");
     num.textContent = String(index + 1);
     const text = document.createElement("p");
-    text.className = "method__text";
-    text.textContent = step;
+    text.className = "rd-method__text";
+    if (parsed.title) {
+      const title = document.createElement("b");
+      title.className = "rd-method__step-title";
+      title.textContent = `${parsed.title}.`;
+      text.append(title, document.createTextNode(" "));
+    }
+    text.append(document.createTextNode(parsed.body));
     item.append(num, text);
     list.append(item);
   });
-  section.append(list);
+  section.append(list, notes);
   return section;
 }
 
-/* ---- Right column: ingredients + scaling ------------------------------- */
-
 /**
- * @param {RecipeDetail} recipe
- * @param {(ratio: number) => void} onRatioChange
- * @returns {HTMLElement}
+ * @typedef {object} Notes
+ * @property {HTMLElement} element
+ * @property {() => boolean} isOpen
+ * @property {() => boolean} hasText
+ * @property {(open: boolean) => void} setOpen
  */
-function buildIngredients(recipe, onRatioChange) {
-  const panel = document.createElement("section");
-  panel.className = "panel detail__panel";
-  panel.setAttribute("aria-label", "Ingredients and scaling");
-
-  const base = recipe.base_servings;
-  let ratio = 1;
-  /** @type {(() => void)[]} */
-  const updaters = [];
-
-  // --- servings stepper ---
-  const stepper = document.createElement("div");
-  stepper.className = "stepper";
-  const stepLabel = document.createElement("span");
-  stepLabel.className = "stepper__label";
-  stepLabel.textContent = "Servings";
-  const stepBtns = document.createElement("div");
-  stepBtns.className = "stepper__btns";
-  const dec = stepButton("\u2212", "Fewer servings", () => step(-1));
-  const value = document.createElement("span");
-  value.className = "stepper__val";
-  value.setAttribute("aria-live", "polite");
-  const inc = stepButton("+", "More servings", () => step(1));
-  stepBtns.append(dec, value, inc);
-  stepper.append(stepLabel, stepBtns);
-
-  const scaleHint = document.createElement("p");
-  scaleHint.className = "scale-hint";
-
-  // --- ingredients heading + reset ---
-  const head = document.createElement("div");
-  head.className = "ingredients__head";
-  const title = document.createElement("h2");
-  title.className = "detail__section-title";
-  title.textContent = "Ingredients";
-  const reset = document.createElement("button");
-  reset.type = "button";
-  reset.className = "ingredients__reset";
-  reset.textContent = base === null ? "reset" : `reset to ${base}`;
-  reset.hidden = true;
-  reset.addEventListener("click", () => setRatio(1));
-  head.append(title, reset);
-
-  const typeHint = document.createElement("p");
-  typeHint.className = "scale-hint";
-  typeHint.textContent =
-    "Type the amount you actually have — everything else rescales.";
-
-  const list = document.createElement("ul");
-  list.className = "ing-list";
-  for (const line of recipe.ingredients) {
-    list.append(buildRow(line));
-  }
-
-  if (base === null) {
-    stepper.hidden = true;
-  }
-  panel.append(stepper, scaleHint, head, typeHint, list, buildActions(recipe));
-
-  /**
-   * @param {number} delta
-   */
-  function step(delta) {
-    if (base === null) {
-      return;
-    }
-    const current = Math.round(base * ratio);
-    setRatio(Math.max(1, current + delta) / base);
-  }
-
-  /**
-   * @param {number} next
-   */
-  function setRatio(next) {
-    ratio = next;
-    onRatioChange(ratio);
-    for (const update of updaters) {
-      update();
-    }
-    const scaled = Math.abs(ratio - 1) >= 0.001;
-    if (base !== null) {
-      value.textContent = formatQuantity(base * ratio);
-      scaleHint.textContent = scaled
-        ? `Rescaled from ${base} servings`
-        : `Original recipe \u00b7 serves ${base}`;
-    } else {
-      scaleHint.textContent = scaled ? "Rescaled to your amount" : "Original amounts";
-    }
-    reset.hidden = !scaled;
-  }
-
-  /**
-   * @param {string} line
-   * @returns {HTMLLIElement}
-   */
-  function buildRow(line) {
-    const row = document.createElement("li");
-    row.className = "ing-row";
-    const match = NUMBER_RE.exec(line);
-    const name = document.createElement("span");
-    name.className = "ing-name";
-
-    if (match === null) {
-      const qty = document.createElement("span");
-      qty.className = "ing-qty ing-qty--empty";
-      qty.textContent = "\u2014";
-      name.textContent = line;
-      row.append(qty, name);
-      return row;
-    }
-
-    const baseNum = parseFloat(match[1]);
-    name.textContent = (
-      line.slice(0, match.index) + line.slice(match.index + match[1].length)
-    ).trim();
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "decimal";
-    input.className = "ing-qty-input";
-    input.value = formatQuantity(baseNum * ratio);
-    input.setAttribute("aria-label", `Amount of ${name.textContent}`);
-    input.addEventListener("input", () => {
-      const typed = parseFloat(input.value);
-      if (Number.isFinite(typed) && typed > 0) {
-        setRatio(typed / baseNum);
-      }
-    });
-    updaters.push(() => {
-      if (document.activeElement !== input) {
-        input.value = formatQuantity(baseNum * ratio);
-      }
-    });
-    row.append(input, name);
-    return row;
-  }
-
-  setRatio(1);
-  return panel;
-}
 
 /**
- * @param {string} glyph
- * @param {string} label
- * @param {() => void} onClick
- * @returns {HTMLButtonElement}
- */
-function stepButton(glyph, label, onClick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "stepper__btn";
-  button.textContent = glyph;
-  button.setAttribute("aria-label", label);
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-/**
+ * "Your notes", saved as you type. Shown when a note exists or when opened
+ * from the ⋯ menu.
  * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildActions(recipe) {
-  const wrap = document.createElement("div");
-  wrap.className = "panel__actions";
-  wrap.append(buildSaveButton(recipe));
-  return wrap;
-}
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLButtonElement}
- */
-function buildSaveButton(recipe) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn";
-  let favourite = recipe.is_favorite;
-
-  const paint = () => {
-    button.textContent = favourite ? "\u2605 Saved" : "\u2606 Save";
-    button.setAttribute("aria-pressed", String(favourite));
-    button.classList.toggle("btn--saved", favourite);
-  };
-  paint();
-
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      // Through the index, so Browse shows the new flag without refetching.
-      favourite = await setFavourite(recipe.code, !favourite);
-      paint();
-    } finally {
-      button.disabled = false;
-    }
-  });
-  return button;
-}
-
-/* ---- Tag groups --------------------------------------------------------- */
-
-const TAG_GROUPS = /** @type {const} */ ([
-  ["Proteins", "proteins"],
-  ["Vegetables", "vegetables"],
-  ["Grains & starches", "grains_starches"],
-  ["Herbs & spices", "herbs_spices"],
-  ["Dietary", "dietary_tags"],
-  ["Health", "health_tags"],
-  ["Cooking methods", "cooking_methods"],
-  ["Equipment", "equipment"],
-]);
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
- */
-function buildTags(recipe) {
-  const section = document.createElement("section");
-  section.className = "detail__tags";
-
-  for (const [label, key] of TAG_GROUPS) {
-    const values = recipe[key];
-    if (values.length === 0) {
-      continue;
-    }
-    const group = document.createElement("div");
-    group.className = "tag-group";
-    const title = document.createElement("span");
-    title.className = "tag-group__label";
-    title.textContent = label;
-    group.append(title);
-    for (const value of values) {
-      group.append(Chip(value));
-    }
-    section.append(group);
-  }
-  return section;
-}
-
-/* ---- Notes -------------------------------------------------------------- */
-
-/**
- * @param {RecipeDetail} recipe
- * @returns {HTMLElement}
+ * @returns {Notes}
  */
 function buildNotes(recipe) {
   const section = document.createElement("section");
-  section.className = "detail__notes";
+  section.className = "rd-notes";
+  section.setAttribute("aria-label", "Your notes");
 
-  const heading = document.createElement("h2");
-  heading.className = "detail__section-title";
+  const heading = document.createElement("h3");
+  heading.className = "rd-notes__title";
   heading.textContent = "Your notes";
 
   const textarea = document.createElement("textarea");
-  textarea.className = "notes__input";
+  textarea.className = "rd-notes__input";
   textarea.rows = 4;
   textarea.value = recipe.user_notes ?? "";
+  textarea.placeholder = "What you’d change next time…";
   textarea.setAttribute("aria-label", "Your notes");
 
-  const save = document.createElement("button");
-  save.type = "button";
-  save.className = "btn notes__save";
-  save.textContent = "Save notes";
+  const helper = document.createElement("p");
+  helper.className = "rd-notes__helper";
+  helper.setAttribute("aria-live", "polite");
+  const idle = "Saved as you type";
+  helper.textContent = idle;
 
-  const status = document.createElement("span");
-  status.className = "notes__status";
-  status.setAttribute("aria-live", "polite");
-
-  save.addEventListener("click", async () => {
-    save.disabled = true;
-    try {
-      await updateRecipe(recipe.code, { user_notes: textarea.value });
-      status.textContent = "Saved";
-    } catch {
-      status.textContent = "Could not save";
-    } finally {
-      save.disabled = false;
-    }
+  let saved = textarea.value;
+  let timer = 0;
+  textarea.addEventListener("input", () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(save, NOTES_DEBOUNCE_MS);
+  });
+  // Clicking away (a link, the back button) mid-debounce must not lose the
+  // last words typed.
+  textarea.addEventListener("blur", () => {
+    window.clearTimeout(timer);
+    void save();
   });
 
-  section.append(heading, textarea, save, status);
-  return section;
+  section.append(heading, textarea, helper);
+  section.hidden = saved === "";
+
+  return {
+    element: section,
+    isOpen: () => !section.hidden,
+    hasText: () => textarea.value !== "",
+    setOpen: (open) => {
+      section.hidden = !open;
+      if (open) {
+        textarea.focus();
+      }
+    },
+  };
+
+  async function save() {
+    const text = textarea.value;
+    if (text === saved) {
+      return;
+    }
+    try {
+      await updateRecipe(recipe.code, { user_notes: text });
+      saved = text;
+      helper.textContent = idle;
+    } catch {
+      helper.textContent = "Couldn't save — it will retry as you type.";
+    }
+  }
 }
