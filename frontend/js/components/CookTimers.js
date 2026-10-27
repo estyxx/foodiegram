@@ -9,6 +9,7 @@ import {
   timerRemaining,
   toggleTimer,
 } from "../lib/cookingSession.js";
+import { canSetPhoneTimer, phoneTimerUrl } from "../lib/phoneTimer.js";
 
 /** @typedef {import("../lib/cookingSession.js").CookTimer} CookTimer */
 
@@ -93,6 +94,9 @@ export function TimerCard(timer, now) {
   const plus = timerButton("+1 min", `card-plus:${timer.id}`, () => addMinute(timer.id));
   plus.setAttribute("aria-label", `Add one minute to ${timer.label} timer`);
   actions.append(toggle, plus);
+  if (canSetPhoneTimer() && !timer.done) {
+    actions.append(PhoneTimerLink(timer, `card-phone:${timer.id}`, "cook-timer__btn"));
+  }
   const { step } = timer;
   if (step !== null) {
     actions.append(
@@ -130,8 +134,34 @@ export function TimerChip(timer, now) {
   label.textContent = timer.label;
   toggle.append(icon, TimerClock(timer, now, "cook-chip__clock"), label);
 
-  chip.append(toggle, removeButton(timer, `strip-remove:${timer.id}`, "cook-chip__remove"));
+  chip.append(toggle);
+  if (canSetPhoneTimer() && !timer.done) {
+    chip.append(PhoneTimerLink(timer, `strip-phone:${timer.id}`, "cook-chip__phone"));
+  }
+  chip.append(removeButton(timer, `strip-remove:${timer.id}`, "cook-chip__remove"));
   return chip;
+}
+
+/**
+ * "⏰": hands the time left to the iPhone Clock (via the Dispensa Timer
+ * Shortcut), which rings even when the phone is locked or on silent.
+ * @param {CookTimer} timer
+ * @param {string} focusKey
+ * @param {string} className
+ * @returns {HTMLAnchorElement}
+ */
+export function PhoneTimerLink(timer, focusKey, className) {
+  const link = document.createElement("a");
+  link.className = className;
+  link.dataset.focus = focusKey;
+  link.textContent = "⏰";
+  link.setAttribute("aria-label", `Set ${timer.label} timer on the iPhone Clock`);
+  link.href = phoneTimerUrl(timerRemaining(timer, Date.now()));
+  // The clock moves between renders, so read the time left at the tap.
+  link.addEventListener("click", () => {
+    link.href = phoneTimerUrl(timerRemaining(timer, Date.now()));
+  });
+  return link;
 }
 
 /**

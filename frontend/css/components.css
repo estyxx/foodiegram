@@ -2771,3 +2771,41 @@
 .cook-pill__label {
   font-size: var(--text-sm);
 }
+
+/* ---- Cooking mode: hand a timer to the iPhone Clock ---------------------- */
+.cook-timer__btn[href] {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cook-chip__phone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.cook__phone-help {
+  margin-top: var(--space-8);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--cook-ink-muted);
+}
+
+.cook__phone-help summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+
+.cook__phone-help p {
+  max-width: 34em;
+}
