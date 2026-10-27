@@ -201,6 +201,14 @@ session.
       a corner pill back in (`components/CookingPill.js`). Screen Wake Lock
       while open. Frontend only, no API change. Browser-checked on a mocked
       recipe at 1280 and 390 px.
+      → iPhone follow-up: the page cannot ring when the phone is locked or
+      on silent (Safari has no vibration either). Each timer gets "⏰", which
+      opens the owner's one-time "Dispensa Timer" Shortcut
+      (`shortcuts://run-shortcut`, seconds as input) to start a real Clock
+      timer (`lib/phoneTimer.js`). Shown on iPhone/iPad only. Web push was
+      considered and parked: FastAPI Cloud scales to zero when idle, so an
+      in-process send at the timer's end is not reliable without an
+      external scheduler.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
 
