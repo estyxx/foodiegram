@@ -53,7 +53,7 @@ def test_get_planning_context_returns_one_payload(engine: Engine) -> None:
     deps = _deps(engine)
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     deps.recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
-    deps.plans.upsert_meal(
+    deps.plans.add_meal(
         week_start=_MONDAY,
         day=_MONDAY,
         meal="dinner",

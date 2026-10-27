@@ -109,42 +109,77 @@ def test_non_monday_week_start_is_rejected(client: TestClient) -> None:
     )
 
 
-def test_upsert_meal_is_idempotent_and_moves_the_balance(
+def test_post_meal_adds_dishes_and_moves_the_balance(
     client: TestClient,
     deps: Deps,
 ) -> None:
-    """Upserting the same slot replaces it; two fish slots reach the target."""
+    """Two POSTs to one slot keep both dishes (D34); a repeat does not duplicate."""
     deps.recipes.save(_fish_recipe("F1"))
     deps.recipes.save(_fish_recipe("F2"))
 
-    first = client.put(
+    first = client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F1"},
     )
     assert first.status_code == HTTPStatus.OK
 
-    # Re-PUT the same (day, slot) with a different recipe → replace, not append.
-    replaced = client.put(
+    second = client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F2"},
     )
-    assert len(replaced.json()["meals"]) == 1
+    assert [meal["recipe_code"] for meal in second.json()["meals"]] == ["F1", "F2"]
 
-    client.put(
+    repeat = client.post(
         f"/api/plans/{_MONDAY}/meals",
-        json={"day": _MONDAY, "meal": "dinner", "recipe_code": "F1"},
+        json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F2"},
     )
+    assert len(repeat.json()["meals"]) == _TWO_SERVINGS
 
     body = client.get(f"/api/plans/{_MONDAY}").json()
-    assert len(body["meals"]) == _TWO_SERVINGS
     assert _fish_category(body)["planned"] == _TWO_SERVINGS
     assert _fish_category(body)["state"] == "ok"
+
+
+def test_put_meal_swaps_one_dish_by_id(client: TestClient, deps: Deps) -> None:
+    """PUT by id replaces that dish only; a sibling's recipe or a bad id is refused."""
+    deps.recipes.save(_fish_recipe("F1"))
+    deps.recipes.save(_fish_recipe("F2"))
+    deps.recipes.save(_fish_recipe("F3"))
+    for code in ("F1", "F2"):
+        client.post(
+            f"/api/plans/{_MONDAY}/meals",
+            json={"day": _MONDAY, "meal": "dinner", "recipe_code": code},
+        )
+    meals = client.get(f"/api/plans/{_MONDAY}").json()["meals"]
+    first_id = meals[0]["id"]
+
+    swapped = client.put(
+        f"/api/plans/{_MONDAY}/meals/{first_id}",
+        json={"recipe_code": "F3", "portions": 4},
+    )
+    assert swapped.status_code == HTTPStatus.OK
+    assert [(m["recipe_code"], m["portions"]) for m in swapped.json()["meals"]] == [
+        ("F3", 4),
+        ("F2", 2),
+    ]
+
+    clash = client.put(
+        f"/api/plans/{_MONDAY}/meals/{first_id}",
+        json={"recipe_code": "F2"},
+    )
+    assert clash.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    missing = client.put(
+        f"/api/plans/{_MONDAY}/meals/999999",
+        json={"recipe_code": "F1"},
+    )
+    assert missing.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_delete_meal(client: TestClient, deps: Deps) -> None:
     """A meal can be deleted by id; deleting a missing id is 404."""
     deps.recipes.save(_fish_recipe("F1"))
-    created = client.put(
+    created = client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F1"},
     ).json()
@@ -158,9 +193,9 @@ def test_delete_meal(client: TestClient, deps: Deps) -> None:
     assert missing.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_upsert_meal_rejects_an_unknown_recipe_code(client: TestClient) -> None:
+def test_post_meal_rejects_an_unknown_recipe_code(client: TestClient) -> None:
     """Slotting a code that is not in the library is a 404, and nothing is stored."""
-    response = client.put(
+    response = client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": _MONDAY, "meal": "lunch", "recipe_code": "NOPE"},
     )
@@ -168,13 +203,13 @@ def test_upsert_meal_rejects_an_unknown_recipe_code(client: TestClient) -> None:
     assert client.get(f"/api/plans/{_MONDAY}").json()["meals"] == []
 
 
-def test_upsert_meal_rejects_a_day_outside_the_week(
+def test_post_meal_rejects_a_day_outside_the_week(
     client: TestClient,
     deps: Deps,
 ) -> None:
     """A day from another week is a 422 with the valid range in the detail."""
     deps.recipes.save(_fish_recipe("F1"))
-    response = client.put(
+    response = client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": "2024-01-08", "meal": "lunch", "recipe_code": "F1"},
     )
@@ -257,7 +292,7 @@ def test_shopping_list_lists_missing_ingredients(
 ) -> None:
     """Planned ingredients not in the pantry appear in the shopping list."""
     deps.recipes.save(_fish_recipe("F1"))
-    client.put(
+    client.post(
         f"/api/plans/{_MONDAY}/meals",
         json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F1"},
     )

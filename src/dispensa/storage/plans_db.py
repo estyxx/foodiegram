@@ -30,7 +30,7 @@ def _to_meal(row: PlannedMealRow) -> PlannedMeal:
 
 
 class PlanRepository:
-    """Store for week plans and their meal slots, keyed by Monday start date."""
+    """Store for week plans and the dishes in their slots, keyed by Monday start."""
 
     def __init__(self, engine: Engine) -> None:
         """Bind the repository to a database engine."""
@@ -47,13 +47,14 @@ class PlanRepository:
                     col(PlannedMealRow.plan_id) == plan_row.id,
                 ),
             ).all()
+            # Within a slot, dishes keep the order they were added in.
             meals = sorted(
                 (_to_meal(row) for row in meal_rows),
-                key=lambda meal: (meal.day, _MEAL_ORDER[meal.meal]),
+                key=lambda meal: (meal.day, _MEAL_ORDER[meal.meal], meal.id or 0),
             )
             return WeekPlan(week_start=plan_row.week_start, meals=tuple(meals))
 
-    def upsert_meal(
+    def add_meal(
         self,
         *,
         week_start: date,
@@ -62,7 +63,11 @@ class PlanRepository:
         recipe_code: str,
         portions: int,
     ) -> PlannedMeal:
-        """Insert or replace the meal in (day, slot); create the plan if needed."""
+        """Add a dish to (day, slot); create the plan if needed.
+
+        A recipe already in that slot keeps its row and takes the new portions,
+        so repeating the same add never stacks a duplicate dish.
+        """
         WeekPlan(week_start=week_start)  # reject a non-Monday before writing.
         with get_session(self._engine) as session:
             plan_row = self._plan_row(session, week_start)
@@ -81,6 +86,7 @@ class PlanRepository:
                     col(PlannedMealRow.plan_id) == plan_id,
                     col(PlannedMealRow.day) == day,
                     col(PlannedMealRow.meal) == meal,
+                    col(PlannedMealRow.recipe_code) == recipe_code,
                 ),
             ).first()
             if row is None:
@@ -92,8 +98,30 @@ class PlanRepository:
                     portions=portions,
                 )
             else:
-                row.recipe_code = recipe_code
                 row.portions = portions
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return _to_meal(row)
+
+    def update_meal(
+        self,
+        week_start: date,
+        meal_id: int,
+        *,
+        recipe_code: str,
+        portions: int,
+    ) -> PlannedMeal | None:
+        """Swap the recipe and portions of one dish; return None if it is absent."""
+        with get_session(self._engine) as session:
+            plan_row = self._plan_row(session, week_start)
+            if plan_row is None:
+                return None
+            row = session.get(PlannedMealRow, meal_id)
+            if row is None or row.plan_id != plan_row.id:
+                return None
+            row.recipe_code = recipe_code
+            row.portions = portions
             session.add(row)
             session.commit()
             session.refresh(row)

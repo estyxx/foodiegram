@@ -45,7 +45,7 @@ def test_planning_context_bundles_plan_targets_pantry_favourites(
 
     recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
-    plans.upsert_meal(
+    plans.add_meal(
         week_start=_MONDAY,
         day=_MONDAY,
         meal="dinner",

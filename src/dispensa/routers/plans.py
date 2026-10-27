@@ -10,20 +10,21 @@ from dispensa.api_models import (
     AisleGroupOut,
     CategoryStatusOut,
     GapSuggestion,
-    MealUpsert,
+    MealCreate,
+    MealUpdate,
     PlannedMealOut,
     PlanResponse,
     RecipeSummary,
     ShoppingItemOut,
 )
-from dispensa.app.plan_meals import set_meal
+from dispensa.app.plan_meals import add_meal, replace_meal
 from dispensa.app.plan_week import (
     WeekPlanView,
     build_shopping_list,
     build_week_plan_view,
 )
 from dispensa.deps import DepsDep
-from dispensa.domain.errors import RecipeNotFoundError
+from dispensa.domain.errors import MealNotFoundError, RecipeNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -94,15 +95,15 @@ async def get_plan(week_start: date, deps: DepsDep) -> PlanResponse:
     return _to_response(view)
 
 
-@router.put("/{week_start}/meals")
-async def upsert_meal(
+@router.post("/{week_start}/meals")
+async def create_meal(
     week_start: date,
-    body: MealUpsert,
+    body: MealCreate,
     deps: DepsDep,
 ) -> PlanResponse:
-    """Insert or replace the meal in a (day, slot); return the updated plan."""
+    """Add a dish to a (day, slot) beside any already there; return the plan."""
     try:
-        view = set_meal(
+        view = add_meal(
             week_start=week_start,
             day=body.day,
             meal=body.meal,
@@ -120,9 +121,35 @@ async def upsert_meal(
     return _to_response(view)
 
 
+@router.put("/{week_start}/meals/{meal_id}")
+async def update_meal(
+    week_start: date,
+    meal_id: int,
+    body: MealUpdate,
+    deps: DepsDep,
+) -> PlanResponse:
+    """Swap the recipe or portions of one planned dish; return the plan."""
+    try:
+        view = replace_meal(
+            week_start=week_start,
+            meal_id=meal_id,
+            recipe_code=body.recipe_code,
+            portions=body.portions,
+            recipes=deps.recipes,
+            plans=deps.plans,
+            targets=deps.targets,
+            user_state=deps.user_state,
+        )
+    except (MealNotFoundError, RecipeNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_response(view)
+
+
 @router.delete("/{week_start}/meals/{meal_id}")
 async def delete_meal(week_start: date, meal_id: int, deps: DepsDep) -> PlanResponse:
-    """Remove a meal slot; return the updated plan, or 404 if it was absent."""
+    """Remove one planned dish; return the updated plan, or 404 if it was absent."""
     if not deps.plans.delete_meal(week_start, meal_id):
         msg = f"Meal {meal_id} not found in week {week_start.isoformat()}"
         raise HTTPException(status_code=404, detail=msg)

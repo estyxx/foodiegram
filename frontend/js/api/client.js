@@ -258,7 +258,7 @@ export async function getPlan(weekStart) {
 }
 
 /**
- * @typedef {object} MealUpsertBody
+ * @typedef {object} MealCreateBody
  * @property {string} day ISO date.
  * @property {"lunch" | "dinner"} meal
  * @property {string} recipe_code
@@ -266,13 +266,35 @@ export async function getPlan(weekStart) {
  */
 
 /**
- * Insert or replace the meal in a (day, meal) slot; upsert is keyed by both.
+ * Add a dish to a (day, meal) slot beside any already there (D34). Adding a
+ * recipe the slot already holds only updates its portions.
  * @param {string} weekStart
- * @param {MealUpsertBody} meal
+ * @param {MealCreateBody} meal
  * @returns {Promise<PlanResponse>}
  */
-export async function upsertMeal(weekStart, meal) {
+export async function addMeal(weekStart, meal) {
   const result = await apiFetch(`/plans/${weekStart}/meals`, {
+    method: "POST",
+    body: JSON.stringify(meal),
+  });
+  return /** @type {PlanResponse} */ (result);
+}
+
+/**
+ * @typedef {object} MealUpdateBody
+ * @property {string} recipe_code
+ * @property {number} [portions]
+ */
+
+/**
+ * Swap the recipe or portions of one planned dish, by its id.
+ * @param {string} weekStart
+ * @param {number} mealId
+ * @param {MealUpdateBody} meal
+ * @returns {Promise<PlanResponse>}
+ */
+export async function updateMeal(weekStart, mealId, meal) {
+  const result = await apiFetch(`/plans/${weekStart}/meals/${mealId}`, {
     method: "PUT",
     body: JSON.stringify(meal),
   });
@@ -280,7 +302,7 @@ export async function upsertMeal(weekStart, meal) {
 }
 
 /**
- * Remove a meal slot from the plan.
+ * Remove one planned dish from the plan.
  * @param {string} weekStart
  * @param {number} mealId
  * @returns {Promise<PlanResponse>}

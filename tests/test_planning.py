@@ -102,6 +102,23 @@ def test_multi_category_recipe_and_portions_never_affect_balance() -> None:
     assert statuses[MedCategory.LEGUMES].planned == _LEGUMES_SERVINGS
 
 
+def test_two_dishes_in_one_slot_both_count() -> None:
+    """A main and a side in the same slot each add their categories (D34)."""
+    recipes = {
+        "MAIN": _recipe("MAIN", categories=[CategoryServing(category=MedCategory.FISH)]),
+        "SIDE": _recipe("SIDE", categories=[CategoryServing(category=MedCategory.FISH)]),
+    }
+    plan = WeekPlan(
+        week_start=_MONDAY,
+        meals=(
+            PlannedMeal(day=_MONDAY, meal="dinner", recipe_code="MAIN"),
+            PlannedMeal(day=_MONDAY, meal="dinner", recipe_code="SIDE"),
+        ),
+    )
+    statuses = week_balance(plan, recipes, (_FISH_TARGET,))
+    assert statuses[0].planned == float(len(plan.meals))
+
+
 def test_unknown_recipe_codes_are_skipped() -> None:
     """Meals whose recipe code is absent contribute nothing."""
     plan = WeekPlan(
@@ -299,10 +316,11 @@ def test_check_portions_rejects_below_one() -> None:
         check_portions(0)
 
 
-def test_meal_at_finds_the_slot_or_none() -> None:
-    """meal_at matches on both day and slot."""
-    lunch = PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="A")
-    plan = WeekPlan(week_start=_MONDAY, meals=(lunch,))
-    assert plan.meal_at(_MONDAY, "lunch") == lunch
-    assert plan.meal_at(_MONDAY, "dinner") is None
-    assert plan.meal_at(_TUESDAY, "lunch") is None
+def test_meals_at_returns_every_dish_in_the_slot() -> None:
+    """meals_at matches on both day and slot and keeps every dish there."""
+    main = PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="A")
+    side = PlannedMeal(day=_MONDAY, meal="lunch", recipe_code="B")
+    plan = WeekPlan(week_start=_MONDAY, meals=(main, side))
+    assert plan.meals_at(_MONDAY, "lunch") == (main, side)
+    assert plan.meals_at(_MONDAY, "dinner") == ()
+    assert plan.meals_at(_TUESDAY, "lunch") == ()

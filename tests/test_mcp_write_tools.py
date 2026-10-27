@@ -17,9 +17,9 @@ from dispensa.domain.models import (
     Recipe,
 )
 from dispensa.mcp_server.write_tools import (
+    add_meal,
     clear_meal,
     save_recipe,
-    set_meal,
     set_portions,
     update_recipe,
 )
@@ -87,14 +87,14 @@ def _planned(result: dict[str, object], category: MedCategory) -> object:
     return next(row["planned"] for row in balance if row["category"] == category.value)
 
 
-# --- set_meal ---------------------------------------------------------------
+# --- add_meal ---------------------------------------------------------------
 
 
-def test_set_meal_by_code_returns_the_fresh_week(deps: Deps) -> None:
+def test_add_meal_by_code_returns_the_fresh_week(deps: Deps) -> None:
     """Slotting a code returns meals with titles, the moved balance and oily fish."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
 
-    result = set_meal(week_start=_MONDAY, day=_TUESDAY, slot="dinner", code="FISH1")
+    result = add_meal(week_start=_MONDAY, day=_TUESDAY, slot="dinner", code="FISH1")
 
     assert result["week_start"] == _MONDAY
     assert result["meals"] == [
@@ -111,24 +111,42 @@ def test_set_meal_by_code_returns_the_fresh_week(deps: Deps) -> None:
     assert "suggestions" in result
 
 
-def test_set_meal_replaces_the_slot(deps: Deps) -> None:
-    """A second set_meal on the same slot replaces the meal rather than adding one."""
+def test_add_meal_keeps_the_dish_already_in_the_slot(deps: Deps) -> None:
+    """D34: a second add_meal on the same slot adds a dish beside the first."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     deps.recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
-    set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
 
-    result = set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="LEG1")
+    result = add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="LEG1")
 
-    assert [meal["recipe_code"] for meal in result["meals"]] == ["LEG1"]
-    assert _planned(result, MedCategory.FISH) == 0.0
+    assert [meal["recipe_code"] for meal in result["meals"]] == ["FISH1", "LEG1"]
+    assert _planned(result, MedCategory.FISH) == 1.0
     assert _planned(result, MedCategory.LEGUMES) == 1.0
 
 
-def test_set_meal_with_a_draft_saves_a_manual_recipe_then_slots_it(
+def test_add_meal_twice_with_one_recipe_updates_its_portions(deps: Deps) -> None:
+    """Re-adding a recipe the slot already holds never stacks a duplicate."""
+    deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
+
+    result = add_meal(
+        week_start=_MONDAY,
+        day=_MONDAY,
+        slot="lunch",
+        code="FISH1",
+        portions=_THREE_PORTIONS,
+    )
+
+    (meal,) = result["meals"]
+    assert meal["portions"] == _THREE_PORTIONS
+    assert _planned(result, MedCategory.FISH) == 1.0
+
+
+def test_add_meal_with_a_draft_saves_a_manual_recipe_then_slots_it(
     deps: Deps,
 ) -> None:
     """D23: the draft becomes a MANUAL recipe and the balance counts its category."""
-    result = set_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", draft=_draft())
+    result = add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", draft=_draft())
 
     (meal,) = result["meals"]
     assert meal["recipe_code"].startswith("m-pasta-e-ceci-della-nonna-")
@@ -142,13 +160,13 @@ def test_set_meal_with_a_draft_saves_a_manual_recipe_then_slots_it(
     ]
 
 
-def test_set_meal_needs_exactly_one_of_code_or_draft(deps: Deps) -> None:
+def test_add_meal_needs_exactly_one_of_code_or_draft(deps: Deps) -> None:
     """Neither or both of code/draft is rejected with an actionable message."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     with pytest.raises(ValueError, match="exactly one of code"):
-        set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch")
+        add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch")
     with pytest.raises(ValueError, match="exactly one of code"):
-        set_meal(
+        add_meal(
             week_start=_MONDAY,
             day=_MONDAY,
             slot="lunch",
@@ -158,38 +176,38 @@ def test_set_meal_needs_exactly_one_of_code_or_draft(deps: Deps) -> None:
     assert deps.plans.get(date.fromisoformat(_MONDAY)) is None
 
 
-def test_set_meal_unknown_code_raises_and_writes_nothing(deps: Deps) -> None:
+def test_add_meal_unknown_code_raises_and_writes_nothing(deps: Deps) -> None:
     """A bad code is a ValueError pointing at search_recipes; no slot is created."""
     with pytest.raises(ValueError, match=r"'NOPE' not found.*search_recipes"):
-        set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="NOPE")
+        add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="NOPE")
     assert deps.plans.get(date.fromisoformat(_MONDAY)) is None
 
 
-def test_set_meal_non_monday_week_start_raises(deps: Deps) -> None:
+def test_add_meal_non_monday_week_start_raises(deps: Deps) -> None:
     """A non-Monday week_start is a ValueError naming the date."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     with pytest.raises(ValueError, match="2024-01-02 is not a Monday"):
-        set_meal(week_start=_TUESDAY, day=_TUESDAY, slot="lunch", code="FISH1")
+        add_meal(week_start=_TUESDAY, day=_TUESDAY, slot="lunch", code="FISH1")
 
 
-def test_set_meal_day_outside_the_week_raises(deps: Deps) -> None:
+def test_add_meal_day_outside_the_week_raises(deps: Deps) -> None:
     """A day from another week is rejected with the valid range."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     with pytest.raises(ValueError, match=r"outside the week 2024-01-01\.\.2024-01-07"):
-        set_meal(week_start=_MONDAY, day=_NEXT_MONDAY, slot="lunch", code="FISH1")
+        add_meal(week_start=_MONDAY, day=_NEXT_MONDAY, slot="lunch", code="FISH1")
 
 
-def test_set_meal_malformed_date_names_the_argument(deps: Deps) -> None:
+def test_add_meal_malformed_date_names_the_argument(deps: Deps) -> None:
     """A malformed day says which argument was wrong."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
     with pytest.raises(ValueError, match="day must be an ISO date"):
-        set_meal(week_start=_MONDAY, day="tuesday", slot="lunch", code="FISH1")
+        add_meal(week_start=_MONDAY, day="tuesday", slot="lunch", code="FISH1")
 
 
-def test_set_meal_draft_with_a_bad_week_saves_no_recipe(deps: Deps) -> None:
+def test_add_meal_draft_with_a_bad_week_saves_no_recipe(deps: Deps) -> None:
     """The slot is checked before the draft is saved, so no orphan recipe is left."""
     with pytest.raises(ValueError, match="not a Monday"):
-        set_meal(week_start=_TUESDAY, day=_TUESDAY, slot="lunch", draft=_draft())
+        add_meal(week_start=_TUESDAY, day=_TUESDAY, slot="lunch", draft=_draft())
     assert deps.recipes.list_all() == []
 
 
@@ -199,7 +217,7 @@ def test_set_meal_draft_with_a_bad_week_saves_no_recipe(deps: Deps) -> None:
 def test_clear_meal_empties_the_slot_and_the_balance(deps: Deps) -> None:
     """Clearing a slot drops the meal and its servings from the balance."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
-    set_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
 
     result = clear_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner")
 
@@ -207,10 +225,47 @@ def test_clear_meal_empties_the_slot_and_the_balance(deps: Deps) -> None:
     assert _planned(result, MedCategory.FISH) == 0.0
 
 
+def _two_dish_dinner(deps: Deps) -> None:
+    """Plan FISH1 and LEG1 together for Monday dinner."""
+    deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
+    deps.recipes.save(_recipe("LEG1", category=MedCategory.LEGUMES))
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="LEG1")
+
+
+def test_clear_meal_with_a_code_removes_only_that_dish(deps: Deps) -> None:
+    """Naming a dish leaves the rest of the slot in place."""
+    _two_dish_dinner(deps)
+
+    result = clear_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+
+    assert [meal["recipe_code"] for meal in result["meals"]] == ["LEG1"]
+    assert _planned(result, MedCategory.FISH) == 0.0
+
+
+def test_clear_meal_without_a_code_empties_every_dish(deps: Deps) -> None:
+    """No code means the whole slot goes."""
+    _two_dish_dinner(deps)
+
+    result = clear_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner")
+
+    assert result["meals"] == []
+
+
+def test_clear_meal_with_a_code_not_in_the_slot_raises(deps: Deps) -> None:
+    """A code the slot lacks is an error naming it, and nothing is removed."""
+    _two_dish_dinner(deps)
+    with pytest.raises(ValueError, match="'NOPE' is not planned for dinner"):
+        clear_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="NOPE")
+    plan = deps.plans.get(date.fromisoformat(_MONDAY))
+    assert plan is not None
+    assert len(plan.meals) == len(("FISH1", "LEG1"))
+
+
 def test_clear_meal_on_an_empty_slot_raises(deps: Deps) -> None:
     """Clearing a slot that holds nothing is an error, not a silent no-op."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
-    set_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
     with pytest.raises(ValueError, match="No meal is planned for lunch on 2024-01-01"):
         clear_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch")
 
@@ -218,7 +273,7 @@ def test_clear_meal_on_an_empty_slot_raises(deps: Deps) -> None:
 def test_set_portions_keeps_the_recipe(deps: Deps) -> None:
     """set_portions changes only the portion count of the meal in the slot."""
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
-    set_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
 
     result = set_portions(
         week_start=_MONDAY,
@@ -233,12 +288,30 @@ def test_set_portions_keeps_the_recipe(deps: Deps) -> None:
     assert _planned(result, MedCategory.FISH) == 1.0
 
 
+def test_set_portions_names_one_dish_in_a_shared_slot(deps: Deps) -> None:
+    """With several dishes the code picks one; without it the error lists them."""
+    _two_dish_dinner(deps)
+    with pytest.raises(ValueError, match=r"several dishes \(FISH1, LEG1\)"):
+        set_portions(week_start=_MONDAY, day=_MONDAY, slot="dinner", portions=4)
+
+    result = set_portions(
+        week_start=_MONDAY,
+        day=_MONDAY,
+        slot="dinner",
+        code="LEG1",
+        portions=_THREE_PORTIONS,
+    )
+
+    portions = {meal["recipe_code"]: meal["portions"] for meal in result["meals"]}
+    assert portions == {"FISH1": 2, "LEG1": _THREE_PORTIONS}
+
+
 def test_set_portions_rejects_an_empty_slot_and_zero(deps: Deps) -> None:
     """An empty slot and a portion count below one are both actionable errors."""
     with pytest.raises(ValueError, match="No meal is planned"):
         set_portions(week_start=_MONDAY, day=_MONDAY, slot="lunch", portions=2)
     deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
-    set_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="lunch", code="FISH1")
     with pytest.raises(ValueError, match="portions must be at least 1"):
         set_portions(week_start=_MONDAY, day=_MONDAY, slot="lunch", portions=0)
 
