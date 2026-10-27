@@ -24,6 +24,7 @@ session.
 | D31 | Pantry items have `location: fridge \| freezer \| pantry`, optional free-text quantity and optional expiry. Names stay free-text; no canonicalisation. |
 | D32 | `posts` staging table is dropped. `sync ingest` writing stubs directly is the design. |
 | D33 | The plan page shows **Mon–Fri by default**, with Sat–Sun on request (a toggle remembered per browser). Plans and the balance always cover all seven days; the toggle says how many weekend meals are hidden. |
+| D34 | A meal slot holds **one or more dishes** (a main and a side, a crust and its filling). Each dish is its own `planned_meals` row; a recipe appears at most once per slot, so adding it again only updates its portions. Every dish counts toward the balance. MCP `set_meal` becomes `add_meal` (adds, never replaces); `clear_meal` and `set_portions` take an optional dish `code`. API: `POST /meals` adds, `PUT /meals/{id}` swaps one dish, `DELETE /meals/{id}` removes one. |
 
 ---
 

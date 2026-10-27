@@ -281,7 +281,8 @@ class CategoryStatus(BaseModel):     # frozen
 
 def week_balance(plan: WeekPlan, recipes: Mapping[str, Recipe],
                  targets: Sequence[CategoryTarget]) -> list[CategoryStatus]:
-    # Sum CategoryServing.servings per category across meals (each SLOT counts once).
+    # Sum CategoryServing.servings per category across meals (each DISH counts once;
+    # a slot may hold several dishes, D34).
     # Multi-category recipes contribute to each. Unknown codes: skip (caller logs).
 
 def oily_fish_count(plan: WeekPlan, recipes: Mapping[str, Recipe]) -> float: ...
