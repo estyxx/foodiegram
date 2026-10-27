@@ -131,6 +131,30 @@
   --focus-ring: #3F6B38;
   --focus-ring-alt: #A83C22;
 
+  /* ---- Cooking mode: a dark kitchen-at-night ground (Dispensa v3) ----
+   * Text pairs verified ≥ 4.5:1 on --cook-ground. One v3 value was too dim
+   * for small text and was lightened:
+   *   --cook-ink-checked #8A8170 → #9C9381 (4.41 → 5.58 on --cook-ground)
+   * On --cook-done only --cook-ink is used for text (4.69); --cook-done-ink
+   * (4.25) fills the progress bar only.
+   */
+  --cook-ground: #1F1C17;
+  --cook-surface: #2A2620;   /* timer cards */
+  --cook-sheet: #26221B;     /* phone ingredient sheet */
+  --cook-ink: #F6F3EA;
+  --cook-ink-soft: #EDE8DA;  /* step prose */
+  --cook-ink-muted: #B8AE98;
+  --cook-ink-checked: #9C9381; /* was #8A8170, lightened for AA */
+  --cook-gold: #D8B26A;      /* eyebrows, amounts */
+  --cook-mint: #9FE0D7;      /* tappable times, "this step" */
+  --cook-line: #3A342A;
+  --cook-line-soft: #332E25;
+  --cook-line-strong: #5A5244;
+  --cook-running: #3E9D94;
+  --cook-done: #B8492F;      /* timer finished — with "Time's up" text */
+  --cook-done-line: #E07A5F;
+  --cook-done-ink: #FBE3DC;
+
   /* ---- Radii ---- */
   --radius-sm: 8px;
   --radius-md: 10px;

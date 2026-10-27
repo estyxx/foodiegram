@@ -2,6 +2,7 @@
 
 import { getRecipe, updateRecipe } from "../api/client.js";
 import { indexedRecipe, peekRecipeIndex, setFavourite } from "../lib/recipeIndex.js";
+import { startCooking } from "../lib/cookingSession.js";
 import { Chip } from "../components/Chip.js";
 import { displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
 
@@ -36,13 +37,20 @@ export async function renderDetail(container, code, { returnTo }) {
   container.replaceChildren();
   const back = buildBack(returnTo);
 
+  // Cooking mode opens with the servings set in the ingredients panel.
+  let ratio = 1;
   const left = document.createElement("div");
   left.className = "detail__left";
-  left.append(buildHead(recipe), buildMethod(recipe));
+  left.append(buildHead(recipe), buildMethod(recipe, () => startCooking(recipe, ratio)));
 
   const grid = document.createElement("div");
   grid.className = "detail__grid";
-  grid.append(left, buildIngredients(recipe));
+  grid.append(
+    left,
+    buildIngredients(recipe, (next) => {
+      ratio = next;
+    }),
+  );
 
   container.append(
     back,
@@ -418,17 +426,21 @@ function buildFit(recipe) {
 
 /**
  * @param {RecipeDetail} recipe
+ * @param {() => void} onStartCooking
  * @returns {HTMLElement}
  */
-function buildMethod(recipe) {
+function buildMethod(recipe, onStartCooking) {
   const section = document.createElement("section");
   section.className = "detail__method";
   section.setAttribute("aria-label", "Method");
 
+  const head = document.createElement("div");
+  head.className = "method__head";
   const heading = document.createElement("h2");
   heading.className = "detail__section-title";
   heading.textContent = "Method";
-  section.append(heading);
+  head.append(heading);
+  section.append(head);
 
   if (recipe.instructions.length === 0) {
     const note = document.createElement("p");
@@ -437,6 +449,16 @@ function buildMethod(recipe) {
     section.append(note);
     return section;
   }
+
+  const cook = document.createElement("button");
+  cook.type = "button";
+  cook.className = "btn btn--cook";
+  const play = document.createElement("span");
+  play.setAttribute("aria-hidden", "true");
+  play.textContent = "▶";
+  cook.append(play, document.createTextNode("Start cooking"));
+  cook.addEventListener("click", onStartCooking);
+  head.append(cook);
 
   const list = document.createElement("ol");
   list.className = "method__list";
@@ -461,9 +483,10 @@ function buildMethod(recipe) {
 
 /**
  * @param {RecipeDetail} recipe
+ * @param {(ratio: number) => void} onRatioChange
  * @returns {HTMLElement}
  */
-function buildIngredients(recipe) {
+function buildIngredients(recipe, onRatioChange) {
   const panel = document.createElement("section");
   panel.className = "panel detail__panel";
   panel.setAttribute("aria-label", "Ingredients and scaling");
@@ -538,6 +561,7 @@ function buildIngredients(recipe) {
    */
   function setRatio(next) {
     ratio = next;
+    onRatioChange(ratio);
     for (const update of updaters) {
       update();
     }

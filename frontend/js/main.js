@@ -1,6 +1,8 @@
 // @ts-check
 
 import { getVersion } from "./api/client.js";
+import { CookingMode } from "./components/CookingMode.js";
+import { CookingPill } from "./components/CookingPill.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
 import { renderPlan } from "./views/plan.js";
@@ -89,6 +91,9 @@ async function showVersion() {
     el.textContent = "";
   }
 }
+
+// Outside #view: cooking mode and its timers survive route changes.
+document.body.append(CookingMode(), CookingPill());
 
 window.addEventListener("hashchange", route);
 route();
