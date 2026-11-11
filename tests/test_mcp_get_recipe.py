@@ -7,6 +7,7 @@ from dispensa.mcp_server.server import get_recipe
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
+from dispensa.storage.pending_db import PendingLinkRepository
 from dispensa.storage.plans_db import PlanRepository
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.targets_db import TargetRepository
@@ -26,6 +27,7 @@ def _deps(engine: Engine) -> Deps:
         pantry=PantryRepository(engine),
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
+        pending=PendingLinkRepository(engine),
     )
 
 

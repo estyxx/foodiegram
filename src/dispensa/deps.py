@@ -11,6 +11,7 @@ from dispensa.storage.db import create_db_engine, init_db
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
+from dispensa.storage.pending_db import PendingLinkRepository
 from dispensa.storage.plans_db import PlanRepository
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.targets_db import TargetRepository
@@ -29,6 +30,7 @@ class Deps(BaseModel):
     pantry: PantryRepository
     targets: TargetRepository
     exercise_log: ExerciseLogRepository
+    pending: PendingLinkRepository
 
 
 class AuthConfig(BaseModel):
@@ -52,6 +54,7 @@ def build_deps(database_url: str) -> Deps:
         pantry=PantryRepository(engine),
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
+        pending=PendingLinkRepository(engine),
     )
 
 

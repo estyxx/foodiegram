@@ -13,6 +13,7 @@ from dispensa.mcp_server.server import search_recipes
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
+from dispensa.storage.pending_db import PendingLinkRepository
 from dispensa.storage.plans_db import PlanRepository
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.targets_db import TargetRepository
@@ -38,6 +39,7 @@ def deps(db_engine: Engine) -> Generator[Deps]:
         pantry=PantryRepository(db_engine),
         targets=TargetRepository(db_engine),
         exercise_log=ExerciseLogRepository(db_engine),
+        pending=PendingLinkRepository(db_engine),
     )
     with (
         patch("dispensa.mcp_server.server.get_deps", return_value=wired),

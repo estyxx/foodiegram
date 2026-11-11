@@ -111,3 +111,14 @@ class PantryLocation(StrEnum):
     FREEZER = "freezer"
     PANTRY = "pantry"
     UNKNOWN = "unknown"
+
+
+class PendingStatus(StrEnum):
+    """Lifecycle of a shared link in the capture queue (D54)."""
+
+    NEW = "new"
+    READY = "ready"
+    EXTRACTING = "extracting"
+    IMPORTED = "imported"
+    FAILED = "failed"
+    UNKNOWN = "unknown"

@@ -36,3 +36,11 @@ class MealNotFoundError(DispensaError):
 
 class PantryItemNotFoundError(DispensaError):
     """Raised when a write names a pantry item id that is not stored."""
+
+
+class PendingLinkNotFoundError(DispensaError):
+    """A capture-queue link was referenced by a code that is not queued."""
+
+
+class LinkAlreadyKnownError(DispensaError):
+    """A shared link is already a recipe in the library, so it is not queued."""

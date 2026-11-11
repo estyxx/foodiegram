@@ -173,3 +173,17 @@ class TargetRow(SQLModel, table=True):
     category: str = Field(primary_key=True)
     min_servings: float
     max_servings: float | None = None
+
+
+class PendingLinkRow(SQLModel, table=True):
+    """A shared Instagram link in the capture queue, before it is a recipe."""
+
+    __tablename__ = "pending_links"
+
+    code: str = Field(primary_key=True)
+    url: str
+    caption: str | None = None
+    thumbnail_url: str | None = None
+    status: str
+    batch_id: str | None = None
+    created_at: datetime

@@ -395,3 +395,32 @@ class AisleGroupOut(BaseModel):
 
     aisle: str
     items: list[ShoppingItemOut]
+
+
+class PendingLinkOut(BaseModel):
+    """A capture-queue link in API responses."""
+
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    url: str
+    caption: str | None
+    thumbnail_url: str | None
+    status: str
+    created_at: datetime
+
+
+class QueueLinkCreate(BaseModel):
+    """POST body to queue a shared Instagram URL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+
+
+class QueueCaption(BaseModel):
+    """PATCH body: the caption pasted onto a queued link."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    caption: str

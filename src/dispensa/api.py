@@ -15,7 +15,15 @@ from fastapi.staticfiles import StaticFiles
 from dispensa.api_auth import BasicAuthMiddleware
 from dispensa.app.version import log_runtime_probe
 from dispensa.deps import AuthConfig, Deps, auth_from_settings, build_deps
-from dispensa.routers import exercise_log, meta, pantry, plans, recipes, targets
+from dispensa.routers import (
+    exercise_log,
+    instagram,
+    meta,
+    pantry,
+    plans,
+    recipes,
+    targets,
+)
 from dispensa.settings import Settings
 
 if TYPE_CHECKING:
@@ -100,6 +108,7 @@ def create_app(
     app.include_router(targets.router)
     app.include_router(meta.router)
     app.include_router(exercise_log.router)
+    app.include_router(instagram.router)
 
     @app.get("/")
     async def serve_index() -> FileResponse:
