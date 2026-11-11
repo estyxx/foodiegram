@@ -258,7 +258,15 @@ session.
       on every mobile card opens "Move to…", every lunch and dinner of the
       week, weekend included, as 44px buttons. Moves are announced; the
       balance does not change. No reordering inside a slot (no order
-      column) and no moving across weeks.
+      column).
+      Across weeks (2026-11-11, at the owner's request): the move body's day
+      may be in any week; the dish joins that week's plan (created if
+      needed, `week_start_of` in the domain) and the reply is the source
+      week. "Move to…" has its own ‹ week › stepper; on the board, holding a
+      dragged dish over the toolbar's ‹ or › turns the week (after 0.6 s,
+      then every 0.9 s) so it can be dropped into an earlier or later week.
+      The balance of both weeks changes, and the announcement says which
+      week it went to.
       Browser-checked on a mocked API at 1366 and 390 px.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
