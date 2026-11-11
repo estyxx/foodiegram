@@ -19,6 +19,7 @@ from dispensa.domain.models import (
 from dispensa.mcp_server.write_tools import (
     add_meal,
     clear_meal,
+    move_meal,
     save_recipe,
     set_portions,
     update_recipe,
@@ -381,3 +382,62 @@ def test_update_recipe_edit_survives_promotion(
     assert report.promoted == 1
     assert promoted.title == "Re-extracted"
     assert promoted.base_servings == _EDITED_SERVINGS
+
+
+def test_move_meal_within_the_week(deps: Deps) -> None:
+    """A dish moves to another day/slot of the same week, keeping its recipe."""
+    deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+
+    result = move_meal(
+        week_start=_MONDAY,
+        day=_MONDAY,
+        slot="dinner",
+        code="FISH1",
+        to_day=_TUESDAY,
+        to_slot="lunch",
+    )
+
+    assert "meals" in result
+    plan = deps.plans.get(date.fromisoformat(_MONDAY))
+    assert plan is not None
+    (dish,) = plan.meals
+    assert dish.recipe_code == "FISH1"
+    assert dish.day == date.fromisoformat(_TUESDAY)
+    assert dish.meal == "lunch"
+
+
+def test_move_meal_to_another_week(deps: Deps) -> None:
+    """Moving to a day in another week leaves the source week and joins the target."""
+    deps.recipes.save(_recipe("FISH1", category=MedCategory.FISH))
+    add_meal(week_start=_MONDAY, day=_MONDAY, slot="dinner", code="FISH1")
+
+    move_meal(
+        week_start=_MONDAY,
+        day=_MONDAY,
+        slot="dinner",
+        code="FISH1",
+        to_day=_NEXT_MONDAY,
+        to_slot="dinner",
+    )
+
+    source = deps.plans.get(date.fromisoformat(_MONDAY))
+    assert source is None or not source.meals
+    target = deps.plans.get(date.fromisoformat(_NEXT_MONDAY))
+    assert target is not None
+    (moved,) = target.meals
+    assert moved.recipe_code == "FISH1"
+
+
+@pytest.mark.usefixtures("deps")
+def test_move_meal_unknown_dish_raises() -> None:
+    """Moving a dish that is not in the named slot is a clear error."""
+    with pytest.raises(ValueError, match="No dinner dish"):
+        move_meal(
+            week_start=_MONDAY,
+            day=_MONDAY,
+            slot="dinner",
+            code="NOPE",
+            to_day=_TUESDAY,
+            to_slot="lunch",
+        )

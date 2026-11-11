@@ -8,6 +8,7 @@ from dispensa.api_models import RecipeCreate
 from dispensa.app.plan_meals import add_draft_meal
 from dispensa.app.plan_meals import add_meal as add_meal_use_case
 from dispensa.app.plan_meals import clear_meal as clear_meal_use_case
+from dispensa.app.plan_meals import move_meal as move_meal_use_case
 from dispensa.app.plan_meals import set_portions as set_portions_use_case
 from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.update_recipe import RecipeEdit
@@ -127,6 +128,77 @@ def add_meal(
     except RecipeNotFoundError as exc:
         msg = f"{exc}. {_CODE_HINT}"
         raise ValueError(msg) from exc
+    return to_mcp_plan(view)
+
+
+@mcp.tool()
+def move_meal(
+    *,
+    week_start: Annotated[str, _WEEK_START],
+    day: Annotated[str, _DAY],
+    slot: Annotated[Literal["lunch", "dinner"], _SLOT],
+    code: Annotated[
+        str,
+        Field(description=f"Which dish to move, by recipe code. {_DISH_CODE_HINT}"),
+    ],
+    to_day: Annotated[
+        str,
+        Field(
+            description=(
+                "Destination day, ISO 'YYYY-MM-DD'. May be in another week — the "
+                "dish then joins that week's plan."
+            ),
+        ),
+    ],
+    to_slot: Annotated[
+        Literal["lunch", "dinner"],
+        Field(description="Destination meal."),
+    ],
+) -> dict[str, Any]:
+    """Move a planned dish to another day and meal, in this week or another.
+
+    The dish keeps its recipe and portions. Identify it by its current
+    week_start, day, slot and recipe `code`; give the destination `to_day` (any
+    week) and `to_slot`. Returns week_start's plan (the dish has left it when it
+    changed week). A destination slot that already holds the same recipe is
+    rejected (one row per recipe per slot).
+    """
+    logger.info(
+        "move_meal: %s %s %s %r -> %s %s", week_start, day, slot, code, to_day, to_slot
+    )
+    source_week = _parse_date("week_start", week_start)
+    source_day = _parse_date("day", day)
+    dest_day = _parse_date("to_day", to_day)
+    deps = get_deps()
+    plan = deps.plans.get(source_week)
+    dish = None
+    if plan is not None:
+        dish = next(
+            (
+                planned
+                for planned in plan.meals
+                if planned.day == source_day
+                and planned.meal == slot
+                and planned.recipe_code == code
+            ),
+            None,
+        )
+    if dish is None or dish.id is None:
+        msg = f"No {slot} dish {code!r} on {day} in week {week_start}"
+        raise ValueError(msg)
+    try:
+        view = move_meal_use_case(
+            week_start=source_week,
+            meal_id=dish.id,
+            day=dest_day,
+            meal=to_slot,
+            recipes=deps.recipes,
+            plans=deps.plans,
+            targets=deps.targets,
+            user_state=deps.user_state,
+        )
+    except (MealNotFoundError, ValueError) as exc:
+        raise ValueError(str(exc)) from exc
     return to_mcp_plan(view)
 
 
