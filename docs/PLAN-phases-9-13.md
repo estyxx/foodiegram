@@ -247,6 +247,19 @@ session.
       recipe. Dropped: the oily-fish line under the balance. The picker
       lists the recipes segment (not inspiration saves), capped at 60 rows.
       Browser-checked on a mocked API at 1366 and 390 px.
+- [x] 11.10 Move a planned dish (2026-11-11, at the owner's request).
+      → `POST /api/plans/{week}/meals/{id}/move` {day, meal}: the dish keeps
+      its recipe and portions; a slot that already holds that recipe, or a
+      day outside the week, is a 422 (one row per recipe per slot, D34).
+      Desktop board: drag a dish card onto another lunch or dinner; cells
+      show they are targets and the one under the pointer lights up; cells
+      that cannot take it (its own slot, a slot with the same recipe) refuse
+      the drop. The menu path (§15.6): "Move" in the ⋯ menu on desktop and
+      on every mobile card opens "Move to…", every lunch and dinner of the
+      week, weekend included, as 44px buttons. Moves are announced; the
+      balance does not change. No reordering inside a slot (no order
+      column) and no moving across weeks.
+      Browser-checked on a mocked API at 1366 and 390 px.
 - **Done when:** browse feels instant; plan page opens without a fetch storm;
   a custom meal can be added from the web without the CLI.
 
