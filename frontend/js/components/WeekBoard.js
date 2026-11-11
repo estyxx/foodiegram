@@ -30,7 +30,9 @@ export const SLOT_LABEL = { lunch: "Lunch", dinner: "Dinner" };
  */
 
 /** The drag payload type; other drags (files, links) never light a cell up. */
-const DRAG_TYPE = "application/x-dispensa-dish";
+export const DRAG_TYPE = "application/x-dispensa-dish";
+// How long after the last dragover a mousemove counts as "the drag ended".
+const DRAG_SETTLE_MS = 300;
 
 /**
  * @typedef {object} WeekBoardView
@@ -66,6 +68,26 @@ export function WeekBoard(handlers) {
       }
       board.classList.add("week-board--dragging");
       card.classList.add("dish-card--dragging");
+      // Turning the week mid-drag re-renders the board and removes the
+      // dragged card, which then never gets dragend. Mouse events stop while
+      // a drag runs and dragover keeps firing, so a mousemove with no recent
+      // dragover means the drag is over: tidy up then.
+      let lastOver = Date.now();
+      const seen = () => {
+        lastOver = Date.now();
+      };
+      const settle = () => {
+        if (Date.now() - lastOver < DRAG_SETTLE_MS) {
+          return;
+        }
+        document.removeEventListener("dragover", seen);
+        document.removeEventListener("mousemove", settle);
+        if (dragging === dish) {
+          drag.end(card);
+        }
+      };
+      document.addEventListener("dragover", seen);
+      document.addEventListener("mousemove", settle);
     },
     end(card) {
       dragging = null;

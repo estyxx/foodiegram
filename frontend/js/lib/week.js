@@ -56,3 +56,12 @@ export function mondayOf(date) {
 export function weekDays(weekStart) {
   return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 }
+
+/**
+ * The Monday starting the week that holds an ISO date.
+ * @param {string} iso
+ * @returns {string}
+ */
+export function weekStartOf(iso) {
+  return mondayOf(new Date(`${iso}T00:00:00`));
+}

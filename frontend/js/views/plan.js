@@ -14,7 +14,7 @@ import { CustomRecipeDialog } from "../components/CustomRecipeDialog.js";
 import { DayView } from "../components/DayView.js";
 import { MoveDialog } from "../components/MoveDialog.js";
 import { RecipePicker } from "../components/RecipePicker.js";
-import { SLOT_LABEL, WeekBoard } from "../components/WeekBoard.js";
+import { DRAG_TYPE, SLOT_LABEL, WeekBoard } from "../components/WeekBoard.js";
 import {
   displayTitle,
   formatDayMonth,
@@ -23,7 +23,14 @@ import {
   formatWeekday,
 } from "../lib/format.js";
 import { indexedRecipe, loadRecipeIndex } from "../lib/recipeIndex.js";
-import { DEFAULT_PORTIONS, addDays, isoDate, mondayOf, weekDays } from "../lib/week.js";
+import {
+  DEFAULT_PORTIONS,
+  addDays,
+  isoDate,
+  mondayOf,
+  weekDays,
+  weekStartOf,
+} from "../lib/week.js";
 
 /** @typedef {import("../api/client.js").PlanResponse} PlanResponse */
 /** @typedef {import("../api/client.js").PlannedMeal} PlannedMeal */
@@ -43,6 +50,10 @@ const WEEK_DAYS = 7;
 const WEEKEND_KEY = "dispensa.plan.showWeekend";
 // Desktop and mobile are two layouts over one state, not one reflowing grid.
 const DESKTOP_QUERY = "(min-width: 760px)";
+// Holding a dragged dish over ‹ or › turns the week after this long, then
+// again every WEEK_FLIP_REPEAT_MS while it stays there.
+const WEEK_FLIP_DELAY_MS = 600;
+const WEEK_FLIP_REPEAT_MS = 900;
 
 /**
  * Which slot the picker is filling, and the dish it swaps when "Change"
@@ -177,8 +188,8 @@ export async function renderPlan(container) {
       openMenu = null;
       moveDialog.open({
         dish,
-        // The menu offers the whole week, so a dish can go to a hidden weekend.
-        days: weekPlanDays(),
+        weekStart,
+        loadWeek,
         onMove: (day, meal) => void handleMove(dish, day, meal),
         onClose: () => {
           pendingFocus = `move-${dish.key}`;
@@ -311,12 +322,34 @@ export async function renderPlan(container) {
   }
 
   /**
-   * All seven days of the week, ready to draw.
+   * All seven days of the shown week, ready to draw.
    * @returns {PlanDay[]}
    */
   function weekPlanDays() {
-    const meals = plan?.meals ?? [];
-    return weekDays(weekStart)
+    return planDaysFor(weekStart, plan?.meals ?? []);
+  }
+
+  /**
+   * Any week's seven days for "Move to…": the shown week from memory, others
+   * fetched. The weekend is always included, hidden or not.
+   * @param {string} start
+   * @returns {Promise<PlanDay[]>}
+   */
+  async function loadWeek(start) {
+    if (start === weekStart && plan !== null) {
+      return weekPlanDays();
+    }
+    const fetched = await getPlan(start);
+    return planDaysFor(start, fetched.meals);
+  }
+
+  /**
+   * @param {string} start
+   * @param {PlannedMeal[]} meals
+   * @returns {PlanDay[]}
+   */
+  function planDaysFor(start, meals) {
+    return weekDays(start)
       .map((iso) => ({
         iso,
         weekday: formatWeekday(iso),
@@ -673,9 +706,9 @@ export async function renderPlan(container) {
   }
 
   /**
-   * Move a dish to another lunch or dinner of the week (drag and drop on the
-   * board, or "Move to…"). It keeps its recipe and servings, so the balance
-   * does not change.
+   * Move a dish to another lunch or dinner, in this week or any other (drag
+   * and drop on the board, or "Move to…"). It keeps its recipe and servings,
+   * so the balance changes only when it changes week.
    * @param {Dish} dish
    * @param {PlanDay} day
    * @param {MealSlot} meal
@@ -690,29 +723,78 @@ export async function renderPlan(container) {
       return;
     }
     const previous = plan;
+    const viewing = weekStart;
     const id = plannedMeal.id;
-    // Drop the moved row and append it, so it lands last in its new slot as
-    // the server orders it.
+    // A dish dragged in from another week (the board turned under it) lives
+    // in that week's plan, so the request is addressed there.
+    const fromWeek = weekStartOf(plannedMeal.day);
+    const toWeek = weekStartOf(day.iso);
+    // Drop the moved row and, if it stays in view, append it, so it lands
+    // last in its new slot as the server orders it.
+    const kept = plan.meals.filter((m) => m.id !== id);
     plan = {
       ...plan,
-      meals: [
-        ...plan.meals.filter((m) => m.id !== id),
-        { ...plannedMeal, day: day.iso, meal },
-      ],
+      meals: toWeek === viewing ? [...kept, { ...plannedMeal, day: day.iso, meal }] : kept,
     };
     openMenu = null;
     error = "";
     // Its old slot's add button is where the dish was.
     pendingFocus = `add-${plannedMeal.day}-${plannedMeal.meal}`;
     renderAll();
-    announce(`${displayTitle(dish.display)} moved to ${day.weekday} ${day.dayMonth} ${meal}.`);
+    const where = `${day.weekday} ${day.dayMonth} ${meal}`;
+    announce(
+      fromWeek === toWeek
+        ? `${displayTitle(dish.display)} moved to ${where}.`
+        : `${displayTitle(dish.display)} moved to ${where}, ${weeksAway(fromWeek, toWeek)}. Balance updated.`,
+    );
     try {
-      plan = await moveMeal(weekStart, id, { day: day.iso, meal });
+      const result = await moveMeal(fromWeek, id, { day: day.iso, meal });
+      // The reply is the source week; another week in view needs its own.
+      const fresh = fromWeek === viewing ? result : await getPlan(viewing);
+      if (weekStart === viewing) {
+        plan = fresh;
+      }
     } catch {
-      plan = previous;
-      error = "Couldn't move that dish — is it already in that meal?";
+      if (weekStart === viewing) {
+        plan = previous;
+        error = "Couldn't move that dish — is it already in that meal?";
+      }
     }
     renderAll();
+  }
+
+  /**
+   * Start turning the week while a dragged dish is held over ‹ or ›, so it
+   * can be dropped into an earlier or later week.
+   * @param {HTMLButtonElement} button
+   * @param {number} deltaDays
+   */
+  function flipWeekOnDragHover(button, deltaDays) {
+    let timer = 0;
+    const stop = () => {
+      window.clearTimeout(timer);
+      window.clearInterval(timer);
+      timer = 0;
+      button.classList.remove("week-stepper__btn--armed");
+    };
+    button.addEventListener("dragenter", (event) => {
+      if (!event.dataTransfer?.types.includes(DRAG_TYPE) || timer !== 0) {
+        return;
+      }
+      button.classList.add("week-stepper__btn--armed");
+      timer = window.setTimeout(() => {
+        void changeWeek(deltaDays);
+        timer = window.setInterval(() => void changeWeek(deltaDays), WEEK_FLIP_REPEAT_MS);
+      }, WEEK_FLIP_DELAY_MS);
+    });
+    button.addEventListener("dragover", (event) => {
+      if (event.dataTransfer?.types.includes(DRAG_TYPE)) {
+        // Marks the arrow as a live target; dropping on it does nothing.
+        event.preventDefault();
+      }
+    });
+    button.addEventListener("dragleave", stop);
+    button.addEventListener("drop", stop);
   }
 
   /**
@@ -758,10 +840,30 @@ export async function renderPlan(container) {
     button.dataset.focusKey = label === "Previous week" ? "week-prev" : "week-next";
     button.setAttribute("aria-label", label);
     button.addEventListener("click", onClick);
+    flipWeekOnDragHover(button, label === "Previous week" ? -WEEK_STEP_DAYS : WEEK_STEP_DAYS);
     return button;
   }
 
   await goToWeek(weekStart);
+}
+
+/**
+ * "next week", "2 weeks earlier": where a moved dish went, for the live region.
+ * @param {string} from Monday ISO date of the week it left.
+ * @param {string} to Monday ISO date of the week it went to.
+ * @returns {string}
+ */
+function weeksAway(from, to) {
+  const weeks = Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / (WEEK_STEP_DAYS * 86_400_000),
+  );
+  if (weeks === 1) {
+    return "next week";
+  }
+  if (weeks === -1) {
+    return "last week";
+  }
+  return weeks > 1 ? `${weeks} weeks later` : `${-weeks} weeks earlier`;
 }
 
 /**

@@ -3803,3 +3803,24 @@
   color: var(--ink-muted);
   cursor: default;
 }
+
+/* Holding a dragged dish here turns the week. */
+.week-stepper__btn--armed,
+.week-stepper__btn--armed:hover {
+  background: var(--teal);
+  color: var(--on-dark);
+}
+
+.move-dialog__weeks {
+  align-self: center;
+  justify-content: space-between;
+  margin: var(--space-3) var(--space-5) 0;
+}
+
+.move-dialog__note {
+  margin: 0;
+  padding: var(--space-6) 0;
+  font-size: var(--text-sm);
+  text-align: center;
+  color: var(--ink-muted);
+}
