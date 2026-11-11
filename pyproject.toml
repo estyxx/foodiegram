@@ -12,7 +12,6 @@ dependencies = [
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.115",
-    "instagrapi>=2.10.6",
     "mcp[cli]>=2.0.0",
     "numpy>=2.5.4",
     "openai>=2.44.0",
@@ -26,6 +25,13 @@ dependencies = [
     "typer>=0.15.0",
     "uvicorn[standard]>=0.30",
 ]
+
+[project.optional-dependencies]
+# instagrapi (Instagram login) is used only by the local pipeline's dev scripts
+# (scripts/dev/*) and the dispensa.instagram adapter — never by the served app.
+# As an extra it is left out of `fastapi deploy`; dev and CI install it with
+# `uv sync --all-extras`.
+instagram = ["instagrapi>=2.10.6"]
 
 [project.scripts]
 dispensa-api = "dispensa.api:main"

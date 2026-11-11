@@ -245,7 +245,6 @@ dependencies = [
     { name = "cloudinary" },
     { name = "dotenv" },
     { name = "fastapi", extra = ["standard"] },
-    { name = "instagrapi" },
     { name = "mcp", extra = ["cli"] },
     { name = "numpy" },
     { name = "openai" },
@@ -258,6 +257,11 @@ dependencies = [
     { name = "sqlmodel" },
     { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+instagram = [
+    { name = "instagrapi" },
 ]
 
 [package.dev-dependencies]
@@ -274,7 +278,7 @@ requires-dist = [
     { name = "cloudinary", specifier = ">=1.44.1" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115" },
-    { name = "instagrapi", specifier = ">=2.10.6" },
+    { name = "instagrapi", marker = "extra == 'instagram'", specifier = ">=2.10.6" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.0.0" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "openai", specifier = ">=2.44.0" },
@@ -288,6 +292,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.15.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
+provides-extras = ["instagram"]
 
 [package.metadata.requires-dev]
 dev = [

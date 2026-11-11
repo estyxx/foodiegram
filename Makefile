@@ -7,35 +7,34 @@ VERSION ?= 3
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
-# Step 1: ingest one or more IGbulkDL JSON files into the DB.
+# Step 1: ingest an IGbulkDL JSON file into the DB.
 # Usage: make ingest FILE=data/food.json
-#        make ingest FILE="data/food.json data/desserts.json"
 ingest:
-	uv run python scripts/ingest_igbulkdl.py $(FILE)
+	uv run dispensa sync ingest $(FILE)
 
 # Step 2: submit an AI batch (only recipes missing an extraction at the current
 # prompt version). Use submit-all after a prompt/model change.
 submit:
-	uv run python scripts/extract_recipes.py submit
+	uv run dispensa sync extract
 
 submit-all:
-	uv run python scripts/extract_recipes.py submit --all
+	uv run dispensa sync extract --all
 
 # Step 3: check batch progress.
 status:
-	uv run python scripts/extract_recipes.py status
+	uv run dispensa sync status
 
 # Step 4: download completed results into the extractions table (never touches
 # recipes). Run promote afterwards to merge them in.
 apply:
-	uv run python scripts/extract_recipes.py apply
+	uv run dispensa sync apply
 
 # Step 5: preview / apply promotions. Dry-run by default; promote-apply writes.
 promote:
-	uv run python scripts/promote.py --version $(VERSION)
+	uv run dispensa sync promote --version $(VERSION)
 
 promote-apply:
-	uv run python scripts/promote.py --version $(VERSION) --apply
+	uv run dispensa sync promote --version $(VERSION) --apply
 
 # What changed between two prompt versions? Usage: make diff FROM=1 TO=2
 diff:

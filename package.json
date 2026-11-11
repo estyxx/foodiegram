@@ -9,9 +9,6 @@
     "dev": "npx http-server frontend -p 3000",
     "typecheck": "tsc --noEmit -p frontend/jsconfig.json"
   },
-  "dependencies": {
-    "serve": "^14.2.1"
-  },
   "keywords": [
     "instagram",
     "recipes",
