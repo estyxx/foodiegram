@@ -25,24 +25,33 @@ from dispensa.app.plan_week import (
     build_week_plan_view,
 )
 from dispensa.deps import DepsDep
+from dispensa.domain.aisles import DEFAULT_AISLES
 from dispensa.domain.errors import MealNotFoundError, RecipeNotFoundError
+from dispensa.domain.synonyms import canonical_term
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/plans")
 
-# Static aisle map ships with the repo (Phase 5.2); absent → everything is "altro".
+# A starter aisle map ships with the repo (15.2); the owner can extend it with
+# an optional data/aisles.json, overlaid on top. Unmapped names fall to "altro".
 _AISLES_PATH = Path("data/aisles.json")
 
 _NOT_MONDAY = "week_start must be a Monday"
 
 
 def _load_aisles() -> dict[str, str]:
-    """Load the canonical-name → aisle map, or an empty map if it is absent."""
-    if not _AISLES_PATH.exists():
-        return {}
-    raw = json.loads(_AISLES_PATH.read_text(encoding="utf-8"))
-    return {str(key): str(value) for key, value in raw.items()}
+    """Return the starter aisle map, overlaid with an optional data/aisles.json.
+
+    The owner's file keys are canonicalised the same way, so they line up with
+    the names the shopping list produces whichever synonym they are written as.
+    """
+    aisles = dict(DEFAULT_AISLES)
+    if _AISLES_PATH.exists():
+        raw = json.loads(_AISLES_PATH.read_text(encoding="utf-8"))
+        for key, value in raw.items():
+            aisles[canonical_term(str(key))] = str(value)
+    return aisles
 
 
 def _to_response(view: WeekPlanView) -> PlanResponse:

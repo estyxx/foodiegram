@@ -1,10 +1,12 @@
 from collections.abc import Sequence
 from datetime import date
 
+from dispensa.domain.aisles import DEFAULT_AISLES
 from dispensa.domain.models import Recipe
 from dispensa.domain.pantry import PantryItem
 from dispensa.domain.planning import PlannedMeal, WeekPlan
 from dispensa.domain.shopping import shopping_list
+from dispensa.domain.synonyms import canonical_term
 
 _MONDAY = date(2024, 1, 1)
 _EXPECTED_RAW_LINES = 2
@@ -77,3 +79,16 @@ def test_missing_recipe_codes_are_skipped() -> None:
     groups = shopping_list(_plan("GONE"), {}, [], {})
 
     assert groups == []
+
+
+def test_known_ingredients_group_into_real_aisles() -> None:
+    """Common ingredients land in their aisle, not 'altro' (15.2)."""
+    recipe = _recipe("A", ["200g ceci", "2 pomodori", "100g parmigiano", "quux"])
+
+    groups = shopping_list(_plan("A"), {"A": recipe}, [], DEFAULT_AISLES)
+
+    by_name = {item.name: group.aisle for group in groups for item in group.items}
+    assert by_name[canonical_term("ceci")] == "dispensa"
+    assert by_name[canonical_term("pomodoro")] == "ortofrutta"
+    assert by_name[canonical_term("parmigiano")] == "latticini"
+    assert by_name[canonical_term("quux")] == "altro"
