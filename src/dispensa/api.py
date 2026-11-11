@@ -1,5 +1,6 @@
 import functools
 import logging
+import mimetypes
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -25,6 +26,10 @@ if TYPE_CHECKING:
     from starlette.types import Scope
 
 logger = logging.getLogger(__name__)
+
+# Python's mimetypes does not know .webmanifest; register it so StaticFiles
+# serves the web app manifest with the correct media type.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 _FRONTEND = Path(__file__).parent.parent.parent / "frontend"
 

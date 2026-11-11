@@ -173,7 +173,9 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": _REALM},
             )
         response = await call_next(request)
-        if basic_ok:
+        # Renew the cookie on any authenticated request, so an installed app that
+        # is used at least monthly stays signed in (sliding expiry).
+        if basic_ok or cookie_ok:
             # Strict: the SPA is same-origin, so the cookie never needs to ride a
             # cross-site request (which also narrows CSRF compared with Basic).
             response.set_cookie(

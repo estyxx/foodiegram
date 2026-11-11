@@ -951,16 +951,32 @@ def test_tampered_cookie_is_rejected(db_engine: Engine) -> None:
     assert forged.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_cookie_stops_working_after_it_expires(db_engine: Engine) -> None:
-    """The cookie is good for 30 days from login, not a second longer."""
+def test_cookie_expires_without_use(db_engine: Engine) -> None:
+    """An unused cookie is good for 30 days from issue, not a second longer."""
     clock = _Clock(1_000.0)
     client = _session_client(db_engine, clock=clock)
     client.get("/api/targets", auth=("user", "pass"))
 
+    clock.now = 1_000.0 + _THIRTY_DAYS + 1
+    assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_cookie_renews_on_use(db_engine: Engine) -> None:
+    """Using the cookie slides its expiry forward, so an active app stays signed in."""
+    clock = _Clock(1_000.0)
+    client = _session_client(db_engine, clock=clock)
+    client.get("/api/targets", auth=("user", "pass"))
+
+    # Used just before the original 30-day expiry: it renews from this moment.
     clock.now = 1_000.0 + _THIRTY_DAYS - 1
     assert client.get("/api/targets").status_code == HTTPStatus.OK
 
+    # Past the original expiry, still valid thanks to that renewal.
     clock.now = 1_000.0 + _THIRTY_DAYS + 1
+    assert client.get("/api/targets").status_code == HTTPStatus.OK
+
+    # Left unused beyond a fresh 30 days, it finally lapses.
+    clock.now = 1_000.0 + 3 * _THIRTY_DAYS
     assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 

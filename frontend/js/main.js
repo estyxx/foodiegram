@@ -101,6 +101,14 @@ async function showVersion() {
 // Outside #view: cooking mode and its timers survive route changes.
 document.body.append(CookingMode(), CookingPill());
 
+// Register the service worker so the installed app opens and shows the last
+// loaded data offline. Failures are non-fatal: the app runs without it.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 window.addEventListener("hashchange", route);
 route();
 showVersion();
