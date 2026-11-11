@@ -292,6 +292,15 @@ class MealUpdate(BaseModel):
     portions: int = 2
 
 
+class MealMove(BaseModel):
+    """POST body moving one planned dish to another (day, slot) in its week."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    meal: Literal["lunch", "dinner"]
+
+
 class PantryItemOut(BaseModel):
     """A pantry item in API responses."""
 

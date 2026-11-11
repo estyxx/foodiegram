@@ -127,6 +127,29 @@ class PlanRepository:
             session.refresh(row)
             return _to_meal(row)
 
+    def move_meal(
+        self,
+        week_start: date,
+        meal_id: int,
+        *,
+        day: date,
+        meal: Literal["lunch", "dinner"],
+    ) -> PlannedMeal | None:
+        """Move one dish to another (day, slot); return None if it is absent."""
+        with get_session(self._engine) as session:
+            plan_row = self._plan_row(session, week_start)
+            if plan_row is None:
+                return None
+            row = session.get(PlannedMealRow, meal_id)
+            if row is None or row.plan_id != plan_row.id:
+                return None
+            row.day = day
+            row.meal = meal
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return _to_meal(row)
+
     def delete_meal(self, week_start: date, meal_id: int) -> bool:
         """Delete meal_id from week_start's plan; return True if it existed."""
         with get_session(self._engine) as session:

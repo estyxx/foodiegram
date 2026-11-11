@@ -204,6 +204,46 @@ def replace_meal(
     )
 
 
+def move_meal(
+    *,
+    week_start: date,
+    meal_id: int,
+    day: date,
+    meal: Literal["lunch", "dinner"],
+    recipes: RecipeRepository,
+    plans: PlanRepository,
+    targets: TargetRepository,
+    user_state: UserStateRepository,
+) -> WeekPlanView:
+    """Move one planned dish to another (day, slot) in the same week.
+
+    The dish keeps its recipe and portions. Raises MealNotFoundError for an
+    unknown dish and ValueError for a day outside the week or a slot that
+    already holds the same recipe (a slot keeps one row per recipe, D34).
+    """
+    check_meal_slot(week_start=week_start, day=day)
+    plan = plans.get(week_start) or WeekPlan(week_start=week_start)
+    current = next((dish for dish in plan.meals if dish.id == meal_id), None)
+    if current is None:
+        msg = f"Meal {meal_id} not found in week {week_start.isoformat()}"
+        raise MealNotFoundError(msg)
+    if (current.day, current.meal) != (day, meal) and any(
+        dish.recipe_code == current.recipe_code for dish in plan.meals_at(day, meal)
+    ):
+        msg = f"Recipe {current.recipe_code!r} is already in {meal} on {day.isoformat()}"
+        raise ValueError(msg)
+    if plans.move_meal(week_start, meal_id, day=day, meal=meal) is None:
+        msg = f"Meal {meal_id} not found in week {week_start.isoformat()}"
+        raise MealNotFoundError(msg)
+    return _week_view(
+        week_start=week_start,
+        recipes=recipes,
+        plans=plans,
+        targets=targets,
+        user_state=user_state,
+    )
+
+
 def clear_meal(
     *,
     week_start: date,
