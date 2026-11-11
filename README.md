@@ -248,6 +248,41 @@ with `WWW-Authenticate: Bearer resource_metadata="…"`, and the protected-resou
 metadata is published at `https://<host>/.well-known/oauth-protected-resource/mcp`
 (naming the IdP). Tokens must carry the `/mcp` URL as their audience (RFC 8707).
 
+### What is WorkOS? (the IdP behind `/mcp`)
+
+**WorkOS** is the external identity provider (IdP) that logs Claude in and mints
+the OAuth 2.1 tokens the `/mcp` endpoint checks. It is the *only* thing
+`MCP_OAUTH_*` refers to; it does **not** touch the website's Basic-auth login
+today (that stays the shared username/password until Phase 18 / D29 replaces it).
+If you ever forget what WorkOS is for: it is the lock on the door Claude uses, and
+nothing else.
+
+The deploy vars map onto one WorkOS **environment** (pick Production in the WorkOS
+dashboard, top-left):
+
+| Variable | What it is in WorkOS |
+|---|---|
+| `MCP_OAUTH_ISSUER` | the environment's issuer URL (its "Authorized" / API keys area) |
+| `MCP_OAUTH_JWKS_URI` | where WorkOS publishes the public keys that verify a token's signature |
+| `MCP_OAUTH_RESOURCE_URL` | **your** `https://<host>/mcp` URL — the token's audience, not a WorkOS value |
+| `MCP_OAUTH_ALLOWED_SUBJECTS` | the WorkOS **user id(s)** (`user_…`) allowed to use `/mcp` |
+
+`MCP_OAUTH_ALLOWED_SUBJECTS` is **not a token you generate** — it is the `sub`
+claim already inside the token WorkOS issues. Two ways to find your id:
+
+- **Dashboard:** Users → your row → the id starting `user_`.
+- **From the app (exact):** set the var to a placeholder (e.g. `pending`) so the
+  app boots, connect Claude once, let the call be refused, then read the log line
+  `Rejected MCP token: subject 'user_…' is not allowed` and paste that id in. This
+  shows precisely what the verifier compares, which the AuthKit flow does not
+  always make the bare dashboard id.
+
+**Invite-only.** Keep sign-up closed so only people you add can get a token:
+WorkOS dashboard → (Production) → Authentication → turn **Sign up** off; add people
+under Users → Invites. A validly signed token whose `sub` is not in
+`MCP_OAUTH_ALLOWED_SUBJECTS` is refused regardless, so the allow-list is the
+backstop if sign-up is ever left open.
+
 **Prerequisites**
 - The app serves fine with only `DATABASE_URL` set; ingestion secrets are optional.
 - FastAPI Cloud supports Python 3.14 (matches `requires-python`); pin `==3.14.*` only
