@@ -1011,3 +1011,31 @@ def test_static_file_answers_a_conditional_request_with_304(db_engine: Engine) -
 
     assert again.status_code == HTTPStatus.NOT_MODIFIED
     assert again.headers["cache-control"] == "no-cache"
+
+
+def test_health_is_public_and_shallow(client: TestClient) -> None:
+    """GET /api/health needs no auth and no database — just liveness."""
+    response = client.get("/api/health")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {"status": "ok"}
+
+
+def test_deep_health_reads_the_database(client: TestClient) -> None:
+    """deep=1 performs a real database read and reports it."""
+    response = client.get("/api/health?deep=1")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == {"status": "ok", "database": "ok"}
+
+
+def test_shallow_health_public_but_deep_needs_auth(db_engine: Engine) -> None:
+    """With auth on, liveness stays open; the deep check demands the password."""
+    client = _credentialed_client(db_engine, ("user", "pass"))
+
+    assert client.get("/api/health").status_code == HTTPStatus.OK
+    assert client.get("/api/health?deep=1").status_code == HTTPStatus.UNAUTHORIZED
+
+    ok = client.get("/api/health?deep=1", auth=("user", "pass"))
+    assert ok.status_code == HTTPStatus.OK
+    assert ok.json() == {"status": "ok", "database": "ok"}

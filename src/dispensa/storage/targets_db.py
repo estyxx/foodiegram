@@ -1,5 +1,7 @@
+import logging
 from typing import TYPE_CHECKING
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from dispensa.domain.planning import CategoryTarget
@@ -10,6 +12,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from sqlalchemy import Engine
+
+
+logger = logging.getLogger(__name__)
 
 
 def _to_target(row: TargetRow) -> CategoryTarget:
@@ -35,6 +40,20 @@ class TargetRepository:
         with get_session(self._engine) as session:
             rows = session.exec(select(TargetRow).order_by(TargetRow.category)).all()
             return [_to_target(row) for row in rows]
+
+    def ping(self) -> bool:
+        """Return True when a trivial read against the database succeeds.
+
+        A cheap real round trip for the health check: a few target rows, so it
+        does not keep a scale-to-zero database awake.
+        """
+        try:
+            with get_session(self._engine) as session:
+                session.exec(select(TargetRow).limit(1)).first()
+        except SQLAlchemyError:
+            logger.exception("health: database read failed")
+            return False
+        return True
 
     def set_all(self, targets: Sequence[CategoryTarget]) -> list[CategoryTarget]:
         """Upsert each target by category and return the full set afterwards."""

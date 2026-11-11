@@ -45,14 +45,18 @@ _KEY_BYTES = 32
 # Instagram shortcode or m-{slug}-{suffix} code can collide with these names.
 _RECIPE_DETAIL = re.compile(r"^/api/recipes/([^/]+)$")
 _RESERVED_RECIPE_ROUTES = frozenset({"count", "index", "semantic"})
+_HEALTH_PATH = "/api/health"
 
 
 def _is_public(request: Request) -> bool:
-    """Return True for the SPA shell and a single recipe's read-only detail GET."""
+    """Return True for the SPA shell, the shallow health check, and a recipe GET."""
     if request.method != "GET":
         return False
     path = request.url.path
     if not path.startswith("/api/"):
+        return True
+    # Liveness stays open; the deep (DB-reading) health check does not.
+    if path == _HEALTH_PATH and request.query_params.get("deep") in (None, "", "0"):
         return True
     match = _RECIPE_DETAIL.match(path)
     return match is not None and match.group(1) not in _RESERVED_RECIPE_ROUTES
