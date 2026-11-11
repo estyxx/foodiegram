@@ -6,6 +6,7 @@ import { CookingPill } from "./components/CookingPill.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
 import { renderPlan } from "./views/plan.js";
+import { renderShop } from "./views/shop.js";
 
 const view = requireElement("view");
 
@@ -31,7 +32,7 @@ function requireElement(id) {
 async function route() {
   const hash = window.location.hash.slice(1) || "browse";
   const [name, param] = hash.split("/");
-  markActiveNav(name);
+  markActiveNav(name === "shop" ? "plan" : name);
   if (name !== "recipe") {
     returnTo = RETURN_ROUTES.has(name) ? hash : "browse";
   }
@@ -43,6 +44,8 @@ async function route() {
       await renderDetail(view, param, { returnTo });
     } else if (name === "plan") {
       await renderPlan(view);
+    } else if (name === "shop" && param) {
+      await renderShop(view, param);
     } else if (name === "favourites") {
       await renderBrowse(view, { favourites: true });
     } else {

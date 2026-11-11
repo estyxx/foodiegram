@@ -157,7 +157,15 @@ export async function renderPlan(container) {
     renderAll();
   });
 
-  controls.append(stepper, thisWeek, weekendSwitch);
+  const shopLink = document.createElement("button");
+  shopLink.type = "button";
+  shopLink.className = "plan__shop-link";
+  shopLink.textContent = "Shopping list";
+  shopLink.addEventListener("click", () => {
+    window.location.hash = `#shop/${weekStart}`;
+  });
+
+  controls.append(stepper, thisWeek, shopLink, weekendSwitch);
   toolbar.append(title, controls);
 
   const errorMsg = document.createElement("p");

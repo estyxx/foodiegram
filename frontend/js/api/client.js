@@ -269,6 +269,30 @@ export async function getPlan(weekStart) {
 }
 
 /**
+ * One needed ingredient under its canonical name, keeping the raw recipe lines.
+ * @typedef {object} ShoppingItem
+ * @property {string} name
+ * @property {string[]} raw_lines
+ */
+
+/**
+ * Shopping items grouped by the supermarket aisle they belong to.
+ * @typedef {object} AisleGroup
+ * @property {string} aisle
+ * @property {ShoppingItem[]} items
+ */
+
+/**
+ * The week's not-in-pantry ingredients, grouped by aisle.
+ * @param {string} weekStart
+ * @returns {Promise<AisleGroup[]>}
+ */
+export async function getShoppingList(weekStart) {
+  const result = await apiFetch(`/plans/${weekStart}/shopping-list`);
+  return /** @type {AisleGroup[]} */ (result);
+}
+
+/**
  * @typedef {object} MealCreateBody
  * @property {string} day ISO date.
  * @property {"lunch" | "dinner"} meal
