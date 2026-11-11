@@ -24,6 +24,7 @@ _MONDAY = "2024-01-01"
 # "/api/recipes/<name>" has three slashes.
 _RECIPE_ROUTE_DEPTH = 3
 _TUESDAY = "2024-01-02"
+_WEDNESDAY = "2024-01-03"
 _SEEDED_TARGETS = 8
 _TWO_SERVINGS = 2.0
 _UPDATED_MIN = 3.0
@@ -172,6 +173,68 @@ def test_put_meal_swaps_one_dish_by_id(client: TestClient, deps: Deps) -> None:
     missing = client.put(
         f"/api/plans/{_MONDAY}/meals/999999",
         json={"recipe_code": "F1"},
+    )
+    assert missing.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_move_meal_changes_slot_and_keeps_the_dish(
+    client: TestClient,
+    deps: Deps,
+) -> None:
+    """A dish moves to another day and slot with its portions; clashes are refused."""
+    deps.recipes.save(_fish_recipe("F1"))
+    deps.recipes.save(_fish_recipe("F2"))
+    client.post(
+        f"/api/plans/{_MONDAY}/meals",
+        json={"day": _MONDAY, "meal": "lunch", "recipe_code": "F1"},
+    )
+    client.post(
+        f"/api/plans/{_MONDAY}/meals",
+        json={"day": _WEDNESDAY, "meal": "dinner", "recipe_code": "F1"},
+    )
+    client.post(
+        f"/api/plans/{_MONDAY}/meals",
+        json={
+            "day": _MONDAY,
+            "meal": "lunch",
+            "recipe_code": "F2",
+            "portions": _UPDATED_SERVINGS,
+        },
+    )
+    meals = client.get(f"/api/plans/{_MONDAY}").json()["meals"]
+    by_code = {(m["recipe_code"], m["day"]): m["id"] for m in meals}
+    f2_id = by_code[("F2", _MONDAY)]
+    f1_id = by_code[("F1", _MONDAY)]
+
+    moved = client.post(
+        f"/api/plans/{_MONDAY}/meals/{f2_id}/move",
+        json={"day": _TUESDAY, "meal": "dinner"},
+    )
+    assert moved.status_code == HTTPStatus.OK
+    f2 = next(m for m in moved.json()["meals"] if m["id"] == f2_id)
+    assert (f2["day"], f2["meal"], f2["recipe_code"], f2["portions"]) == (
+        _TUESDAY,
+        "dinner",
+        "F2",
+        _UPDATED_SERVINGS,
+    )
+
+    # Wednesday dinner already holds F1, so F1 cannot join it a second time.
+    clash = client.post(
+        f"/api/plans/{_MONDAY}/meals/{f1_id}/move",
+        json={"day": _WEDNESDAY, "meal": "dinner"},
+    )
+    assert clash.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    outside = client.post(
+        f"/api/plans/{_MONDAY}/meals/{f1_id}/move",
+        json={"day": "2024-01-08", "meal": "lunch"},
+    )
+    assert outside.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    missing = client.post(
+        f"/api/plans/{_MONDAY}/meals/999999/move",
+        json={"day": _TUESDAY, "meal": "lunch"},
     )
     assert missing.status_code == HTTPStatus.NOT_FOUND
 

@@ -11,13 +11,14 @@ from dispensa.api_models import (
     CategoryStatusOut,
     GapSuggestion,
     MealCreate,
+    MealMove,
     MealUpdate,
     PlannedMealOut,
     PlanResponse,
     RecipeSummary,
     ShoppingItemOut,
 )
-from dispensa.app.plan_meals import add_meal, replace_meal
+from dispensa.app.plan_meals import add_meal, move_meal, replace_meal
 from dispensa.app.plan_week import (
     WeekPlanView,
     build_shopping_list,
@@ -141,6 +142,32 @@ async def update_meal(
             user_state=deps.user_state,
         )
     except (MealNotFoundError, RecipeNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_response(view)
+
+
+@router.post("/{week_start}/meals/{meal_id}/move")
+async def move_planned_meal(
+    week_start: date,
+    meal_id: int,
+    body: MealMove,
+    deps: DepsDep,
+) -> PlanResponse:
+    """Move one planned dish to another (day, slot); return the plan."""
+    try:
+        view = move_meal(
+            week_start=week_start,
+            meal_id=meal_id,
+            day=body.day,
+            meal=body.meal,
+            recipes=deps.recipes,
+            plans=deps.plans,
+            targets=deps.targets,
+            user_state=deps.user_state,
+        )
+    except MealNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
