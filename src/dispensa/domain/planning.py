@@ -95,6 +95,11 @@ class WeekPlan(BaseModel):
         )
 
 
+def week_start_of(day: date) -> date:
+    """Return the Monday that starts the plan week holding day."""
+    return day - timedelta(days=day.weekday() - _MONDAY)
+
+
 def check_meal_slot(*, week_start: date, day: date) -> None:
     """Reject a slot whose week is not Monday-anchored or whose day is outside it.
 

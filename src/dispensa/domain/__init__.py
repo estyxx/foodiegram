@@ -56,6 +56,7 @@ from dispensa.domain.planning import (
     gap_suggestions,
     oily_fish_count,
     week_balance,
+    week_start_of,
 )
 from dispensa.domain.proteins import (
     PROTEIN_WORDS,
@@ -130,4 +131,5 @@ __all__ = [
     "shopping_list",
     "tier_for",
     "week_balance",
+    "week_start_of",
 ]
