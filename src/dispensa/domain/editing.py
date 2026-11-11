@@ -104,3 +104,23 @@ def apply_user_edit(recipe: Recipe, changes: Mapping[str, object]) -> Recipe:
             "edited_fields": recipe.edited_fields | frozenset(changes),
         },
     )
+
+
+def apply_push(target: Recipe, source: Recipe) -> Recipe:
+    """Overlay source's extraction fields onto target, keeping target's user edits.
+
+    Carries local re-extraction improvements to a downstream copy (Neon) without
+    clobbering fields the user edited there (target.edited_fields) or identity,
+    media and caption (PROTECTED_FIELDS). Mirrors promote(), but the new values
+    come from another Recipe rather than from an Extraction.
+    """
+    frozen = target.edited_fields | PROTECTED_FIELDS
+    update: dict[str, object] = {
+        field: getattr(source, field)
+        for field in EXTRACTION_FIELDS
+        if field not in frozen
+    }
+    update["prompt_version"] = source.prompt_version
+    update["model_used"] = source.model_used
+    update["extracted_at"] = source.extracted_at
+    return target.model_copy(update=update)

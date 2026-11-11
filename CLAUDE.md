@@ -66,7 +66,7 @@ Run it, fix what breaks, re-run until clean. Don't skip a check. (Also available
 
 ## Data & environments
 
-- **Local Postgres is the source of truth.** Neon is downstream (prod). Extraction and batch processing run locally, then promote to Neon deliberately.
+- **Neon (prod) is the source of truth for everything the user writes** — plans, pantry, targets, favourites, notes and manual recipes (D35). **Local Postgres is the ingest/extraction workshop.** Instagram recipes are ingested and extracted locally, then promoted to Neon with `dispensa sync push`, which inserts new Instagram recipes and updates only fields Neon has not edited — it never deletes and never touches plans, pantry, notes or manual recipes. A full local→Neon overwrite (`import_json`) is refused against a prod host.
 
 - `extractions` is append-only (reversible history). `promote()` merges extractions → `recipes` and NEVER overwrites a field listed in `edited_fields` (user-owned).
 

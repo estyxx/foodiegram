@@ -10,7 +10,12 @@ from pathlib import Path
 
 from dispensa.app.import_json import import_recipes
 from dispensa.settings import Settings
-from dispensa.storage.db import create_db_engine, init_db
+from dispensa.storage.db import (
+    create_db_engine,
+    database_label,
+    init_db,
+    looks_like_prod,
+)
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.user_state_db import UserStateRepository
 
@@ -32,6 +37,14 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
+    if looks_like_prod(settings.database_url):
+        # import_json upserts whole recipes and would clobber edits made on Neon;
+        # promote local recipe improvements with `dispensa sync push` instead.
+        msg = (
+            f"Refusing to import into a production-looking database "
+            f"({database_label(settings.database_url)}); use `dispensa sync push`."
+        )
+        raise SystemExit(msg)
     data_dir: Path = args.data_dir or settings.data_dir
 
     engine = create_db_engine(settings.database_url)

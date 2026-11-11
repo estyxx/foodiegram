@@ -13,6 +13,7 @@ from dispensa.app import (
     extraction,
     ingest,
     promotion,
+    push,
     sync_all,
 )
 from dispensa.domain.errors import DispensaError
@@ -429,6 +430,55 @@ def sync_embed(
         f"embed ({scope}): considered={report.considered} "
         f"needs={report.needs_embedding} embedded={report.embedded} "
         f"up_to_date={report.skipped_up_to_date} empty={report.skipped_empty}",
+    )
+
+
+@sync_app.command("push")
+def sync_push(
+    *,
+    target: Annotated[
+        str,
+        typer.Option("--target", help="Target database URL (e.g. the Neon prod DB)."),
+    ],
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Persist the push (default is a dry run)."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Allow writing to a production-looking target."),
+    ] = False,
+) -> None:
+    """Push new Instagram recipes and extraction updates from local to the target.
+
+    Inserts recipes the target lacks and updates only fields the target has not
+    edited. Never deletes, and never touches manual recipes, plans or the pantry.
+    """
+    settings = _settings()
+    dry_run = not apply
+    source_label = database_label(settings.database_url)
+    target_label = database_label(target)
+    typer.echo(f"Source: {source_label}  ->  Target: {target_label}")
+    if not dry_run and looks_like_prod(target) and not yes:
+        typer.echo(
+            f"Refusing to write to prod target ({target_label}); pass --yes.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    source_engine = create_db_engine(settings.database_url)
+    # The target is the live app database; its schema already exists. We do not
+    # init it (that would seed targets — a write push must never make).
+    target_engine = create_db_engine(target)
+    report = push.push_recipes(
+        source=RecipeRepository(source_engine),
+        target=RecipeRepository(target_engine),
+        dry_run=dry_run,
+    )
+    mode = "dry-run" if report.dry_run else "applied"
+    typer.echo(
+        f"push ({mode}): inserted={len(report.inserted)} "
+        f"updated={len(report.updated)} unchanged={report.unchanged} "
+        f"target_only_kept={report.target_only_kept}",
     )
 
 

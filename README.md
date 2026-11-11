@@ -198,36 +198,40 @@ prod" below for how data actually reaches Neon.
 
 ## Promoting to prod (Neon)
 
-Local Postgres is the source of truth; Neon is downstream. **Extraction never runs
-against Neon** — everything above (`extract`/`apply`/`promote`/`embed`/
-`backfill-images`) happens locally, and only the *result* moves to prod, so nothing
-gets re-extracted or re-uploaded to Cloudinary just because it's landing in a new
-database.
+Neon (prod) is the source of truth for everything **you** write — plans, pantry,
+targets, favourites, notes and hand-written recipes (D35). Local Postgres is the
+**ingest/extraction workshop**: Instagram recipes are ingested, extracted and
+promoted there, and only recipe improvements move to Neon.
 
-The mechanism today is a JSON export/import pair (not yet wired into the `sync`/`db`
-typer CLI — reach them as standalone scripts):
+**Extraction never runs against Neon** — `extract`/`apply`/`promote`/`embed`/
+`backfill-images` all run locally; only the *result* is pushed, so nothing gets
+re-extracted or re-uploaded to Cloudinary on the way.
+
+Promote local recipe work to Neon with `sync push` — dry run first, then apply:
 
 ```bash
-uv run python scripts/export.py                              # DB → data/recipes/*.json
-DATABASE_URL='<neon-pooled-url>' uv run python scripts/import_json.py
+uv run dispensa sync push --target '<neon-pooled-url>'            # dry run
+uv run dispensa sync push --target '<neon-pooled-url>' --apply --yes
 ```
 
-`export` writes one sorted-key JSON file per recipe (stable git diffs; commit the
-output in the private data repo). `import_json` is the inverse: it upserts each
-recipe — including its `cloudinary_url`, already durable and host-independent — plus
-migrates any `is_favorite`/`user_notes` into `user_state`.
+`sync push` **inserts** Instagram recipes Neon lacks and **updates only fields Neon
+has not edited** (`edited_fields`). It never deletes, and never touches plans,
+pantry, notes or manual recipes — so a push can't undo anything you did on the web
+or through Claude. Take a backup first (the weekly Neon dump in `cookstagram-data`).
 
-**Known gap:** this does **not** carry `recipe_embeddings` (the RAG vectors) or the
-`extractions` history table — only the final promoted `recipes` rows. After importing
-into Neon, semantic search needs its own pass there:
+`import_json` is for an **initial load or disaster recovery into a local/empty
+database only**; it refuses a production-looking host. `export.py` still writes one
+sorted-key JSON file per recipe if you want a readable copy.
+
+**Embeddings** are not carried by a push (the RAG vectors are recomputable). After a
+push that added or changed recipes, re-embed on Neon:
 
 ```bash
 DATABASE_URL='<neon-pooled-url>' uv run dispensa sync embed --changed --yes
 ```
 
-That's an OpenAI embedding call per recipe (cheap — nothing like extraction cost) but
-it is real recomputation, not a copy. A byte-identical embeddings copy is possible but
-isn't built yet.
+That is an OpenAI embedding call per changed recipe (cheap — nothing like extraction
+cost), real recomputation rather than a copy.
 
 ---
 

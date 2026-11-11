@@ -27,6 +27,13 @@ def _test_database_url() -> str:
     return Settings(_env_file=None).database_url_test
 
 
+def _target_database_url() -> str:
+    """Return a second test database URL, same server, for push-target tests."""
+    base = _test_database_url()
+    prefix, _, _name = base.rpartition("/")
+    return f"{prefix}/dispensa_test_push"
+
+
 def _sample_extracted(
     *,
     title: str = "Sample",
@@ -130,3 +137,22 @@ def db_engine(postgres_engine: Engine) -> Engine:
 def engine(db_engine: Engine) -> Engine:
     """Alias for storage tests that expect an engine fixture."""
     return db_engine
+
+
+@pytest.fixture(scope="session")
+def postgres_target_engine() -> Generator[Engine]:
+    """Session-scoped engine bound to a second test database (push target)."""
+    url = _target_database_url()
+    ensure_database(database_url=url)
+    engine = create_db_engine(url)
+    SQLModel.metadata.create_all(engine)
+    _ensure_schema_patches(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def target_engine(postgres_target_engine: Engine) -> Engine:
+    """Return a clean push-target database for one test function (no seeding)."""
+    truncate_all_tables(postgres_target_engine)
+    return postgres_target_engine
