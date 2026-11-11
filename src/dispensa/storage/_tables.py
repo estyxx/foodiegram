@@ -172,4 +172,4 @@ class TargetRow(SQLModel, table=True):
 
     category: str = Field(primary_key=True)
     min_servings: float
-    max_servings: float
+    max_servings: float | None = None

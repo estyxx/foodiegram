@@ -102,6 +102,10 @@ def _ensure_schema_patches(engine: Engine) -> None:
         connection.execute(
             text("ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS quantity TEXT"),
         )
+        # A target may now have no ceiling (D50); allow NULL on existing rows.
+        connection.execute(
+            text("ALTER TABLE targets ALTER COLUMN max_servings DROP NOT NULL"),
+        )
         # Staging table dropped (D32); `sync ingest` writes recipe stubs directly.
         connection.execute(text("DROP TABLE IF EXISTS posts"))
 

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from dispensa.domain.enums import MedCategory
 from dispensa.domain.models import CategoryServing, Recipe
 from dispensa.domain.planning import (
+    DEFAULT_TARGETS,
     CategoryStatus,
     CategoryTarget,
     PlannedMeal,
@@ -332,3 +333,26 @@ def test_meals_at_returns_every_dish_in_the_slot() -> None:
     assert plan.meals_at(_MONDAY, "lunch") == (main, side)
     assert plan.meals_at(_MONDAY, "dinner") == ()
     assert plan.meals_at(_TUESDAY, "lunch") == ()
+
+
+def test_floor_only_target_is_never_over() -> None:
+    """A target with no maximum grades ok at/above min and never 'over' (15.7)."""
+    target = CategoryTarget(category=MedCategory.FISH, min_servings=2, max_servings=None)
+    slots = 5
+
+    statuses = week_balance(_fish_plan(slots), _fish_recipes(slots), (target,))
+
+    assert statuses[0].planned == float(slots)
+    assert statuses[0].state == "ok"
+
+
+def test_default_targets_follow_the_pyramid() -> None:
+    """Plant categories are floors; poultry/red meat shed their floor (D50)."""
+    by_category = {target.category: target for target in DEFAULT_TARGETS}
+
+    assert by_category[MedCategory.FISH].max_servings is None
+    assert by_category[MedCategory.LEGUMES].max_servings is None
+    assert by_category[MedCategory.PLANT_PROTEIN].min_servings == 1
+    assert by_category[MedCategory.PLANT_PROTEIN].max_servings is None
+    assert by_category[MedCategory.POULTRY].min_servings == 0
+    assert by_category[MedCategory.RED_MEAT].max_servings == 1

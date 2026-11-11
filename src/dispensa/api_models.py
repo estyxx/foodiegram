@@ -247,7 +247,7 @@ class CategoryStatusOut(BaseModel):
     category: str
     planned: float
     min_servings: float
-    max_servings: float
+    max_servings: float | None
     state: str
 
 
@@ -358,7 +358,7 @@ class TargetOut(BaseModel):
 
     category: str
     min_servings: float
-    max_servings: float
+    max_servings: float | None
 
 
 class TargetIn(BaseModel):
@@ -368,7 +368,7 @@ class TargetIn(BaseModel):
 
     category: str
     min_servings: float
-    max_servings: float
+    max_servings: float | None = None
 
 
 class TargetsUpdate(BaseModel):

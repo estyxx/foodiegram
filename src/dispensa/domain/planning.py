@@ -24,26 +24,28 @@ class CategoryTarget(BaseModel):
 
     category: MedCategory
     min_servings: float
-    max_servings: float
+    # None = no ceiling: a floor-only target that is never graded "over" (D50).
+    max_servings: float | None
 
 
 # Default weekly targets from the Mediterranean engine table (§2). User-editable
 # later; seeded into the targets table when it is empty.
 DEFAULT_TARGETS: tuple[CategoryTarget, ...] = (
-    CategoryTarget(category=MedCategory.FISH, min_servings=2, max_servings=3),
-    CategoryTarget(category=MedCategory.LEGUMES, min_servings=2, max_servings=3),
-    # PLACEHOLDER: ester to set real weekly plant_protein target.
-    # Matches legumes min/max until then.
-    CategoryTarget(category=MedCategory.PLANT_PROTEIN, min_servings=2, max_servings=3),
-    CategoryTarget(category=MedCategory.POULTRY, min_servings=1, max_servings=2),
+    # Mediterranean diet pyramid (Bach-Faig et al., 2011), D50. Plant categories
+    # are floors with no ceiling (more is better); animal categories keep a
+    # ceiling and lose any floor that would nudge toward more meat. Numbers await
+    # the owner's check against the paper's Figure 1; a deploy does not change
+    # existing prod targets (seeding only fills missing categories).
+    CategoryTarget(category=MedCategory.FISH, min_servings=2, max_servings=None),
+    CategoryTarget(category=MedCategory.LEGUMES, min_servings=2, max_servings=None),
+    CategoryTarget(
+        category=MedCategory.PLANT_PROTEIN, min_servings=1, max_servings=None
+    ),
+    CategoryTarget(category=MedCategory.POULTRY, min_servings=0, max_servings=2),
     CategoryTarget(category=MedCategory.EGGS, min_servings=2, max_servings=4),
     CategoryTarget(category=MedCategory.DAIRY, min_servings=0, max_servings=7),
-    CategoryTarget(category=MedCategory.RED_MEAT, min_servings=0, max_servings=2),
-    CategoryTarget(
-        category=MedCategory.PROCESSED_MEAT,
-        min_servings=0,
-        max_servings=1,
-    ),
+    CategoryTarget(category=MedCategory.RED_MEAT, min_servings=0, max_servings=1),
+    CategoryTarget(category=MedCategory.PROCESSED_MEAT, min_servings=0, max_servings=1),
 )
 
 
@@ -138,7 +140,7 @@ class CategoryStatus(BaseModel):
 
 def _state(planned: float, target: CategoryTarget) -> Literal["under", "ok", "over"]:
     """Classify planned servings against a target range."""
-    if planned > target.max_servings:
+    if target.max_servings is not None and planned > target.max_servings:
         return "over"
     if planned >= target.min_servings:
         return "ok"

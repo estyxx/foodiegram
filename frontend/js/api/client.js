@@ -133,7 +133,7 @@
  * @property {string} category
  * @property {number} planned
  * @property {number} min_servings
- * @property {number} max_servings
+ * @property {number | null} max_servings
  * @property {"under" | "ok" | "over"} state
  */
 

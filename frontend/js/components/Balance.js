@@ -135,9 +135,11 @@ function buildTile(status, variant) {
   const tokens = CATEGORY[status.category];
   const label = tokens ? tokens.label : status.category;
   const target =
-    status.min_servings === status.max_servings
-      ? formatQuantity(status.max_servings)
-      : `${formatQuantity(status.min_servings)}–${formatQuantity(status.max_servings)}`;
+    status.max_servings === null
+      ? `${formatQuantity(status.min_servings)}+`
+      : status.min_servings === status.max_servings
+        ? formatQuantity(status.max_servings)
+        : `${formatQuantity(status.min_servings)}–${formatQuantity(status.max_servings)}`;
   const value = formatQuantity(status.planned);
 
   const tile = document.createElement("div");
@@ -171,14 +173,18 @@ function buildTile(status, variant) {
   state.textContent = STATE_LABEL[status.state];
 
   // The scale leaves headroom past the target band so "over" reads as over.
-  const scale = Math.max(status.max_servings * 1.35, status.planned * 1.08, 1.5);
+  // A floor-only target (no max) scales to its min plus the planned total.
+  const ceiling = status.max_servings ?? status.min_servings;
+  const scale = Math.max(ceiling * 1.35, status.planned * 1.08, 1.5);
   const meter = document.createElement("span");
   meter.className = "balance-tile__meter";
   meter.setAttribute("aria-hidden", "true");
   const band = document.createElement("span");
   band.className = "balance-tile__band";
+  // With no ceiling the band runs open to the right edge.
+  const bandEnd = status.max_servings ?? scale;
   band.style.left = `${(status.min_servings / scale) * 100}%`;
-  band.style.width = `${((status.max_servings - status.min_servings) / scale) * 100}%`;
+  band.style.width = `${((bandEnd - status.min_servings) / scale) * 100}%`;
   const fill = document.createElement("span");
   fill.className = `balance-tile__fill balance-fill--${status.state}`;
   fill.style.width = `${Math.min(100, (status.planned / scale) * 100)}%`;
