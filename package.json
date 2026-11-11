@@ -7,7 +7,8 @@
     "build": "echo 'No build step required for static site'",
     "start": "npx serve frontend",
     "dev": "npx http-server frontend -p 3000",
-    "typecheck": "tsc --noEmit -p frontend/jsconfig.json"
+    "typecheck": "tsc --noEmit -p frontend/jsconfig.json",
+    "test": "node --test frontend/tests/*.test.js"
   },
   "keywords": [
     "instagram",
@@ -19,5 +20,6 @@
   "license": "MIT",
   "devDependencies": {
     "typescript": "^7.0.2"
-  }
+  },
+  "type": "module"
 }

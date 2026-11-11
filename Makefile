@@ -1,6 +1,6 @@
 .PHONY: ingest submit submit-all status apply promote promote-apply diff \
         export import backfill db-init serve-api serve-all lint test typecheck \
-        lint-imports check
+        lint-imports js-test check
 
 # Prompt version to promote/diff. Bump PROMPT_VERSION in ai/batch.py in step.
 VERSION ?= 3
@@ -82,6 +82,10 @@ typecheck:
 lint-imports:
 	uv run lint-imports
 
+# Unit tests for the pure frontend modules (Node's built-in runner, no deps).
+js-test:
+	node --test frontend/tests/*.test.js
+
 # Full gate: ruff + mypy + pytest + import-linter + frontend types.
 check:
-	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && $(MAKE) lint-imports && $(MAKE) typecheck
+	uv run ruff check --fix . && uv run ruff format . && uv run mypy . && uv run pytest && $(MAKE) lint-imports && $(MAKE) typecheck && $(MAKE) js-test
