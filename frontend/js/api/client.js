@@ -92,6 +92,7 @@
  * @typedef {object} VersionInfo
  * @property {string} version
  * @property {string} commit
+ * @property {string} deployment Platform deployment id; shown when there is no commit.
  */
 
 /**

@@ -12,6 +12,13 @@ def test_resolve_version_prefers_explicit_sha() -> None:
     assert info.commit == _SHORT_SHA
 
 
+def test_resolve_version_carries_a_short_deployment_id() -> None:
+    """The deployment id is shortened and reported alongside the commit."""
+    info = resolve_version(_FULL_SHA, "0123456789abcdef")
+    assert info.commit == _SHORT_SHA
+    assert info.deployment == "01234567"
+
+
 def test_resolve_version_reports_package_version() -> None:
     """The installed package version is populated, not the 0.0.0 fallback."""
     info = resolve_version("deadbeefcafebabe0000")

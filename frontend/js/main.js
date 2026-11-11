@@ -91,7 +91,8 @@ async function showVersion() {
   }
   try {
     const info = await getVersion();
-    el.textContent = info.commit && info.commit !== "unknown" ? info.commit : "";
+    const id = info.commit || info.deployment || "";
+    el.textContent = id ? `${info.version} · ${id}` : info.version;
   } catch {
     el.textContent = "";
   }

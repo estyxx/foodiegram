@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from dispensa.api_auth import BasicAuthMiddleware
+from dispensa.app.version import log_runtime_probe
 from dispensa.deps import AuthConfig, Deps, auth_from_settings, build_deps
 from dispensa.routers import exercise_log, meta, pantry, plans, recipes, targets
 from dispensa.settings import Settings
@@ -57,6 +58,7 @@ def create_app(
     cors_origins: list[str] | None = None,
     frontend_dir: Path | None = None,
     git_sha: str = "",
+    deployment_id: str = "",
     clock: Callable[[], float] = time.time,
 ) -> FastAPI:
     """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
@@ -65,6 +67,7 @@ def create_app(
     app = FastAPI(title="Dispensa API")
     app.state.deps = deps
     app.state.git_sha = git_sha
+    app.state.deployment_id = deployment_id
 
     app.add_middleware(
         BasicAuthMiddleware,
@@ -109,12 +112,14 @@ def create_app(
 def _default_app() -> FastAPI:
     """Build the production app from environment settings, once per process."""
     settings = Settings()
+    log_runtime_probe()
     return create_app(
         deps=build_deps(settings.database_url),
         auth=auth_from_settings(settings),
         cors_origins=settings.cors_origins(),
         frontend_dir=settings.frontend_dir,
         git_sha=settings.git_sha,
+        deployment_id=settings.fastapicloud_deployment_id,
     )
 
 

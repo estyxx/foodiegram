@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     # back to reading .git at runtime, then to "unknown"; set GIT_SHA in deploys
     # where .git is not shipped.
     git_sha: str = ""
+    # FastAPI Cloud sets this per deployment (a UUID). Shown in the footer as the
+    # build identifier when no commit SHA is available (D51).
+    fastapicloud_deployment_id: str = ""
 
     # HTTP Basic auth over the whole app (D13). Empty username disables auth (dev).
     basic_auth_username: str = ""

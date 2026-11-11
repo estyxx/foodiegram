@@ -13,7 +13,8 @@ router = APIRouter(prefix="/api")
 async def get_version(request: Request) -> VersionInfo:
     """Return the deployed application version and source commit."""
     git_sha = cast("str", request.app.state.git_sha)
-    return resolve_version(git_sha)
+    deployment_id = cast("str", request.app.state.deployment_id)
+    return resolve_version(git_sha, deployment_id)
 
 
 @router.get("/health")

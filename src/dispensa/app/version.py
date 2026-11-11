@@ -1,23 +1,40 @@
 import functools
 import importlib.metadata
+import logging
+import os
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 _PACKAGE = "dispensa"
 _SHORT_SHA_LEN = 6
-_UNKNOWN = "unknown"
+_SHORT_DEPLOY_LEN = 8
 # app/version.py -> app -> dispensa -> src -> repo root.
 _ROOT = Path(__file__).resolve().parents[3]
 
+logger = logging.getLogger(__name__)
+
+# Env-var name fragments that might carry a commit or build id, for the probe.
+_SOURCE_HINTS = (
+    "FASTAPI",
+    "DEPLOY",
+    "COMMIT",
+    "SHA",
+    "GIT",
+    "BUILD",
+    "SOURCE",
+    "VERSION",
+)
+
 
 class VersionInfo(BaseModel):
-    """The deployed application version and its source commit."""
+    """The deployed application version, source commit, and deployment id."""
 
     model_config = ConfigDict(frozen=True)
 
     version: str
     commit: str
+    deployment: str
 
 
 def _package_version() -> str:
@@ -50,8 +67,31 @@ def _read_git_commit(root: Path) -> str | None:
 
 
 @functools.cache
-def resolve_version(git_sha: str) -> VersionInfo:
-    """Resolve the app version; git_sha wins, then .git, then unknown."""
-    commit = git_sha or _read_git_commit(_ROOT) or _UNKNOWN
-    short = commit if commit == _UNKNOWN else commit[:_SHORT_SHA_LEN]
-    return VersionInfo(version=_package_version(), commit=short)
+def resolve_version(git_sha: str, deployment_id: str = "") -> VersionInfo:
+    """Resolve the version: commit from git_sha then .git (else empty), plus the id.
+
+    An empty commit beats a guessed one — when the deploy ships without .git and
+    no GIT_SHA is set, the footer falls back to the deployment id.
+    """
+    commit = git_sha or _read_git_commit(_ROOT) or ""
+    return VersionInfo(
+        version=_package_version(),
+        commit=commit[:_SHORT_SHA_LEN],
+        deployment=deployment_id[:_SHORT_DEPLOY_LEN],
+    )
+
+
+def log_runtime_probe() -> None:
+    """Log (names only, never values) which platform env vars and markers show.
+
+    Lets the operator read from one deploy's logs whether the platform exposes a
+    commit SHA; if it does, set GIT_SHA from it and the footer shows the commit.
+    """
+    names = sorted(os.environ)
+    source_like = [n for n in names if any(h in n.upper() for h in _SOURCE_HINTS)]
+    logger.info(
+        "runtime probe: %d env vars; source/commit-like names: %s; .git present: %s",
+        len(names),
+        source_like,
+        (_ROOT / ".git").exists(),
+    )
