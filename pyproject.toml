@@ -189,3 +189,23 @@ layers = [
     "dispensa.storage | dispensa.ai | dispensa.images | dispensa.instagram",
     "dispensa.domain",
 ]
+
+# The back-exercise feature ("body") is its own context (D39). Its domain logic
+# reaches into none of the food domain — enforced, so the two can grow (or the
+# exercises move to their own app) without entangling. The router and repository
+# still share the composition root (deps), the API models and the DB engine with
+# the rest of the app; that shared plumbing is infrastructure, not food logic.
+[[tool.importlinter.contracts]]
+name = "body-is-separate"
+type = "forbidden"
+source_modules = ["dispensa.domain.exercise_log"]
+forbidden_modules = [
+    "dispensa.domain.planning",
+    "dispensa.domain.pantry",
+    "dispensa.domain.shopping",
+    "dispensa.domain.proteins",
+    "dispensa.domain.synonyms",
+    "dispensa.domain.editing",
+    "dispensa.domain.diffing",
+    "dispensa.domain.models",
+]
