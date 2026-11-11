@@ -1057,3 +1057,19 @@ def test_shallow_health_public_but_deep_needs_auth(db_engine: Engine) -> None:
     ok = client.get("/api/health?deep=1", auth=("user", "pass"))
     assert ok.status_code == HTTPStatus.OK
     assert ok.json() == {"status": "ok", "database": "ok"}
+
+
+def test_patch_edits_content_and_records_it(client: TestClient, deps: Deps) -> None:
+    """PATCH can now fix title/ingredients, and marks them user-owned (16.1)."""
+    deps.recipes.save(_fish_recipe("EDIT1"))
+
+    response = client.patch(
+        "/api/recipes/EDIT1",
+        json={"ingredients": ["300g cod", "1 lemon"], "title": "Baked cod"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["ingredients"] == ["300g cod", "1 lemon"]
+    assert body["title"] == "Baked cod"
+    assert set(body["edited_fields"]) >= {"ingredients", "title"}

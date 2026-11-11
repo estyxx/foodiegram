@@ -13,7 +13,9 @@ from dispensa.app.plan_meals import set_portions as set_portions_use_case
 from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.update_recipe import RecipeEdit
 from dispensa.app.update_recipe import update_recipe as update_recipe_use_case
+from dispensa.domain.enums import Difficulty
 from dispensa.domain.errors import MealNotFoundError, RecipeNotFoundError
+from dispensa.domain.models import CategoryServing
 from dispensa.mcp_server.runtime import get_deps, mcp
 from dispensa.mcp_server.serializers import to_mcp_detail, to_mcp_plan
 
@@ -328,16 +330,60 @@ def update_recipe(
             ),
         ),
     ] = None,
+    title: Annotated[
+        str | None,
+        Field(
+            description="Fix the title (kept in the caption's language). Omit to leave.",
+        ),
+    ] = None,
+    ingredients: Annotated[
+        list[str] | None,
+        Field(description="Replace the ingredient lines (raw strings). Omit to leave."),
+    ] = None,
+    instructions: Annotated[
+        list[str] | None,
+        Field(description="Replace the method steps. Omit to leave."),
+    ] = None,
+    summary: Annotated[
+        str | None,
+        Field(description="Replace the one-line summary. Omit to leave."),
+    ] = None,
+    total_time: Annotated[
+        str | None,
+        Field(description="Fix the total time, e.g. '30 minutes'. Omit to leave."),
+    ] = None,
+    difficulty: Annotated[
+        Difficulty | None,
+        Field(description="Fix the difficulty. Omit to leave unchanged."),
+    ] = None,
+    mediterranean_categories: Annotated[
+        list[CategoryServing] | None,
+        Field(
+            description=(
+                "Replace the Mediterranean categories (each: category, servings in "
+                "0.25 steps, is_oily_fish). Fixes what the weekly balance counts. "
+                "Omit to leave unchanged."
+            ),
+        ),
+    ] = None,
 ) -> dict[str, Any]:
-    """Edit a recipe's favourite flag, notes, or base servings.
+    """Edit a recipe: favourite, notes, servings, or its content and categories.
 
-    Only the arguments you pass change. Returns the full updated recipe.
+    Only the arguments you pass change; a content edit is user-owned, so later
+    re-extractions never overwrite it. Returns the full updated recipe.
     """
     logger.info("update_recipe: code=%r", code)
     provided = {
         "is_favorite": is_favorite,
         "user_notes": user_notes,
         "base_servings": base_servings,
+        "title": title,
+        "ingredients": ingredients,
+        "instructions": instructions,
+        "summary": summary,
+        "total_time": total_time,
+        "difficulty": difficulty,
+        "mediterranean_categories": mediterranean_categories,
     }
     edit = RecipeEdit.model_validate(
         {field: value for field, value in provided.items() if value is not None},

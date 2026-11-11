@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
 
 from dispensa.domain.editing import apply_user_edit
+from dispensa.domain.enums import Difficulty
 from dispensa.domain.errors import RecipeNotFoundError
-from dispensa.domain.models import Recipe
+from dispensa.domain.models import CategoryServing, Recipe
 
 if TYPE_CHECKING:
     from dispensa.storage.recipes_db import RecipeRepository
@@ -17,8 +18,9 @@ logger = logging.getLogger(__name__)
 class RecipeEdit(BaseModel):
     """A partial user edit; only the fields explicitly set are applied.
 
-    base_servings is a Recipe field and becomes user-owned (edited_fields);
-    is_favorite and user_notes are per-user app state kept in user_state.
+    Recipe content fields (title, ingredients, …) and base_servings become
+    user-owned (recorded in edited_fields); is_favorite and user_notes are
+    per-user app state kept in user_state.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -26,6 +28,17 @@ class RecipeEdit(BaseModel):
     base_servings: int | None = None
     is_favorite: bool | None = None
     user_notes: str | None = None
+    # Content edits (D42): each is recorded in edited_fields when set, so promote
+    # and sync push never overwrite a field the user fixed by hand.
+    title: str | None = None
+    ingredients: list[str] | None = None
+    instructions: list[str] | None = None
+    summary: str | None = None
+    prep_time: str | None = None
+    cook_time: str | None = None
+    total_time: str | None = None
+    difficulty: Difficulty | None = None
+    mediterranean_categories: list[CategoryServing] | None = None
 
 
 def update_recipe(

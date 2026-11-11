@@ -443,3 +443,16 @@ def test_move_meal_unknown_dish_raises() -> None:
             to_day=_TUESDAY,
             to_slot="lunch",
         )
+
+
+def test_update_recipe_edits_content(deps: Deps) -> None:
+    """update_recipe can fix content fields, recorded as user edits (16.1)."""
+    deps.recipes.save(_recipe("EDIT1", category=MedCategory.FISH))
+
+    update_recipe(code="EDIT1", ingredients=["300g cod"], title="Baked cod")
+
+    stored = deps.recipes.get("EDIT1")
+    assert stored is not None
+    assert stored.ingredients == ["300g cod"]
+    assert stored.title == "Baked cod"
+    assert {"ingredients", "title"} <= stored.edited_fields

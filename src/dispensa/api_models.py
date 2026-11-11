@@ -3,9 +3,9 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from dispensa.domain.enums import PantryLocation
+from dispensa.domain.enums import Difficulty, PantryLocation
 from dispensa.domain.exercise_log import ExerciseCategory
-from dispensa.domain.models import ExtractedCategoryServing, Recipe
+from dispensa.domain.models import CategoryServing, ExtractedCategoryServing, Recipe
 from dispensa.domain.proteins import category_servings_for, facets_for
 
 # Longest caption snippet surfaced as a card description; the card clamps to two
@@ -225,6 +225,15 @@ class RecipeUpdate(BaseModel):
     user_notes: str | None = None
     is_favorite: bool | None = None
     base_servings: int | None = None
+    title: str | None = None
+    ingredients: list[str] | None = None
+    instructions: list[str] | None = None
+    summary: str | None = None
+    prep_time: str | None = None
+    cook_time: str | None = None
+    total_time: str | None = None
+    difficulty: Difficulty | None = None
+    mediterranean_categories: list[CategoryServing] | None = None
 
 
 class PlannedMealOut(BaseModel):
