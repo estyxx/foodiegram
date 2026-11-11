@@ -27,13 +27,15 @@ class OAuthConfig:
     jwks_uri: str
     resource_url: str
     required_scopes: list[str]
+    allowed_subjects: frozenset[str]
 
 
 def oauth_config(settings: Settings) -> OAuthConfig:
     """Read the OAuth env; raise ConfigurationError if a required field is unset.
 
     resource_url doubles as the token audience (RFC 8707), so a token minted for
-    another resource cannot be replayed here.
+    another resource cannot be replayed here. allowed_subjects is required too:
+    without it any account the IdP accepts could drive the write tools.
     """
     missing = [
         name
@@ -41,6 +43,7 @@ def oauth_config(settings: Settings) -> OAuthConfig:
             ("MCP_OAUTH_ISSUER", settings.mcp_oauth_issuer),
             ("MCP_OAUTH_JWKS_URI", settings.mcp_oauth_jwks_uri),
             ("MCP_OAUTH_RESOURCE_URL", settings.mcp_oauth_resource_url),
+            ("MCP_OAUTH_ALLOWED_SUBJECTS", settings.mcp_oauth_allowed_subjects),
         )
         if not value
     ]
@@ -53,6 +56,7 @@ def oauth_config(settings: Settings) -> OAuthConfig:
         jwks_uri=settings.mcp_oauth_jwks_uri,
         resource_url=settings.mcp_oauth_resource_url,
         required_scopes=settings.mcp_oauth_required_scopes.split(),
+        allowed_subjects=frozenset(settings.mcp_oauth_allowed_subjects.split()),
     )
 
 
@@ -71,15 +75,27 @@ def _claim_scopes(claims: dict[str, Any]) -> list[str]:
 class JwtTokenVerifier(TokenVerifier):
     """Verify a JWT bearer token against an IdP's JWKS, issuer, and audience.
 
+    A token that verifies is accepted only when its subject is on the
+    allow-list: the signature says who the IdP thinks the caller is, the list
+    says whether that person may use this server.
+
     Header-only: it inspects the token the transport already parsed and never
     touches the request body. JWKS fetches run off the event loop; keys are
     cached by PyJWKClient after the first lookup.
     """
 
-    def __init__(self, *, jwks_uri: str, issuer: str, audience: str) -> None:
-        """Build a verifier bound to one issuer and one audience (the /mcp URL)."""
+    def __init__(
+        self,
+        *,
+        jwks_uri: str,
+        issuer: str,
+        audience: str,
+        allowed_subjects: frozenset[str],
+    ) -> None:
+        """Build a verifier bound to one issuer, one audience and known subjects."""
         self._issuer = issuer
         self._audience = audience
+        self._allowed_subjects = allowed_subjects
         self._jwks_client = PyJWKClient(jwks_uri)
 
     async def verify_token(self, token: str) -> AccessToken | None:
@@ -99,6 +115,11 @@ class JwtTokenVerifier(TokenVerifier):
             logger.info("Rejected MCP token: %s", exc)
             return None
         subject = claims.get("sub")
+        if subject not in self._allowed_subjects:
+            # The subject is an opaque IdP user id, not a secret; logging it is
+            # how the owner finds the id to add to MCP_OAUTH_ALLOWED_SUBJECTS.
+            logger.warning("Rejected MCP token: subject %r is not allowed", subject)
+            return None
         return AccessToken(
             token=token,
             client_id=str(claims.get("client_id") or claims.get("azp") or subject or ""),

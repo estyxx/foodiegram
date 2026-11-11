@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     mcp_oauth_jwks_uri: str = ""
     mcp_oauth_resource_url: str = ""
     mcp_oauth_required_scopes: str = ""
+    # Space-separated token subjects (the IdP's user ids) allowed to use /mcp.
+    # A valid signature only proves the IdP issued the token, not that it was
+    # issued to the owner; this list is what limits the write surface to known
+    # people (D44). Required: the composed app refuses to build when it is empty.
+    mcp_oauth_allowed_subjects: str = ""
 
     # Comma-separated cross-origin allowlist. Empty (default) = no CORS: the SPA is
     # served same-origin, so cross-origin access is off unless explicitly enabled.

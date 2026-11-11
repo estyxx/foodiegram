@@ -20,6 +20,7 @@ _ISSUER = "https://idp.example.com"
 _RESOURCE = "https://testserver/mcp"
 _WELL_KNOWN = "/.well-known/oauth-protected-resource/mcp"
 _ONE_HOUR = 3600
+_SUBJECT = "user_owner"
 
 
 # --- JwtTokenVerifier: audience binding, hermetic (local keypair, no network) ---
@@ -37,12 +38,18 @@ def rsa_keys() -> tuple[bytes, rsa.RSAPublicKey]:
     return pem, key.public_key()
 
 
-def _mint(private_pem: bytes, *, audience: str, issuer: str = _ISSUER) -> str:
-    """Sign an RS256 JWT with the given audience and issuer."""
+def _mint(
+    private_pem: bytes,
+    *,
+    audience: str,
+    issuer: str = _ISSUER,
+    subject: str = _SUBJECT,
+) -> str:
+    """Sign an RS256 JWT with the given audience, issuer and subject."""
     claims = {
         "iss": issuer,
         "aud": audience,
-        "sub": "tester",
+        "sub": subject,
         "scope": "mcp.read",
         "exp": int(time.time()) + _ONE_HOUR,
     }
@@ -64,6 +71,7 @@ def _verifier() -> JwtTokenVerifier:
         jwks_uri="https://idp.example.com/jwks",
         issuer=_ISSUER,
         audience=_RESOURCE,
+        allowed_subjects=frozenset({_SUBJECT}),
     )
 
 
@@ -75,7 +83,7 @@ def test_valid_token_is_accepted(
     _patch_jwks(monkeypatch, public_key)
     result = anyio.run(_verifier().verify_token, _mint(private_pem, audience=_RESOURCE))
     assert result is not None
-    assert result.subject == "tester"
+    assert result.subject == _SUBJECT
     assert result.scopes == ["mcp.read"]
     assert result.resource == _RESOURCE
 
@@ -97,6 +105,16 @@ def test_wrong_issuer_is_rejected(
     private_pem, public_key = rsa_keys
     _patch_jwks(monkeypatch, public_key)
     token = _mint(private_pem, audience=_RESOURCE, issuer="https://other.example.com")
+    assert anyio.run(_verifier().verify_token, token) is None
+
+
+def test_unknown_subject_is_rejected(
+    rsa_keys: tuple[bytes, rsa.RSAPublicKey], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A validly signed token for someone not on the allow-list is refused."""
+    private_pem, public_key = rsa_keys
+    _patch_jwks(monkeypatch, public_key)
+    token = _mint(private_pem, audience=_RESOURCE, subject="user_stranger")
     assert anyio.run(_verifier().verify_token, token) is None
 
 
@@ -124,7 +142,7 @@ class _FakeVerifier(TokenVerifier):
         return None
 
 
-def _settings(*, oauth: bool = True) -> Settings:
+def _settings(*, oauth: bool = True, subjects: str = _SUBJECT) -> Settings:
     """Build Settings with OAuth env and the Postgres test database."""
     defaults = Settings(_env_file=None)
     return Settings(
@@ -133,6 +151,7 @@ def _settings(*, oauth: bool = True) -> Settings:
         mcp_oauth_jwks_uri="https://idp.example.com/jwks" if oauth else "",
         mcp_oauth_resource_url=_RESOURCE if oauth else "",
         mcp_oauth_required_scopes="",
+        mcp_oauth_allowed_subjects=subjects if oauth else "",
         database_url=defaults.database_url_test,
     )
 
@@ -150,6 +169,28 @@ def test_build_asgi_app_requires_oauth_env() -> None:
     """Assembling the composed app fails fast when the OAuth env is unset."""
     with pytest.raises(ConfigurationError, match="MCP_OAUTH"):
         build_asgi_app(settings=_settings(oauth=False))
+
+
+def test_build_asgi_app_requires_allowed_subjects() -> None:
+    """An empty allow-list fails fast: /mcp never ships open to every IdP account."""
+    with pytest.raises(ConfigurationError, match="MCP_OAUTH_ALLOWED_SUBJECTS"):
+        build_asgi_app(settings=_settings(subjects=""))
+
+
+def test_unknown_subject_gets_401_from_the_composed_app(
+    rsa_keys: tuple[bytes, rsa.RSAPublicKey], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End to end: a real, validly signed token for a stranger is a 401 at /mcp."""
+    private_pem, public_key = rsa_keys
+    _patch_jwks(monkeypatch, public_key)
+    token = _mint(private_pem, audience=_RESOURCE, subject="user_stranger")
+    with TestClient(build_asgi_app(settings=_settings())) as client:
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_unauthenticated_request_gets_resource_metadata_challenge() -> None:

@@ -51,6 +51,7 @@ def build_asgi_app(
         jwks_uri=oauth.jwks_uri,
         issuer=oauth.issuer,
         audience=oauth.resource_url,
+        allowed_subjects=oauth.allowed_subjects,
     )
     resource_url = AnyHttpUrl(oauth.resource_url)
     resource_metadata_url = build_resource_metadata_url(resource_url)

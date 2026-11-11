@@ -273,6 +273,7 @@ uvx fastapi deploy        # or: fastapi deploy
 #      MCP_OAUTH_ISSUER      = <idp-issuer-url>            # gates /mcp; boot fails if any unset
 #      MCP_OAUTH_JWKS_URI    = <idp-jwks-uri>
 #      MCP_OAUTH_RESOURCE_URL= https://<host>/mcp         # token audience (RFC 8707)
+#      MCP_OAUTH_ALLOWED_SUBJECTS = <your-idp-user-id>  # only these token subjects may use /mcp
 #      CORS_ALLOW_ORIGINS    = (leave empty — the SPA is same-origin)
 ```
 
