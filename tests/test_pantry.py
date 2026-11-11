@@ -31,3 +31,16 @@ def test_matching_respects_word_boundaries() -> None:
 
     assert match.have == ["2 tbsp oil"]
     assert match.missing == ["boil the pasta"]
+
+
+def test_pantry_matches_italian_ingredient_lines_via_new_pairs() -> None:
+    """English pantry names match Italian ingredient lines (15.5)."""
+    pantry = [
+        PantryItem(name="eggs", kind="fresh"),
+        PantryItem(name="chicken", kind="fresh"),
+    ]
+
+    match = kitchen_match(["2 uova", "petto di pollo", "farina 00"], pantry)
+
+    assert match.have == ["2 uova", "petto di pollo"]
+    assert match.missing == ["farina 00"]

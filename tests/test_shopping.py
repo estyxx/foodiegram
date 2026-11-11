@@ -46,13 +46,13 @@ def test_missing_ingredients_canonicalised_and_grouped_by_aisle() -> None:
 
 def test_unknown_ingredient_falls_back_to_altro() -> None:
     """An ingredient with no aisle mapping is grouped under 'altro'."""
-    recipe = _recipe("A", ["1 tsp salt"])
+    recipe = _recipe("A", ["1 tsp oregano"])
 
     groups = shopping_list(_plan("A"), {"A": recipe}, [], {})
 
     assert len(groups) == 1
     assert groups[0].aisle == "altro"
-    assert groups[0].items[0].name == "salt"
+    assert groups[0].items[0].name == "oregano"
 
 
 def test_duplicate_ingredients_dedupe_and_keep_raw_lines() -> None:
