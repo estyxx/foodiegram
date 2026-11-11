@@ -70,16 +70,7 @@ class PlanRepository:
         """
         WeekPlan(week_start=week_start)  # reject a non-Monday before writing.
         with get_session(self._engine) as session:
-            plan_row = self._plan_row(session, week_start)
-            if plan_row is None:
-                plan_row = WeekPlanRow(week_start=week_start)
-                session.add(plan_row)
-                session.commit()
-                session.refresh(plan_row)
-            plan_id = plan_row.id
-            if plan_id is None:
-                msg = "week plan row has no id after insert"
-                raise StorageError(msg)
+            plan_id = self._ensure_plan_id(session, week_start)
 
             row = session.exec(
                 select(PlannedMealRow).where(
@@ -132,10 +123,15 @@ class PlanRepository:
         week_start: date,
         meal_id: int,
         *,
+        to_week: date,
         day: date,
         meal: Literal["lunch", "dinner"],
     ) -> PlannedMeal | None:
-        """Move one dish to another (day, slot); return None if it is absent."""
+        """Move one dish to (day, slot) of to_week, creating that plan if needed.
+
+        Return None if the dish is not in week_start's plan.
+        """
+        WeekPlan(week_start=to_week)  # reject a non-Monday before writing.
         with get_session(self._engine) as session:
             plan_row = self._plan_row(session, week_start)
             if plan_row is None:
@@ -143,6 +139,7 @@ class PlanRepository:
             row = session.get(PlannedMealRow, meal_id)
             if row is None or row.plan_id != plan_row.id:
                 return None
+            row.plan_id = self._ensure_plan_id(session, to_week)
             row.day = day
             row.meal = meal
             session.add(row)
@@ -162,6 +159,20 @@ class PlanRepository:
             session.delete(row)
             session.commit()
             return True
+
+    @classmethod
+    def _ensure_plan_id(cls, session: Session, week_start: date) -> int:
+        """Return the id of week_start's plan row, inserting the row if absent."""
+        plan_row = cls._plan_row(session, week_start)
+        if plan_row is None:
+            plan_row = WeekPlanRow(week_start=week_start)
+            session.add(plan_row)
+            session.commit()
+            session.refresh(plan_row)
+        if plan_row.id is None:
+            msg = "week plan row has no id after insert"
+            raise StorageError(msg)
+        return plan_row.id
 
     @staticmethod
     def _plan_row(session: Session, week_start: date) -> WeekPlanRow | None:

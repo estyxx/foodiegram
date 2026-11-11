@@ -16,6 +16,7 @@ from dispensa.domain.planning import (
     gap_suggestions,
     oily_fish_count,
     week_balance,
+    week_start_of,
 )
 
 _MONDAY = date(2024, 1, 1)
@@ -307,6 +308,13 @@ def test_check_meal_slot_rejects_a_day_outside_the_week() -> None:
     for day in (date(2023, 12, 31), date(2024, 1, 8)):
         with pytest.raises(ValueError, match="outside the week"):
             check_meal_slot(week_start=_MONDAY, day=day)
+
+
+def test_week_start_of_returns_the_monday_of_any_day() -> None:
+    """Monday maps to itself; Sunday belongs to the week that began six days back."""
+    assert week_start_of(_MONDAY) == _MONDAY
+    assert week_start_of(date(2024, 1, 7)) == _MONDAY
+    assert week_start_of(date(2024, 1, 8)) == date(2024, 1, 8)
 
 
 def test_check_portions_rejects_below_one() -> None:

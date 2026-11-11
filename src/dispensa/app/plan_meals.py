@@ -9,6 +9,7 @@ from dispensa.domain.planning import (
     WeekPlan,
     check_meal_slot,
     check_portions,
+    week_start_of,
 )
 
 if TYPE_CHECKING:
@@ -215,24 +216,34 @@ def move_meal(
     targets: TargetRepository,
     user_state: UserStateRepository,
 ) -> WeekPlanView:
-    """Move one planned dish to another (day, slot) in the same week.
+    """Move one planned dish of week_start to (day, slot) in any week.
 
-    The dish keeps its recipe and portions. Raises MealNotFoundError for an
-    unknown dish and ValueError for a day outside the week or a slot that
-    already holds the same recipe (a slot keeps one row per recipe, D34).
+    The dish keeps its recipe and portions; a day in another week moves it into
+    that week's plan, created if needed. Returns week_start's plan, which the
+    dish has left when it changed week. Raises MealNotFoundError for an unknown
+    dish and ValueError for a slot that already holds the same recipe (a slot
+    keeps one row per recipe, D34).
     """
-    check_meal_slot(week_start=week_start, day=day)
+    to_week = week_start_of(day)
+    # A non-Monday week_start has no stored plan, and WeekPlan rejects it.
     plan = plans.get(week_start) or WeekPlan(week_start=week_start)
     current = next((dish for dish in plan.meals if dish.id == meal_id), None)
     if current is None:
         msg = f"Meal {meal_id} not found in week {week_start.isoformat()}"
         raise MealNotFoundError(msg)
-    if (current.day, current.meal) != (day, meal) and any(
-        dish.recipe_code == current.recipe_code for dish in plan.meals_at(day, meal)
+    target = plan if to_week == week_start else plans.get(to_week)
+    if (
+        target is not None
+        and (current.day, current.meal) != (day, meal)
+        and any(
+            dish.recipe_code == current.recipe_code
+            for dish in target.meals_at(day, meal)
+        )
     ):
         msg = f"Recipe {current.recipe_code!r} is already in {meal} on {day.isoformat()}"
         raise ValueError(msg)
-    if plans.move_meal(week_start, meal_id, day=day, meal=meal) is None:
+    moved = plans.move_meal(week_start, meal_id, to_week=to_week, day=day, meal=meal)
+    if moved is None:
         msg = f"Meal {meal_id} not found in week {week_start.isoformat()}"
         raise MealNotFoundError(msg)
     return _week_view(

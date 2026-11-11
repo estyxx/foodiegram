@@ -293,7 +293,7 @@ class MealUpdate(BaseModel):
 
 
 class MealMove(BaseModel):
-    """POST body moving one planned dish to another (day, slot) in its week."""
+    """POST body moving one planned dish to (day, slot); day may be in any week."""
 
     model_config = ConfigDict(extra="forbid")
 

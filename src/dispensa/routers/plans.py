@@ -155,7 +155,7 @@ async def move_planned_meal(
     body: MealMove,
     deps: DepsDep,
 ) -> PlanResponse:
-    """Move one planned dish to another (day, slot); return the plan."""
+    """Move one planned dish to (day, slot) in any week; return this week's plan."""
     try:
         view = move_meal(
             week_start=week_start,

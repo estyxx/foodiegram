@@ -25,6 +25,8 @@ _MONDAY = "2024-01-01"
 _RECIPE_ROUTE_DEPTH = 3
 _TUESDAY = "2024-01-02"
 _WEDNESDAY = "2024-01-03"
+_NEXT_MONDAY = "2024-01-08"
+_NEXT_TUESDAY = "2024-01-09"
 _SEEDED_TARGETS = 8
 _TWO_SERVINGS = 2.0
 _UPDATED_MIN = 3.0
@@ -226,11 +228,25 @@ def test_move_meal_changes_slot_and_keeps_the_dish(
     )
     assert clash.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    outside = client.post(
+    # A day in another week moves the dish into that week's plan.
+    next_week = client.post(
         f"/api/plans/{_MONDAY}/meals/{f1_id}/move",
-        json={"day": "2024-01-08", "meal": "lunch"},
+        json={"day": _NEXT_TUESDAY, "meal": "lunch"},
     )
-    assert outside.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert next_week.status_code == HTTPStatus.OK
+    assert f1_id not in [m["id"] for m in next_week.json()["meals"]]
+    arrived = client.get(f"/api/plans/{_NEXT_MONDAY}").json()["meals"]
+    assert [(m["id"], m["day"], m["meal"]) for m in arrived] == [
+        (f1_id, _NEXT_TUESDAY, "lunch"),
+    ]
+
+    # Moving back finds next week's dish by the week it now lives in, and a
+    # clash there is refused like a clash at home.
+    back_clash = client.post(
+        f"/api/plans/{_NEXT_MONDAY}/meals/{f1_id}/move",
+        json={"day": _WEDNESDAY, "meal": "dinner"},
+    )
+    assert back_clash.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     missing = client.post(
         f"/api/plans/{_MONDAY}/meals/999999/move",
