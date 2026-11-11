@@ -293,6 +293,47 @@ export async function getShoppingList(weekStart) {
 }
 
 /**
+ * One thing the kitchen has.
+ * @typedef {object} PantryItem
+ * @property {number | null} id
+ * @property {string} name
+ * @property {"staple" | "fresh"} kind
+ * @property {string} location fridge | freezer | pantry | unknown
+ * @property {string} quantity Free text, may be "".
+ * @property {string | null} expires ISO date, or null.
+ */
+
+/**
+ * @returns {Promise<PantryItem[]>}
+ */
+export async function getPantry() {
+  return /** @type {PantryItem[]} */ (await apiFetch("/pantry"));
+}
+
+/**
+ * Add a pantry item.
+ * @param {{ name: string, kind: string, location: string, quantity: string, expires: string | null }} item
+ * @returns {Promise<PantryItem>}
+ */
+export async function addPantryItem(item) {
+  return /** @type {PantryItem} */ (
+    await apiFetch("/pantry", { method: "POST", body: JSON.stringify(item) })
+  );
+}
+
+/**
+ * Remove a pantry item by id (204, no body).
+ * @param {number} id
+ * @returns {Promise<void>}
+ */
+export async function deletePantryItem(id) {
+  const res = await fetch(`${API_BASE}/pantry/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status}): /pantry/${id}`);
+  }
+}
+
+/**
  * @typedef {object} MealCreateBody
  * @property {string} day ISO date.
  * @property {"lunch" | "dinner"} meal

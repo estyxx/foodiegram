@@ -3933,3 +3933,113 @@
 .app-footer__link:hover {
   color: var(--ink);
 }
+
+/* ── Pantry (#pantry) ───────────────────────────────────────────────────── */
+.pantry {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+.pantry__title {
+  margin: 0 0 1rem;
+  font-size: var(--text-h2);
+}
+.pantry__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.pantry__input {
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+}
+.pantry__input--name {
+  flex: 1 1 10rem;
+}
+.pantry__input--qty {
+  flex: 0 1 8rem;
+}
+.pantry__add {
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-sm);
+  background: var(--teal);
+  color: var(--on-dark);
+  cursor: pointer;
+}
+.pantry__group {
+  margin-bottom: 1.5rem;
+}
+.pantry__location {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-ochre);
+}
+.pantry__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pantry__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-row);
+}
+.pantry__item-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+.pantry__name {
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+.pantry__qty {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+.pantry__badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+.pantry__badge--soon {
+  background: var(--accent-ochre);
+  color: var(--on-dark);
+}
+.pantry__badge--expired {
+  background: var(--garnet, #7a1f1f);
+  color: var(--on-dark);
+}
+.pantry__remove {
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.pantry__remove:hover {
+  color: var(--ink);
+}
