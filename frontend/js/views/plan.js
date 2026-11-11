@@ -6,11 +6,13 @@ import {
   deleteMeal,
   getPlan,
   getRecipe,
+  moveMeal,
   updateMeal,
 } from "../api/client.js";
 import { BalanceBar, BalanceStrip } from "../components/Balance.js";
 import { CustomRecipeDialog } from "../components/CustomRecipeDialog.js";
 import { DayView } from "../components/DayView.js";
+import { MoveDialog } from "../components/MoveDialog.js";
 import { RecipePicker } from "../components/RecipePicker.js";
 import { SLOT_LABEL, WeekBoard } from "../components/WeekBoard.js";
 import {
@@ -171,6 +173,21 @@ export async function renderPlan(container) {
       }
     },
     onRemove: handleRemove,
+    onMove: (/** @type {Dish} */ dish) => {
+      openMenu = null;
+      moveDialog.open({
+        dish,
+        // The menu offers the whole week, so a dish can go to a hidden weekend.
+        days: weekPlanDays(),
+        onMove: (day, meal) => void handleMove(dish, day, meal),
+        onClose: () => {
+          pendingFocus = `move-${dish.key}`;
+          renderAll();
+        },
+      });
+    },
+    onDrop: (/** @type {Dish} */ dish, /** @type {PlanDay} */ day, /** @type {MealSlot} */ meal) =>
+      void handleMove(dish, day, meal),
     onToggleMenu: (/** @type {string} */ key) => {
       openMenu = openMenu === key ? null : key;
       renderAll();
@@ -190,6 +207,7 @@ export async function renderPlan(container) {
   });
 
   const customDialog = CustomRecipeDialog();
+  const moveDialog = MoveDialog();
   const recipePicker = RecipePicker({
     onPick: (recipe) => void handlePick(recipe),
     onCustom: (base) => void handleCustom(base),
@@ -214,6 +232,7 @@ export async function renderPlan(container) {
     dayView.element,
     recipePicker.element,
     customDialog.element,
+    moveDialog.element,
   );
   container.append(root);
 
@@ -288,9 +307,16 @@ export async function renderPlan(container) {
    * @returns {PlanDay[]}
    */
   function shownDays() {
+    return weekPlanDays().slice(0, showWeekend ? WEEK_DAYS : WEEKDAYS);
+  }
+
+  /**
+   * All seven days of the week, ready to draw.
+   * @returns {PlanDay[]}
+   */
+  function weekPlanDays() {
     const meals = plan?.meals ?? [];
     return weekDays(weekStart)
-      .slice(0, showWeekend ? WEEK_DAYS : WEEKDAYS)
       .map((iso) => ({
         iso,
         weekday: formatWeekday(iso),
@@ -642,6 +668,49 @@ export async function renderPlan(container) {
     } catch {
       plan = previous;
       error = "Couldn't update portions — try again.";
+    }
+    renderAll();
+  }
+
+  /**
+   * Move a dish to another lunch or dinner of the week (drag and drop on the
+   * board, or "Move to…"). It keeps its recipe and servings, so the balance
+   * does not change.
+   * @param {Dish} dish
+   * @param {PlanDay} day
+   * @param {MealSlot} meal
+   */
+  async function handleMove(dish, day, meal) {
+    const { plannedMeal } = dish;
+    // Same mid-flight race as handleRemove: no id yet, nothing to target.
+    if (plan === null || plannedMeal.id === null) {
+      return;
+    }
+    if (plannedMeal.day === day.iso && plannedMeal.meal === meal) {
+      return;
+    }
+    const previous = plan;
+    const id = plannedMeal.id;
+    // Drop the moved row and append it, so it lands last in its new slot as
+    // the server orders it.
+    plan = {
+      ...plan,
+      meals: [
+        ...plan.meals.filter((m) => m.id !== id),
+        { ...plannedMeal, day: day.iso, meal },
+      ],
+    };
+    openMenu = null;
+    error = "";
+    // Its old slot's add button is where the dish was.
+    pendingFocus = `add-${plannedMeal.day}-${plannedMeal.meal}`;
+    renderAll();
+    announce(`${displayTitle(dish.display)} moved to ${day.weekday} ${day.dayMonth} ${meal}.`);
+    try {
+      plan = await moveMeal(weekStart, id, { day: day.iso, meal });
+    } catch {
+      plan = previous;
+      error = "Couldn't move that dish — is it already in that meal?";
     }
     renderAll();
   }

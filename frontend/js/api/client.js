@@ -312,6 +312,28 @@ export async function updateMeal(weekStart, mealId, meal) {
 }
 
 /**
+ * @typedef {object} MealMoveBody
+ * @property {string} day ISO date, inside the same week.
+ * @property {"lunch" | "dinner"} meal
+ */
+
+/**
+ * Move one planned dish to another (day, meal) of its week, keeping its
+ * recipe and portions. 422 when that slot already holds the same recipe.
+ * @param {string} weekStart
+ * @param {number} mealId
+ * @param {MealMoveBody} target
+ * @returns {Promise<PlanResponse>}
+ */
+export async function moveMeal(weekStart, mealId, target) {
+  const result = await apiFetch(`/plans/${weekStart}/meals/${mealId}/move`, {
+    method: "POST",
+    body: JSON.stringify(target),
+  });
+  return /** @type {PlanResponse} */ (result);
+}
+
+/**
  * Remove one planned dish from the plan.
  * @param {string} weekStart
  * @param {number} mealId

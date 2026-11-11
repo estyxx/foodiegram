@@ -30,6 +30,8 @@ import { displayTitle } from "../lib/format.js";
  * @property {(plannedMeal: PlannedMeal, portions: number) => void} onPortions
  * @property {(dish: Dish) => void} onChange Open the picker to swap this dish.
  * @property {(dish: Dish) => void} onRemove
+ * @property {(dish: Dish) => void} onMove Open the "Move to…" menu: the
+ *   keyboard and touch path for what drag and drop does on the board.
  * @property {(key: string) => void} onToggleMenu Desktop ⋯ menu.
  */
 
@@ -52,6 +54,7 @@ export function DishCard(dish, menuOpen, handlers) {
     img.src = src;
     img.alt = "";
     img.loading = "lazy";
+    img.draggable = false;
     // An expired Instagram URL shows nothing, not a broken-image box.
     img.addEventListener("error", () => img.remove());
     card.append(img);
@@ -93,7 +96,11 @@ export function DishCard(dish, menuOpen, handlers) {
       () => handlers.onRemove(dish),
     );
     remove.dataset.focusKey = `remove-${dish.key}`;
-    actions.append(change, remove);
+    const move = actionButton("Move", `Move ${title}`, "dish-card__action", () =>
+      handlers.onMove(dish),
+    );
+    move.dataset.focusKey = `move-${dish.key}`;
+    actions.append(change, move, remove);
     card.append(actions);
   }
   return card;
@@ -127,7 +134,18 @@ export function MobileDishCard(dish, handlers) {
     handlers.onRemove(dish),
   );
   remove.dataset.focusKey = `remove-${dish.key}`;
-  controls.append(...stepper(dish, handlers, "dish-card"), igTag(dish, "dish-card__ig"), change, remove);
+  const move = actionButton("Move", `Move ${title}`, "dish-card__change", () =>
+    handlers.onMove(dish),
+  );
+  move.dataset.focusKey = `move-${dish.key}`;
+  move.classList.add("dish-card__move");
+  controls.append(
+    ...stepper(dish, handlers, "dish-card"),
+    igTag(dish, "dish-card__ig"),
+    change,
+    move,
+    remove,
+  );
   card.append(controls);
   return card;
 }
@@ -141,6 +159,8 @@ function titleLink(dish, className) {
   const link = document.createElement("a");
   link.className = className;
   link.href = `#recipe/${dish.display.code}`;
+  // The card is the drag handle; a dragged link would drop a URL instead.
+  link.draggable = false;
   link.textContent = displayTitle(dish.display);
   return link;
 }

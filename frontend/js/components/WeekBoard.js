@@ -25,8 +25,12 @@ export const SLOT_LABEL = { lunch: "Lunch", dinner: "Dinner" };
 /**
  * @typedef {DishHandlers & {
  *   onAdd: (day: PlanDay, meal: MealSlot) => void,
+ *   onDrop: (dish: Dish, day: PlanDay, meal: MealSlot) => void,
  * }} BoardHandlers
  */
+
+/** The drag payload type; other drags (files, links) never light a cell up. */
+const DRAG_TYPE = "application/x-dispensa-dish";
 
 /**
  * @typedef {object} WeekBoardView
@@ -44,6 +48,57 @@ export function WeekBoard(handlers) {
   const board = document.createElement("div");
   board.className = "week-board";
 
+  /**
+   * The dish being dragged. dragover cannot read the payload, only its type,
+   * so the board keeps the dish itself to tell which cells may take it.
+   * @type {Dish | null}
+   */
+  let dragging = null;
+
+  /** @type {DragHooks} */
+  const drag = {
+    start(dish, card, event) {
+      dragging = dish;
+      event.dataTransfer?.setData(DRAG_TYPE, dish.key);
+      event.dataTransfer?.setData("text/plain", dish.display.title ?? dish.display.code);
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+      }
+      board.classList.add("week-board--dragging");
+      card.classList.add("dish-card--dragging");
+    },
+    end(card) {
+      dragging = null;
+      board.classList.remove("week-board--dragging");
+      card.classList.remove("dish-card--dragging");
+      for (const cell of board.querySelectorAll(".week-board__cell--drop")) {
+        cell.classList.remove("week-board__cell--drop");
+      }
+    },
+    accepts(day, meal) {
+      if (dragging === null) {
+        return false;
+      }
+      const from = dragging.plannedMeal;
+      if (from.day === day.iso && from.meal === meal) {
+        return false;
+      }
+      // A slot keeps one row per recipe (D34), so it cannot take a second copy.
+      return !day.dishes[meal].some((d) => d.plannedMeal.recipe_code === from.recipe_code);
+    },
+    drop(day, meal) {
+      const dish = dragging;
+      const ok = dish !== null && drag.accepts(day, meal);
+      // The move re-renders the board and the dragged card with it, and a
+      // removed source gets no dragend, so tidy up here first.
+      dragging = null;
+      board.classList.remove("week-board--dragging");
+      if (ok) {
+        handlers.onDrop(dish, day, meal);
+      }
+    },
+  };
+
   return {
     element: board,
     render(days, openMenu) {
@@ -55,7 +110,7 @@ export function WeekBoard(handlers) {
         const label = document.createElement("div");
         label.className = "week-board__slot";
         label.textContent = SLOT_LABEL[meal];
-        cells.push(label, ...days.map((day) => buildCell(day, meal, openMenu, handlers)));
+        cells.push(label, ...days.map((day) => buildCell(day, meal, openMenu, handlers, drag)));
       }
       board.replaceChildren(...cells);
     },
@@ -92,19 +147,57 @@ export function todayPill() {
 }
 
 /**
+ * @typedef {object} DragHooks
+ * @property {(dish: Dish, card: HTMLElement, event: DragEvent) => void} start
+ * @property {(card: HTMLElement) => void} end
+ * @property {(day: PlanDay, meal: MealSlot) => boolean} accepts
+ * @property {(day: PlanDay, meal: MealSlot) => void} drop
+ */
+
+/**
  * @param {PlanDay} day
  * @param {MealSlot} meal
  * @param {string | null} openMenu
  * @param {BoardHandlers} handlers
+ * @param {DragHooks} drag
  * @returns {HTMLElement}
  */
-function buildCell(day, meal, openMenu, handlers) {
+function buildCell(day, meal, openMenu, handlers, drag) {
   const cell = document.createElement("div");
   cell.className = "week-board__cell";
   cell.classList.toggle("week-board__cell--today", day.isToday);
 
   const dishes = day.dishes[meal];
-  cell.append(...dishes.map((dish) => DishCard(dish, openMenu === dish.key, handlers)));
+  for (const dish of dishes) {
+    const card = DishCard(dish, openMenu === dish.key, handlers);
+    // A dish added moments ago has no server id yet, so nothing to move.
+    if (dish.plannedMeal.id !== null) {
+      card.draggable = true;
+      card.addEventListener("dragstart", (event) => drag.start(dish, card, event));
+      card.addEventListener("dragend", () => drag.end(card));
+    }
+    cell.append(card);
+  }
+
+  cell.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer?.types.includes(DRAG_TYPE) || !drag.accepts(day, meal)) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    cell.classList.add("week-board__cell--drop");
+  });
+  cell.addEventListener("dragleave", (event) => {
+    // Leaving for a child (a card inside the cell) is not leaving the cell.
+    if (!(event.relatedTarget instanceof Node && cell.contains(event.relatedTarget))) {
+      cell.classList.remove("week-board__cell--drop");
+    }
+  });
+  cell.addEventListener("drop", (event) => {
+    event.preventDefault();
+    cell.classList.remove("week-board__cell--drop");
+    drag.drop(day, meal);
+  });
 
   const add = document.createElement("button");
   add.type = "button";
