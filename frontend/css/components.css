@@ -4043,3 +4043,105 @@
 .pantry__remove:hover {
   color: var(--ink);
 }
+
+/* ── Capture queue (#queue) ─────────────────────────────────────────────── */
+.queue {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+.queue__title {
+  margin: 0 0 1rem;
+  font-size: var(--text-h2);
+}
+.queue__add {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.queue__add-input {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+}
+.queue__add-btn,
+.queue__save {
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-sm);
+  background: var(--teal);
+  color: var(--on-dark);
+  cursor: pointer;
+}
+.queue__item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-row);
+}
+.queue__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.queue__link {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--teal);
+  flex: 1 1 auto;
+}
+.queue__status {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+.queue__status--ready {
+  color: var(--teal);
+}
+.queue__status--imported {
+  color: var(--accent-ochre);
+}
+.queue__remove {
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.queue__caption-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.queue__caption-input {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+}
+.queue__save {
+  align-self: flex-start;
+}
+.queue__snippet {
+  margin: 0.4rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}

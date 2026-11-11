@@ -7,6 +7,7 @@ import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
 import { renderPlan } from "./views/plan.js";
 import { renderPantry } from "./views/pantry.js";
+import { renderQueue } from "./views/queue.js";
 import { renderShop } from "./views/shop.js";
 
 const view = requireElement("view");
@@ -49,6 +50,8 @@ async function route() {
       await renderShop(view, param);
     } else if (name === "pantry") {
       await renderPantry(view);
+    } else if (name === "queue") {
+      await renderQueue(view);
     } else if (name === "favourites") {
       await renderBrowse(view, { favourites: true });
     } else {

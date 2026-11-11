@@ -334,6 +334,62 @@ export async function deletePantryItem(id) {
 }
 
 /**
+ * A shared link in the capture queue.
+ * @typedef {object} PendingLink
+ * @property {string} code
+ * @property {string} url
+ * @property {string | null} caption
+ * @property {string | null} thumbnail_url
+ * @property {string} status new | ready | extracting | imported | failed
+ * @property {string} created_at
+ */
+
+/**
+ * @returns {Promise<PendingLink[]>}
+ */
+export async function getQueue() {
+  return /** @type {PendingLink[]} */ (await apiFetch("/instagram/queue"));
+}
+
+/**
+ * Queue a shared Instagram URL.
+ * @param {string} url
+ * @returns {Promise<PendingLink>}
+ */
+export async function queueLink(url) {
+  return /** @type {PendingLink} */ (
+    await apiFetch("/instagram/queue", { method: "POST", body: JSON.stringify({ url }) })
+  );
+}
+
+/**
+ * Paste the full caption onto a queued link.
+ * @param {string} code
+ * @param {string} caption
+ * @returns {Promise<PendingLink>}
+ */
+export async function pasteCaption(code, caption) {
+  return /** @type {PendingLink} */ (
+    await apiFetch(`/instagram/queue/${code}`, {
+      method: "PATCH",
+      body: JSON.stringify({ caption }),
+    })
+  );
+}
+
+/**
+ * Remove a link from the queue (204, no body).
+ * @param {string} code
+ * @returns {Promise<void>}
+ */
+export async function deleteQueued(code) {
+  const res = await fetch(`${API_BASE}/instagram/queue/${code}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status}): /instagram/queue/${code}`);
+  }
+}
+
+/**
  * @typedef {object} MealCreateBody
  * @property {string} day ISO date.
  * @property {"lunch" | "dinner"} meal
