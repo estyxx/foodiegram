@@ -39,6 +39,7 @@ class RecipeEdit(BaseModel):
     total_time: str | None = None
     difficulty: Difficulty | None = None
     mediterranean_categories: list[CategoryServing] | None = None
+    archived: bool | None = None
 
 
 def update_recipe(

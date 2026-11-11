@@ -10,7 +10,7 @@ from sqlalchemy import Engine
 
 from dispensa.api import create_app
 from dispensa.deps import AuthConfig, Deps, get_openai_client
-from dispensa.domain.enums import MedCategory
+from dispensa.domain.enums import MedCategory, RecipeSource
 from dispensa.domain.models import CategoryServing, Recipe
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
@@ -1073,3 +1073,38 @@ def test_patch_edits_content_and_records_it(client: TestClient, deps: Deps) -> N
     assert body["ingredients"] == ["300g cod", "1 lemon"]
     assert body["title"] == "Baked cod"
     assert set(body["edited_fields"]) >= {"ingredients", "title"}
+
+
+def test_index_excludes_archived_recipes(client: TestClient, deps: Deps) -> None:
+    """Archived recipes drop out of the Browse index (16.6)."""
+    deps.recipes.save(_fish_recipe("KEEP1"))
+    deps.recipes.save(_fish_recipe("ARCH1").model_copy(update={"archived": True}))
+
+    index = client.get("/api/recipes/index").json()
+    codes = [entry["code"] for entry in index["recipes"]]
+
+    assert "KEEP1" in codes
+    assert "ARCH1" not in codes
+
+
+def test_delete_removes_a_manual_recipe(client: TestClient, deps: Deps) -> None:
+    """A manual recipe can be deleted outright."""
+    deps.recipes.save(
+        _fish_recipe("MAN1").model_copy(update={"source": RecipeSource.MANUAL}),
+    )
+
+    assert client.delete("/api/recipes/MAN1").status_code == HTTPStatus.NO_CONTENT
+    assert deps.recipes.get("MAN1") is None
+
+
+def test_delete_refuses_an_instagram_recipe(client: TestClient, deps: Deps) -> None:
+    """An Instagram save is archived, not deleted."""
+    deps.recipes.save(_fish_recipe("IG1"))
+
+    assert client.delete("/api/recipes/IG1").status_code == HTTPStatus.CONFLICT
+    assert deps.recipes.get("IG1") is not None
+
+
+def test_delete_unknown_recipe_is_404(client: TestClient) -> None:
+    """Deleting a code that does not exist is a 404."""
+    assert client.delete("/api/recipes/NOPE").status_code == HTTPStatus.NOT_FOUND

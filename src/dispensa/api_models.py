@@ -234,6 +234,7 @@ class RecipeUpdate(BaseModel):
     total_time: str | None = None
     difficulty: Difficulty | None = None
     mediterranean_categories: list[CategoryServing] | None = None
+    archived: bool | None = None
 
 
 class PlannedMealOut(BaseModel):

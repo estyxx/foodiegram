@@ -3,6 +3,7 @@ import re
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import ValidationError
 
 from dispensa.api_models import (
@@ -27,6 +28,7 @@ from dispensa.domain.enums import (
     DishType,
     MealType,
     MedCategory,
+    RecipeSource,
 )
 from dispensa.domain.errors import RecipeNotFoundError, StorageError
 from dispensa.domain.models import Recipe
@@ -202,6 +204,7 @@ async def recipe_index(deps: DepsDep) -> RecipeIndex:
                 is_favorite=recipe.code in favourites,
             )
             for recipe in deps.recipes.list_all()
+            if not recipe.archived
         ],
         synonyms=[sorted(term.lower() for term in group) for group in SYNONYM_GROUPS],
     )
@@ -397,3 +400,16 @@ async def scale_recipe(
         ),
         ingredients=scaled,
     )
+
+
+@router.delete("/recipes/{code}", status_code=204)
+async def delete_recipe(code: str, deps: DepsDep) -> Response:
+    """Delete a manual recipe; an Instagram save is archived, not deleted (D15)."""
+    recipe = deps.recipes.get(code)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail=f"Recipe {code!r} not found")
+    if recipe.source is not RecipeSource.MANUAL:
+        msg = "Only manual recipes can be deleted; archive an Instagram save instead."
+        raise HTTPException(status_code=409, detail=msg)
+    deps.recipes.delete(code)
+    return Response(status_code=204)
