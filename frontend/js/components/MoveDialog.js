@@ -1,17 +1,21 @@
 // @ts-check
 
 import { SLOT_LABEL } from "./WeekBoard.js";
-import { displayTitle } from "../lib/format.js";
-import { MEAL_SLOTS } from "../lib/week.js";
+import { displayTitle, formatWeekRange } from "../lib/format.js";
+import { MEAL_SLOTS, addDays } from "../lib/week.js";
 
 /** @typedef {import("../lib/week.js").MealSlot} MealSlot */
 /** @typedef {import("./DishCard.js").Dish} Dish */
 /** @typedef {import("./WeekBoard.js").PlanDay} PlanDay */
 
+const WEEK_STEP_DAYS = 7;
+
 /**
  * @typedef {object} MoveRequest
  * @property {Dish} dish
- * @property {PlanDay[]} days Every day of the week, weekend included.
+ * @property {string} weekStart The week to show first (the dish's own).
+ * @property {(weekStart: string) => Promise<PlanDay[]>} loadWeek All seven
+ *   days of a week, with the dishes already planned there.
  * @property {(day: PlanDay, meal: MealSlot) => void} onMove
  * @property {() => void} onClose Fires when it closes without a move.
  */
@@ -23,10 +27,10 @@ import { MEAL_SLOTS } from "../lib/week.js";
  */
 
 /**
- * "Move to…": every lunch and dinner of the week as a button. The menu path
- * for what drag and drop does on the desktop board (PLAN §15.6), and the only
- * way to move a dish on a phone. A native modal <dialog> traps focus and
- * closes on Escape.
+ * "Move to…": every lunch and dinner of a week as a button, with a week
+ * stepper to reach earlier and later weeks. The menu path for what drag and
+ * drop does on the desktop board (PLAN §15.6), and the only way to move a
+ * dish on a phone. A native modal <dialog> traps focus and closes on Escape.
  * @returns {MoveDialogView}
  */
 export function MoveDialog() {
@@ -56,6 +60,9 @@ export function MoveDialog() {
       onClose = request.onClose;
       picked = false;
       const { dish } = request;
+      let shownWeek = request.weekStart;
+      // A slow week fetch must not overwrite a newer one.
+      let latest = 0;
 
       const head = document.createElement("div");
       head.className = "move-dialog__head";
@@ -77,37 +84,80 @@ export function MoveDialog() {
       close.addEventListener("click", () => dialog.close());
       head.append(titles, close);
 
-      const list = document.createElement("div");
-      list.className = "move-dialog__days";
-      list.append(
-        ...request.days.map((day) => {
-          const row = document.createElement("div");
-          row.className = "move-dialog__day";
-          row.setAttribute("role", "group");
-          row.setAttribute("aria-label", day.full);
-          const name = document.createElement("span");
-          name.className = "move-dialog__name";
-          const weekday = document.createElement("b");
-          weekday.textContent = day.weekday;
-          name.append(weekday, ` ${day.dayMonth}`);
-          row.append(
-            name,
-            ...MEAL_SLOTS.map((meal) => slotButton(dish, day, meal, () => {
-              picked = true;
-              dialog.close();
-              request.onMove(day, meal);
-            })),
-          );
-          return row;
-        }),
+      const stepper = document.createElement("div");
+      stepper.className = "week-stepper move-dialog__weeks";
+      stepper.setAttribute("role", "group");
+      stepper.setAttribute("aria-label", "Week");
+      const range = document.createElement("span");
+      range.className = "week-stepper__range";
+      range.setAttribute("aria-live", "polite");
+      stepper.append(
+        weekButton("‹", "Previous week", () => void showWeek(-WEEK_STEP_DAYS)),
+        range,
+        weekButton("›", "Next week", () => void showWeek(WEEK_STEP_DAYS)),
       );
 
-      dialog.replaceChildren(head, list);
-      dialog.showModal();
-      const first = list.querySelector("button:not(:disabled)");
-      if (first instanceof HTMLElement) {
-        first.focus();
+      const list = document.createElement("div");
+      list.className = "move-dialog__days";
+
+      /**
+       * @param {number} deltaDays
+       */
+      async function showWeek(deltaDays) {
+        shownWeek = addDays(shownWeek, deltaDays);
+        const ticket = (latest += 1);
+        range.textContent = formatWeekRange(shownWeek, addDays(shownWeek, 6));
+        list.replaceChildren(note("Loading…"));
+        try {
+          const days = await request.loadWeek(shownWeek);
+          if (ticket === latest) {
+            renderDays(days);
+          }
+        } catch {
+          if (ticket === latest) {
+            list.replaceChildren(note("Couldn't load that week — try again."));
+          }
+        }
       }
+
+      /**
+       * @param {PlanDay[]} days
+       */
+      function renderDays(days) {
+        list.replaceChildren(
+          ...days.map((day) => {
+            const row = document.createElement("div");
+            row.className = "move-dialog__day";
+            row.setAttribute("role", "group");
+            row.setAttribute("aria-label", day.full);
+            const name = document.createElement("span");
+            name.className = "move-dialog__name";
+            const weekday = document.createElement("b");
+            weekday.textContent = day.weekday;
+            name.append(weekday, ` ${day.dayMonth}`);
+            row.append(
+              name,
+              ...MEAL_SLOTS.map((meal) =>
+                slotButton(dish, day, meal, () => {
+                  picked = true;
+                  dialog.close();
+                  request.onMove(day, meal);
+                }),
+              ),
+            );
+            return row;
+          }),
+        );
+      }
+
+      dialog.replaceChildren(head, stepper, list);
+      dialog.showModal();
+      void showWeek(0).then(() => {
+        const first = list.querySelector("button:not(:disabled)");
+        if (first instanceof HTMLElement && dialog.open) {
+          first.focus();
+        }
+      });
     },
   };
 }
@@ -131,7 +181,7 @@ function slotButton(dish, day, meal, onPick) {
   button.type = "button";
   button.className = "move-dialog__slot";
   button.disabled = here || taken;
-  const note = here ? " \u00b7 here" : taken ? " \u00b7 already there" : "";
+  const note = here ? " · here" : taken ? " · already there" : "";
   button.textContent = `${SLOT_LABEL[meal]}${note}`;
   button.setAttribute(
     "aria-label",
@@ -143,4 +193,31 @@ function slotButton(dish, day, meal, onPick) {
   }
   button.addEventListener("click", onPick);
   return button;
+}
+
+/**
+ * @param {string} glyph
+ * @param {string} label
+ * @param {() => void} onClick
+ * @returns {HTMLButtonElement}
+ */
+function weekButton(glyph, label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "week-stepper__btn";
+  button.textContent = glyph;
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+/**
+ * @param {string} text
+ * @returns {HTMLElement}
+ */
+function note(text) {
+  const row = document.createElement("p");
+  row.className = "move-dialog__note";
+  row.textContent = text;
+  return row;
 }
