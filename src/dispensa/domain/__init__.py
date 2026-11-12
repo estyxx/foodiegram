@@ -8,6 +8,7 @@ from dispensa.domain.editing import (
     PROTECTED_FIELDS,
     apply_user_edit,
     promote,
+    revert_field,
 )
 from dispensa.domain.enums import (
     Course,
@@ -128,6 +129,7 @@ __all__ = [
     "normalize_caption",
     "oily_fish_count",
     "promote",
+    "revert_field",
     "shopping_list",
     "tier_for",
     "week_balance",

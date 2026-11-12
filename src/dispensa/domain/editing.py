@@ -106,6 +106,33 @@ def apply_user_edit(recipe: Recipe, changes: Mapping[str, object]) -> Recipe:
     )
 
 
+def revert_field(recipe: Recipe, extraction: Extraction, field: str) -> Recipe:
+    """Drop one user edit and restore that field from the extraction.
+
+    Removes field from edited_fields so promote() owns it again, and resets the
+    field to the value the extraction produced. Only extraction-produced fields
+    revert; a field the user never edited is returned unchanged.
+    """
+    if field not in EXTRACTION_FIELDS:
+        msg = f"Not a revertable field: {field!r}"
+        raise ValueError(msg)
+    if field not in recipe.edited_fields:
+        return recipe
+    mapped = Recipe.from_extracted(
+        code=recipe.code,
+        pk=recipe.pk,
+        caption=recipe.caption,
+        extracted=extraction.payload,
+        model_used=extraction.model,
+    )
+    return recipe.model_copy(
+        update={
+            field: getattr(mapped.recipe, field),
+            "edited_fields": recipe.edited_fields - {field},
+        },
+    )
+
+
 def apply_push(target: Recipe, source: Recipe) -> Recipe:
     """Overlay source's extraction fields onto target, keeping target's user edits.
 

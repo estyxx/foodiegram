@@ -2,7 +2,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from dispensa.domain.editing import PROTECTED_FIELDS, apply_user_edit, promote
+from dispensa.domain.editing import (
+    PROTECTED_FIELDS,
+    apply_user_edit,
+    promote,
+    revert_field,
+)
 from dispensa.domain.enums import Course, MedCategory, RecipeSource
 from dispensa.domain.models import (
     ExtractedCategoryServing,
@@ -152,3 +157,24 @@ def test_apply_user_edit_rejects_non_recipe_fields() -> None:
     """App-state keys like is_favorite are not recipe fields."""
     with pytest.raises(ValueError, match="is_favorite"):
         apply_user_edit(_current(), {"is_favorite": True})
+
+
+def test_revert_field_restores_extracted_value_and_drops_marker() -> None:
+    """Reverting an edited field restores the extraction and clears the marker."""
+    reverted = revert_field(_current(), _extraction(), "ingredients")
+
+    assert reverted.ingredients == ["new ingredient"]
+    assert reverted.edited_fields == frozenset()
+
+
+def test_revert_field_leaves_an_unedited_field_untouched() -> None:
+    """A field the user never edited reverts to a no-op (same object)."""
+    current = _current()
+
+    assert revert_field(current, _extraction(), "title") is current
+
+
+def test_revert_field_rejects_non_extraction_fields() -> None:
+    """Protected and app-state keys carry no extracted value to revert to."""
+    with pytest.raises(ValueError, match="archived"):
+        revert_field(_current(), _extraction(), "archived")

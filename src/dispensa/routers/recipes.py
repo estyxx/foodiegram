@@ -17,6 +17,7 @@ from dispensa.api_models import (
     ScaledIngredient,
     ScaleResult,
 )
+from dispensa.app.revert_field import revert_recipe_field
 from dispensa.app.save_custom_recipe import save_custom_recipe
 from dispensa.app.search_recipes import search_recipes_semantic
 from dispensa.app.update_recipe import RecipeEdit
@@ -30,7 +31,7 @@ from dispensa.domain.enums import (
     MedCategory,
     RecipeSource,
 )
-from dispensa.domain.errors import RecipeNotFoundError, StorageError
+from dispensa.domain.errors import ExtractionError, RecipeNotFoundError, StorageError
 from dispensa.domain.models import Recipe
 from dispensa.domain.synonyms import SYNONYM_GROUPS
 
@@ -333,6 +334,30 @@ async def update_recipe(code: str, body: RecipeUpdate, deps: DepsDep) -> RecipeD
         logger.exception("Failed to save recipe %s", code)
         msg = f"Could not persist recipe {code!r}"
         raise HTTPException(status_code=500, detail=msg) from exc
+    return _detail(recipe, deps=deps)
+
+
+@router.delete("/recipes/{code}/edits/{field}")
+async def revert_recipe_edit(code: str, field: str, deps: DepsDep) -> RecipeDetail:
+    """Revert one hand-edited field to its latest extracted value (D42, 16.3).
+
+    Drops field from edited_fields and restores the extracted value, so promote
+    and sync push own it again. 422 if field is not a revertable (extraction)
+    field, 404 for an unknown recipe, 409 if there is no extraction to revert to.
+    """
+    try:
+        recipe = revert_recipe_field(
+            code,
+            field=field,
+            recipes=deps.recipes,
+            extractions=deps.extractions,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ExtractionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _detail(recipe, deps=deps)
 
 
