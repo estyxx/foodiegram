@@ -272,6 +272,48 @@
       .pair .big {
         padding: 1.1rem 0.5rem;
       }
+      .weeknav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .weeknav__mid {
+        flex: 1;
+        text-align: center;
+      }
+      .weeknav__mid .stats__sub {
+        margin-bottom: 0;
+      }
+      .weeknav__btn {
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 0;
+        border-radius: 0.75rem;
+        background: #f5f5f4;
+        color: #57534e;
+        font: inherit;
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .weeknav__btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+      .weeknav__now {
+        display: block;
+        margin: 0 auto 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: none;
+        border: 0;
+        font: inherit;
+        font-size: 0.8rem;
+        color: #78716c;
+        text-decoration: underline;
+        cursor: pointer;
+      }
       .stats__card {
         background: #fff;
         border: 1px solid #f5f5f4;
@@ -776,7 +818,11 @@
       let pending = loadPending(); // taps not yet confirmed by the server
       let todayLog = []; // server-confirmed completions for `today`
       let flushing = false;
-      let weekLog = []; // server-confirmed completions for the current week
+      // Server-confirmed completions per week, keyed by that week's Monday. Visited
+      // weeks render instantly and are refreshed in the background.
+      const weekCache = new Map();
+      let weekOffset = 0; // weeks back from the current one (0 = this week)
+      let weekError = false; // the viewed week could not be loaded
 
       function currentList() {
         if (mode === "breve") {
@@ -841,8 +887,9 @@
             savePending();
             const known = todayLog.some((e) => e.client_id === saved.client_id);
             if (saved.done_on === today && !known) todayLog.push(saved);
-            if (!weekLog.some((e) => e.client_id === saved.client_id)) {
-              weekLog.push(saved);
+            const cached = weekCache.get(dayKey(weekStartOf(saved.done_on)));
+            if (cached && !cached.some((e) => e.client_id === saved.client_id)) {
+              cached.push(saved);
             }
           }
         } catch (err) {
@@ -882,28 +929,46 @@
         return addDays(date, -((date.getDay() + 6) % 7));
       }
 
-      async function refreshWeek() {
-        const day = today;
-        const start = weekStartOf(day);
-        const url =
-          LOG_URL + "/range?start=" + dayKey(start) + "&end=" + dayKey(addDays(start, 6));
-        try {
-          const res = await fetch(url);
-          if (!res.ok || day !== today) return;
-          weekLog = await res.json();
-          paint();
-        } catch (err) {
-          // offline: the week falls back to what is queued locally
-        }
+      function viewedWeekStart() {
+        return addDays(weekStartOf(today), weekOffset * 7);
       }
 
-      // Confirmed + still-queued completions that fall in the current week.
+      async function refreshWeek() {
+        const startKey = dayKey(viewedWeekStart());
+        const endKey = dayKey(addDays(viewedWeekStart(), 6));
+        try {
+          const res = await fetch(LOG_URL + "/range?start=" + startKey + "&end=" + endKey);
+          if (!res.ok) throw new Error("status " + res.status);
+          const rows = await res.json();
+          weekCache.set(startKey, rows);
+          if (startKey === dayKey(viewedWeekStart())) weekError = false;
+        } catch (err) {
+          // offline: the week falls back to what is cached or queued locally
+          if (startKey === dayKey(viewedWeekStart())) weekError = true;
+        }
+        if (startKey === dayKey(viewedWeekStart())) paint();
+      }
+
+      function shiftWeek(delta) {
+        const next = Math.min(0, weekOffset + delta); // never into the future
+        if (next === weekOffset) return;
+        weekOffset = next;
+        weekError = false;
+        paint();
+        refreshWeek();
+      }
+
+      function weekLoaded() {
+        return weekCache.has(dayKey(viewedWeekStart()));
+      }
+
+      // Confirmed + still-queued completions that fall in the viewed week.
       function weekEntries() {
-        const start = weekStartOf(today);
+        const start = viewedWeekStart();
         const lo = dayKey(start);
         const hi = dayKey(addDays(start, 6));
         const inWeek = (e) => e.done_on >= lo && e.done_on <= hi;
-        const confirmed = weekLog.filter(inWeek);
+        const confirmed = (weekCache.get(lo) || []).filter(inWeek);
         const known = new Set(confirmed.map((e) => e.client_id));
         const queued = pending.filter((e) => inWeek(e) && !known.has(e.client_id));
         return confirmed.concat(queued);
@@ -917,7 +982,9 @@
         rotation = Object.assign({}, DEFAULT_ROTATION);
         saveRotation(today, rotation);
         todayLog = [];
-        weekLog = [];
+        weekCache.clear();
+        weekOffset = 0;
+        weekError = false;
         refreshToday();
       }
 
@@ -984,6 +1051,8 @@
 
       function openStats() {
         syncDay();
+        weekOffset = 0;
+        weekError = false;
         mode = "stats";
         render();
         refreshWeek();
@@ -1106,7 +1175,7 @@
       }
 
       function weekSection(entries) {
-        const start = weekStartOf(today);
+        const start = viewedWeekStart();
         const days = [];
         for (let i = 0; i < 7; i++) {
           const key = dayKey(addDays(start, i));
@@ -1175,20 +1244,52 @@
             day: "numeric",
             month: "short",
           });
-        const summary =
+        // Never show a made-up zero for a week we could not read.
+        let summary =
           countLabel(entries.length) +
           " · " +
           activeDays +
           (activeDays === 1 ? " giorno" : " giorni") +
           " su 7";
+        if (!weekLoaded()) summary = weekError ? "Dati non disponibili" : "Carico…";
 
-        return el("section", { class: "stats__card" }, [
-          el("h2", { class: "stats__h", text: "Questa settimana" }),
-          el("p", { class: "stats__sub", text: range }),
-          el("p", { class: "stats__big", text: summary }),
-          bars,
-          cats,
+        let title = "Questa settimana";
+        if (weekOffset === -1) title = "Settimana scorsa";
+        else if (weekOffset < -1) title = -weekOffset + " settimane fa";
+
+        const next = el("button", {
+          class: "weeknav__btn",
+          text: "›",
+          onClick: () => shiftWeek(1),
+          attrs: { "aria-label": "Settimana successiva" },
+        });
+        next.disabled = weekOffset === 0;
+        const nav = el("div", { class: "weeknav" }, [
+          el("button", {
+            class: "weeknav__btn",
+            text: "‹",
+            onClick: () => shiftWeek(-1),
+            attrs: { "aria-label": "Settimana precedente" },
+          }),
+          el("div", { class: "weeknav__mid" }, [
+            el("h2", { class: "stats__h", text: title }),
+            el("p", { class: "stats__sub", text: range }),
+          ]),
+          next,
         ]);
+
+        const children = [nav];
+        if (weekOffset < 0) {
+          children.push(
+            el("button", {
+              class: "weeknav__now",
+              text: "Torna a questa settimana",
+              onClick: () => shiftWeek(-weekOffset),
+            }),
+          );
+        }
+        children.push(el("p", { class: "stats__big", text: summary }), bars, cats);
+        return el("section", { class: "stats__card" }, children);
       }
 
       function statsScreen() {
@@ -1197,9 +1298,17 @@
         const children = [
           topBar(""),
           el("h1", { class: "title", text: "Progressi" }),
-          todaySection(entries.filter((e) => e.done_on === today)),
+          weekOffset === 0 ? todaySection(entries.filter((e) => e.done_on === today)) : null,
           weekSection(entries),
         ];
+        if (weekError) {
+          children.push(
+            el("p", {
+              class: "stats__empty",
+              text: "Non riesco a caricare questa settimana dal server. Riprova tra poco.",
+            }),
+          );
+        }
         if (waiting > 0) {
           children.push(
             el("p", {
