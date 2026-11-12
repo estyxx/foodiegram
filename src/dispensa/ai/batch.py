@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -190,27 +190,39 @@ def _load_batch_id(batch_id: str | None) -> str:
     return LAST_BATCH_ID_PATH.read_text(encoding="utf-8").strip()
 
 
-def write_batch_input(recipes: Sequence[Recipe]) -> Path:
-    """Write one batch request line per recipe and return the input file path."""
+class Captioned(Protocol):
+    """Something with a caption to extract: a Recipe or a queued PendingLink."""
+
+    @property
+    def code(self) -> str:
+        """The stable key used as the batch request's custom_id."""
+
+    @property
+    def caption(self) -> str | None:
+        """The caption text to extract, if any."""
+
+
+def write_batch_input(items: Sequence[Captioned]) -> Path:
+    """Write one batch request line per item and return the input file path."""
     prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
     schema = _extraction_schema()
 
     BATCH_INPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with BATCH_INPUT_PATH.open("w", encoding="utf-8") as fh:
-        for recipe in recipes:
+        for item in items:
             line: dict[str, object] = {
-                "custom_id": recipe.code,
+                "custom_id": item.code,
                 "method": "POST",
                 "url": "/v1/responses",
                 "body": build_extraction_body(
-                    caption=recipe.caption or "",
+                    caption=item.caption or "",
                     prompt_template=prompt_template,
                     schema=schema,
                 ),
             }
             fh.write(json.dumps(line, ensure_ascii=False) + "\n")
 
-    logger.info("Wrote %d tasks to %s", len(recipes), BATCH_INPUT_PATH)
+    logger.info("Wrote %d tasks to %s", len(items), BATCH_INPUT_PATH)
     return BATCH_INPUT_PATH
 
 
