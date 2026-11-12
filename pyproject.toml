@@ -132,8 +132,8 @@ dev = [
 ]
 
 # ── import-linter ─────────────────────────────────────────────────────────────
-# CLAUDE.md rule 22 / PLAN.md D9: api/scripts → app → storage|ai|instagram|images
-# → domain. `include_external_packages` is what lets the domain-is-pure contract
+# Layering: api/scripts -> app -> storage|ai|instagram|images -> domain.
+# `include_external_packages` is what lets the domain-is-pure contract
 # see third-party SDK imports, not just first-party ones.
 [tool.importlinter]
 root_packages = ["dispensa"]

@@ -8,9 +8,8 @@ removing a recipe from the week moves the bars in real time and suggests gap-fil
 
 ADHD-friendly, warm, editorial, accessible. Simple, readable, robust over clever.
 
-> The working directory is `foodiegram` (historical); the Python package was renamed to
-> `dispensa` at commit `26cc3fd`. See [docs/PLAN.md](docs/PLAN.md) for the full roadmap
-> and [docs/PLAN-phases-9-13.md](docs/PLAN-phases-9-13.md) for the current phases.
+> The working directory is `foodiegram` (historical); the Python package is `dispensa`.
+> See [docs/PLAN.md](docs/PLAN.md) for the roadmap.
 
 ---
 

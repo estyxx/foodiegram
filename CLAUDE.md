@@ -380,13 +380,12 @@ project. These extend (never replace) the existing rules in this file.
     Instagram) — and there, fake the adapter, not the SDK internals.
 
 ### Frontend
-- JS rules live in docs/PLAN.md Part VI §15 and are equally binding
-    (`// @ts-check`, pure function components, `textContent` only, a11y as a
-    review gate, `tsc --noEmit` in make check).
+- JS rules are equally binding: `// @ts-check`, pure function components,
+    `textContent` only, a11y as a review gate, `tsc --noEmit` in make check.
 
 ### Workflow
-- Work from docs/PLAN.md Part VIII **one checklist item at a time**, strictly in
-    order. Before coding, restate the item's acceptance criteria in one sentence.
+- Work from docs/PLAN.md **one roadmap item at a time**, in priority order.
+    Before coding, restate the item's acceptance criteria in one sentence.
     After coding, run the full gate: `ruff check --fix . && ruff format . && mypy .
     && pytest && lint-imports` (+ `tsc --noEmit` once frontend/ exists). Red = not
     done.
@@ -394,4 +393,4 @@ project. These extend (never replace) the existing rules in this file.
     matching task complete when a checklist item lands; otherwise end the session
     with a one-line status I can paste into Notion.
 - When a decision is not covered by docs/PLAN.md or this file: STOP and ask.
-    Do not invent scope. Deferred list = D16.
+    Do not invent scope.

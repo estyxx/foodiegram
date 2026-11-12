@@ -57,6 +57,13 @@ backups/
 PASSWORD_SETUP.md
 REPOSITORY_MIGRATION.md
 
+# Local working notes (the single committed plan is docs/PLAN.md)
+docs/NOTES.md
+docs/PLAN-next.md
+docs/*-plan.md
+docs/archive/
+Dispensa Scope and Design Plan*/
+
 # Node.js
 node_modules/
 npm-debug.log*

@@ -68,7 +68,7 @@ const WEEK_FLIP_REPEAT_MS = 900;
 /**
  * Render the plan view (#plan): a toolbar, the week's balance kept in view,
  * and the week as a meals-by-days board on desktop or one day at a time on
- * mobile (PLAN.md 11.9). Adding and changing dishes goes through one picker.
+ * mobile. Adding and changing dishes goes through one picker.
  * @param {HTMLElement} container
  * @returns {Promise<void>}
  */
