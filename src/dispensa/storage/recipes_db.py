@@ -167,6 +167,7 @@ def _filter_attributes(
     difficulty: Difficulty | None,
     is_recipe: bool | None,
     complete: bool | None,
+    archived: bool | None,
 ) -> list[Recipe]:
     """Narrow recipes by whichever scalar attribute filters are set."""
     if cuisine is not None:
@@ -181,6 +182,8 @@ def _filter_attributes(
         recipes = [r for r in recipes if r.is_recipe == is_recipe]
     if complete is not None:
         recipes = [r for r in recipes if r.is_complete == complete]
+    if archived is not None:
+        recipes = [r for r in recipes if r.archived == archived]
     return recipes
 
 
@@ -292,6 +295,7 @@ class RecipeRepository:
         difficulty: Difficulty | None = None,
         is_recipe: bool | None = None,
         complete: bool | None = None,
+        archived: bool | None = False,
         protein_categories: list[MedCategory] | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
@@ -311,6 +315,10 @@ class RecipeRepository:
         complete=None keeps both cookable recipes and half-extracted ones. The
         two are independent here; composing them into segments is the caller's
         job.
+        archived defaults to False, so an archived save is out of Browse,
+        search, semantic ranking and gap suggestions unless a caller asks for
+        it (archived=True) or opts out of the filter (archived=None); a past
+        plan still renders an archived recipe because it reads it by code.
         protein_categories also ANY-matches, against the groups from
         proteins.facets_for. An empty list means no protein filter, as does None.
         """
@@ -322,6 +330,7 @@ class RecipeRepository:
             difficulty=difficulty,
             is_recipe=is_recipe,
             complete=complete,
+            archived=archived,
         )
 
         if protein_categories:
@@ -401,6 +410,7 @@ class RecipeRepository:
         difficulty: Difficulty | None = None,
         is_recipe: bool | None = None,
         complete: bool | None = None,
+        archived: bool | None = False,
         protein_categories: list[MedCategory] | None = None,
         dietary_tags: list[str] | None = None,
         proteins: list[str] | None = None,
@@ -415,6 +425,7 @@ class RecipeRepository:
             difficulty=difficulty,
             is_recipe=is_recipe,
             complete=complete,
+            archived=archived,
             protein_categories=protein_categories,
             dietary_tags=dietary_tags,
             proteins=proteins,

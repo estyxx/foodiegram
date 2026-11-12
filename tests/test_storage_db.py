@@ -86,7 +86,7 @@ def _full_recipe() -> Recipe:
         thumbnail_url="https://cdn/thumb.jpg",
         edited_fields=frozenset({"ingredients", "title"}),
         inspired_by=["XYZ", "m-pasta-e-ceci-AB12"],
-        archived=True,
+        archived=False,
         is_recipe=True,
         confidence=0.95,
         extracted_at=_EXTRACTED_AT,
@@ -167,6 +167,27 @@ def test_recipe_round_trips_fully(engine: Engine) -> None:
     assert loaded.edited_fields == {"ingredients", "title"}
     assert loaded.mediterranean_categories[1].category is MedCategory.PROCESSED_MEAT
     assert loaded.mediterranean_categories[1].servings == _SECONDARY_SERVINGS
+
+
+def test_archived_flag_round_trips(engine: Engine) -> None:
+    """The archived flag persists so a save can hide a recipe from Browse."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe().model_copy(update={"archived": True}))
+
+    loaded = repo.get("ABC")
+    assert loaded is not None
+    assert loaded.archived is True
+
+
+def test_find_excludes_archived_by_default_and_on_request(engine: Engine) -> None:
+    """Find hides archived saves by default; archived=None keeps them, True only."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+    repo.save(_full_recipe().model_copy(update={"code": "ARCH", "archived": True}))
+
+    assert [r.code for r in repo.find()] == ["ABC"]
+    assert sorted(r.code for r in repo.find(archived=None)) == ["ABC", "ARCH"]
+    assert [r.code for r in repo.find(archived=True)] == ["ARCH"]
 
 
 def test_save_keeps_the_edit_marker_when_a_reextraction_drops_it(
