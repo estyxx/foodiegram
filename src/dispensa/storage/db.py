@@ -2,12 +2,17 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from dispensa.domain.planning import DEFAULT_TARGETS
 from dispensa.storage._tables import TargetRow
+from dispensa.storage.migrations_runner import (
+    current_revision,
+    stamp_head,
+    upgrade_to_head,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -57,10 +62,30 @@ def get_session(engine: Engine) -> Session:
 
 
 def init_db(engine: Engine) -> None:
-    """Create all tables and seed any default target category that is missing."""
-    SQLModel.metadata.create_all(engine)
-    _ensure_schema_patches(engine)
+    """Bring the schema to head via migrations and seed missing targets."""
+    _ensure_schema(engine)
     _seed_targets(engine)
+
+
+def _ensure_schema(engine: Engine) -> None:
+    """Run migrations up to head, adopting a pre-Alembic database on first run.
+
+    A database that already carries the app's tables but no `alembic_version`
+    (every database built before Alembic — Neon, the local workshop) is stamped
+    at the baseline, so Alembic adopts its schema instead of trying to recreate
+    it. A fresh database has its tables created by the upgrade. DDL now lives in
+    migrations, not in create_all (D38).
+    """
+    url = engine.url.render_as_string(hide_password=False)
+    if current_revision(engine) is None and _has_app_tables(engine):
+        logger.info("Adopting the existing schema as the Alembic baseline.")
+        stamp_head(url)
+    upgrade_to_head(url)
+
+
+def _has_app_tables(engine: Engine) -> bool:
+    """Return True if this database already holds the application's tables."""
+    return inspect(engine).has_table(TargetRow.__tablename__)
 
 
 def _ensure_schema_patches(engine: Engine) -> None:

@@ -3,11 +3,12 @@ from collections.abc import Generator
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, inspect, text
 from sqlmodel import Session, SQLModel
 
 from dispensa.settings import Settings
-from dispensa.storage.db import create_db_engine
+from dispensa.storage._tables import RecipeRow
+from dispensa.storage.db import create_db_engine, init_db
 from dispensa.storage.maintenance import ensure_database
 from dispensa.storage.migrations_runner import (
     current_revision,
@@ -67,3 +68,42 @@ def test_stamp_head_adopts_an_existing_schema(migrated_engine: Engine) -> None:
 
     stamp_head(_alembic_database_url())
     assert current_revision(migrated_engine) is not None
+
+
+def _initdb_database_url() -> str:
+    """Return a throwaway database for exercising init_db's schema paths."""
+    base = Settings(_env_file=None).database_url_test
+    prefix, _, _name = base.rpartition("/")
+    return f"{prefix}/dispensa_test_initdb"
+
+
+@pytest.fixture
+def empty_engine() -> Generator[Engine]:
+    """Return an engine on a database reset to an empty public schema."""
+    url = _initdb_database_url()
+    ensure_database(database_url=url)
+    engine = create_db_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("DROP SCHEMA public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+    yield engine
+    engine.dispose()
+
+
+def test_init_db_builds_a_fresh_database_from_migrations(empty_engine: Engine) -> None:
+    """On a blank database, init_db creates the schema and stamps it managed."""
+    init_db(empty_engine)
+
+    assert inspect(empty_engine).has_table(RecipeRow.__tablename__)
+    assert current_revision(empty_engine) is not None
+
+
+def test_init_db_adopts_a_pre_alembic_database(empty_engine: Engine) -> None:
+    """A database with tables but no alembic_version is stamped, not rebuilt."""
+    SQLModel.metadata.create_all(empty_engine)
+    assert current_revision(empty_engine) is None
+
+    init_db(empty_engine)
+
+    assert current_revision(empty_engine) is not None
+    assert inspect(empty_engine).has_table(RecipeRow.__tablename__)
