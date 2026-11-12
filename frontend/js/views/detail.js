@@ -7,6 +7,7 @@ import { parseStep } from "../lib/cookingSteps.js";
 import { layoutIngredients, rowText, splitTitle } from "../lib/recipeDisplay.js";
 import { capitalise, displayTitle, formatQuantity, hasValue, humanise } from "../lib/format.js";
 import { CategoryChip } from "../components/CategoryChip.js";
+import { EditRecipeDialog } from "../components/EditRecipeDialog.js";
 import { IngredientsCard } from "../components/IngredientsCard.js";
 import { RecipeActions } from "../components/RecipeActions.js";
 
@@ -80,16 +81,38 @@ export async function renderDetail(container, code, { returnTo }) {
     onAnnounce: announce,
   });
 
+  // Mark the verbatim content with its language so screen readers and
+  // typography treat Italian (or English) text correctly; the UI chrome stays
+  // the document default.
+  const header = buildHeader(recipe, recipe);
+  const description = buildDescription(recipe);
+  header.querySelector(".rd-head__title")?.setAttribute("lang", recipe.language);
+  description?.setAttribute("lang", recipe.language);
+  ingredients.setAttribute("lang", recipe.language);
+  method.querySelector(".rd-method__list")?.setAttribute("lang", recipe.language);
+
   const body = document.createElement("div");
   body.className = "rd-body";
   body.append(ingredients, method);
   const tabs = buildTabs(body, layout.count, recipe.instructions.length);
+
+  const editor = EditRecipeDialog();
 
   const actions = RecipeActions({
     recipe,
     onStartCooking: recipe.instructions.length > 0 ? () => startCooking(recipe, ratio) : null,
     recipeText: () => formatRecipe(recipe, layout, ratio),
     menuItems: () => [
+      {
+        glyph: "✎",
+        label: "Edit recipe",
+        onSelect: async () => {
+          const updated = await editor.open(recipe);
+          if (updated) {
+            await renderDetail(container, code, { returnTo });
+          }
+        },
+      },
       {
         glyph: "↗",
         label: "Copy share link",
@@ -111,14 +134,15 @@ export async function renderDetail(container, code, { returnTo }) {
   container.replaceChildren(
     page(
       buildBack(returnTo),
-      buildHeader(recipe, recipe),
-      ...optional(buildDescription(recipe)),
+      header,
+      ...optional(description),
       ...optional(buildChips(recipe)),
       buildSource(recipe),
       actions,
       status,
       tabs.element,
       body,
+      editor.element,
     ),
   );
 }

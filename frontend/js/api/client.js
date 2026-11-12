@@ -79,10 +79,13 @@
  * @property {MedCategory[]} mediterranean_categories
  * @property {string | null} prep_time
  * @property {string | null} cook_time
+ * @property {string | null} total_time
  * @property {number | null} base_servings
  * @property {string | null} thumbnail_url
  * @property {string | null} cloudinary_url
  * @property {string | null} skill_level
+ * @property {string} language two-letter code for the verbatim content
+ * @property {boolean} archived
  * @property {string[]} edited_fields
  * @property {boolean} is_favorite
  * @property {string | null} user_notes

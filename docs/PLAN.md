@@ -194,9 +194,10 @@ legible.
 - [x] Revert one edited field to its latest extracted value.
 - [x] Archive an Instagram save, delete a manual recipe; archived recipes leave browse,
   search, semantic ranking and gap suggestions but still render on a past plan.
-- [ ] Edit mode on the recipe page: edit in place, a per-field "edited" marker, save
-  through the existing PATCH. Needs a per-recipe `language` field first so verbatim
-  Italian text can be marked `lang="it"` without mislabelling English recipes.
+- [x] Edit the recipe from its page: an edit dialog (reusing the custom-recipe
+  form) over the widened PATCH, with a per-field "edited" marker; verbatim content
+  marked with the recipe's `language`, which is now its own field (defaulting to
+  Italian, editable in the dialog).
 - [ ] Paste a recipe: save pasted text at once as a manual recipe "waiting for
   extraction", filled in by the next batch run; and an optional "extract now" button,
   only if the wait proves to hurt.
@@ -271,16 +272,15 @@ by pointing at the same row, with no membership table or sharing UI now.
 
 In priority order, the first actionable items:
 
-1. **A month view on Progressi** (back exercises): days done per week for the last
+1. **Paste a recipe** (editing): save pasted text at once as a manual recipe
+   "waiting for extraction", filled in by the next batch run.
+2. **A month view on Progressi** (back exercises): days done per week for the last
    eight weeks, now that the log is keyed by stable ids.
-2. **Recipe edit UI**, once the `language`-field question below is settled.
 3. **Identity**, the largest piece, when there is appetite for it: the `households`
    and `users` tables and their migration first, then WorkOS web login.
 
 ## Open questions
 
-- Should recipes carry a `language` field, so the edit UI can mark verbatim Italian
-  text `lang="it"` correctly? This gates the recipe-edit UI.
 - The synonym layer is a hand-maintained cross-language workaround, and the shopping
   list mixes languages because the canonical name is an arbitrary alphabetical pick.
   The real fix is a canonical ingredient identity (a stable id per ingredient,
