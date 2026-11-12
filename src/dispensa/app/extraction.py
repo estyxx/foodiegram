@@ -13,6 +13,8 @@ from dispensa.ai.batch import (
     submitted_codes,
     write_batch_input,
 )
+from dispensa.domain.batch import BatchRun
+from dispensa.domain.enums import BatchStatus
 from dispensa.domain.errors import ExtractionError
 
 if TYPE_CHECKING:
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
 
     from dispensa.domain.models import Recipe
     from dispensa.settings import Settings
+    from dispensa.storage.batches_db import BatchRepository
     from dispensa.storage.extractions_db import ExtractionRepository
     from dispensa.storage.recipes_db import RecipeRepository
 
@@ -66,6 +69,8 @@ def submit_batch(
     *,
     recipes: RecipeRepository,
     extractions: ExtractionRepository,
+    batches: BatchRepository,
+    now: datetime,
     only_missing: bool = True,
     limit: int | None = None,
     only_codes: set[str] | None = None,
@@ -81,7 +86,7 @@ def submit_batch(
     """
     all_recipes = recipes.list_all()
     extracted_codes = _extracted_codes(extractions)
-    already_submitted = submitted_codes()
+    already_submitted = batches.all_submitted_codes()
     excluded_codes = extracted_codes | already_submitted
     to_submit = [
         r
@@ -123,7 +128,15 @@ def submit_batch(
         logger.info("Dry-run: not creating a batch.")
         return len(to_submit)
 
-    create_batch(settings, input_path=write_batch_input(to_submit))
+    batch_id = create_batch(settings, input_path=write_batch_input(to_submit))
+    batches.record(
+        BatchRun(
+            batch_id=batch_id,
+            prompt_version=PROMPT_VERSION,
+            codes=tuple(recipe.code for recipe in to_submit),
+            submitted_at=now,
+        ),
+    )
     return len(to_submit)
 
 
@@ -132,6 +145,7 @@ def apply_batch(
     batch_id: str | None,
     *,
     extractions: ExtractionRepository,
+    batches: BatchRepository,
     applied_at: datetime,
 ) -> None:
     """Download a completed batch and append its results as extraction rows.
@@ -139,6 +153,9 @@ def apply_batch(
     Writes extraction history only — never touches recipes. Run promote.py to
     merge these extractions into recipes (honouring user edits).
     """
+    if batch_id is None:
+        latest = batches.latest()
+        batch_id = latest.batch_id if latest is not None else None
     output = fetch_batch_output(settings, batch_id)
     if output is None:
         return
@@ -172,6 +189,7 @@ def apply_batch(
             errors += 1
 
     logger.info("Extractions added: %d  Errors: %d", added, errors)
+    batches.mark(output.batch_id, BatchStatus.APPLIED)
 
 
 def smoke_test(

@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from dispensa.ai.batch import log_batch_status, recover_batch_input
 from dispensa.app.extraction import apply_batch, smoke_test, submit_batch
 from dispensa.settings import Settings
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.db import create_db_engine, init_db
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.recipes_db import RecipeRepository
@@ -96,12 +97,15 @@ def main() -> None:
     init_db(engine)
     recipes = RecipeRepository(engine)
     extractions = ExtractionRepository(engine)
+    batches = BatchRepository(engine)
 
     if args.command == "submit":
         submit_batch(
             settings,
             recipes=recipes,
             extractions=extractions,
+            batches=batches,
+            now=datetime.now(tz=UTC),
             only_missing=not args.all,
             limit=args.limit,
         )
@@ -110,6 +114,7 @@ def main() -> None:
             settings,
             args.batch_id,
             extractions=extractions,
+            batches=batches,
             applied_at=datetime.now(tz=UTC),
         )
     elif args.command == "smoke":

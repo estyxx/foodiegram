@@ -242,7 +242,9 @@ def create_batch(settings: Settings, *, input_path: Path) -> str:
         completion_window="24h",
     )
 
-    LAST_BATCH_ID_PATH.write_text(batch.id, encoding="utf-8")
+    # The batch id is recorded in the database by app.extraction.submit_batch
+    # (not on disk — prod has no persistent disk). The input is still archived
+    # locally for the one-off backfill script.
     archived_path = _archive_batch_input(input_path, batch_id=batch.id)
     logger.info("Archived batch input to %s", archived_path)
     logger.info("Batch created: %s", batch.id)

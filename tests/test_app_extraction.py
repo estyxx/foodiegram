@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ from sqlalchemy import Engine
 from dispensa.app import extraction
 from dispensa.domain.models import Recipe
 from dispensa.settings import Settings
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.recipes_db import RecipeRepository
 
@@ -40,7 +42,9 @@ def test_submit_batch_advances_past_recipes_from_a_prior_unapplied_batch(
     for code in ("AAA", "BBB", "CCC"):
         recipes.save(_recipe(code))
 
+    batches = BatchRepository(engine)
     submitted: list[list[str]] = []
+    batch_ids = iter(("b1", "b2", "b3"))
 
     def _fake_write_batch_input(batch_recipes: list[Recipe]) -> Path:
         submitted.append([r.code for r in batch_recipes])
@@ -48,25 +52,33 @@ def test_submit_batch_advances_past_recipes_from_a_prior_unapplied_batch(
 
     def _fake_create_batch(_settings: Settings, *, input_path: Path) -> str:
         _ = input_path
-        return "b1"
+        return next(batch_ids)
 
     monkeypatch.setattr(extraction, "write_batch_input", _fake_write_batch_input)
     monkeypatch.setattr(extraction, "create_batch", _fake_create_batch)
 
     settings = Settings(openai_api_key="test-key")
-    already_submitted: set[str] = set()
-    monkeypatch.setattr(extraction, "submitted_codes", lambda: already_submitted)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
 
     first_count = extraction.submit_batch(
-        settings, recipes=recipes, extractions=extractions, limit=_SUBMIT_LIMIT
+        settings,
+        recipes=recipes,
+        extractions=extractions,
+        batches=batches,
+        now=now,
+        limit=_SUBMIT_LIMIT,
     )
     assert first_count == _SUBMIT_LIMIT
     assert submitted[-1] == ["AAA", "BBB"]
 
-    already_submitted |= {"AAA", "BBB"}
-
+    # The recorded batch (AAA, BBB) is what the second call excludes — no monkeypatch.
     second_count = extraction.submit_batch(
-        settings, recipes=recipes, extractions=extractions, limit=_SUBMIT_LIMIT
+        settings,
+        recipes=recipes,
+        extractions=extractions,
+        batches=batches,
+        now=now,
+        limit=_SUBMIT_LIMIT,
     )
     assert second_count == 1
     assert submitted[-1] == ["CCC"]

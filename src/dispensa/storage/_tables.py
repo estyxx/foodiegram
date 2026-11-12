@@ -187,3 +187,15 @@ class PendingLinkRow(SQLModel, table=True):
     status: str
     batch_id: str | None = None
     created_at: datetime
+
+
+class BatchRunRow(SQLModel, table=True):
+    """A submitted OpenAI extraction batch and the recipe codes it carries."""
+
+    __tablename__ = "batch_runs"
+
+    batch_id: str = Field(primary_key=True)
+    prompt_version: str
+    status: str
+    codes: list[str] = Field(sa_column=Column(JSON))
+    submitted_at: datetime

@@ -46,6 +46,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> _Calls:
     monkeypatch.setattr(cli, "init_db", lambda _engine: None)
     monkeypatch.setattr(cli, "RecipeRepository", lambda _engine: object())
     monkeypatch.setattr(cli, "ExtractionRepository", lambda _engine: object())
+    monkeypatch.setattr(cli, "BatchRepository", lambda _engine: object())
     monkeypatch.setattr(cli, "OpenAI", lambda **_kw: object())
 
     def _configure(*, config: object) -> None:
@@ -74,10 +75,12 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> _Calls:
         *,
         recipes: object,
         extractions: object,
+        batches: object,
+        now: object,
         only_missing: bool,
         dry_run: bool,
     ) -> int:
-        _ = settings, recipes, extractions
+        _ = settings, recipes, extractions, batches, now
         rec.order.append("extract")
         rec.extract_dry = dry_run
         rec.extract_only_missing = only_missing

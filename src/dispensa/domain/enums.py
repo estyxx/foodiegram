@@ -122,3 +122,12 @@ class PendingStatus(StrEnum):
     IMPORTED = "imported"
     FAILED = "failed"
     UNKNOWN = "unknown"
+
+
+class BatchStatus(StrEnum):
+    """Lifecycle of an OpenAI extraction batch, tracked in the database."""
+
+    SUBMITTED = "submitted"
+    APPLIED = "applied"
+    FAILED = "failed"
+    UNKNOWN = "unknown"

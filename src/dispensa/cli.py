@@ -20,6 +20,7 @@ from dispensa.domain.errors import DispensaError
 from dispensa.images import configure, upload_thumbnail
 from dispensa.settings import Settings
 from dispensa.storage import maintenance
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.db import (
     create_db_engine,
     database_label,
@@ -300,6 +301,8 @@ def sync_extract(
         settings,
         recipes=RecipeRepository(engine),
         extractions=ExtractionRepository(engine),
+        batches=BatchRepository(engine),
+        now=datetime.now(tz=UTC),
         only_missing=not all_,
         limit=limit,
         only_codes=set(codes) if codes else None,
@@ -318,7 +321,13 @@ def sync_status(
 ) -> None:
     """Report the status and request counts of a submitted OpenAI batch job."""
     settings = _settings()
-    log_batch_status(settings, batch_id)
+    resolved = batch_id
+    if resolved is None:
+        engine = create_db_engine(settings.database_url)
+        init_db(engine)
+        latest = BatchRepository(engine).latest()
+        resolved = latest.batch_id if latest is not None else None
+    log_batch_status(settings, resolved)
 
 
 @sync_app.command("apply")
@@ -346,6 +355,7 @@ def sync_apply(
         settings,
         batch_id,
         extractions=ExtractionRepository(engine),
+        batches=BatchRepository(engine),
         applied_at=datetime.now(tz=UTC),
     )
 
@@ -502,6 +512,7 @@ def sync_all_cmd(
     init_db(engine)
     repo = RecipeRepository(engine)
     extractions = ExtractionRepository(engine)
+    batches = BatchRepository(engine)
     if not dry_run:
         configure(config=settings.require_cloudinary())
     client = OpenAI(api_key=settings.require_openai_api_key())
@@ -524,6 +535,8 @@ def sync_all_cmd(
             settings,
             recipes=repo,
             extractions=extractions,
+            batches=batches,
+            now=datetime.now(tz=UTC),
             only_missing=True,
             dry_run=dry_run,
         )
