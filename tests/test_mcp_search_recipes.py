@@ -10,6 +10,7 @@ from dispensa.domain.enums import Difficulty, MedCategory
 from dispensa.domain.models import CategoryServing, Recipe
 from dispensa.domain.pantry import PantryItem
 from dispensa.mcp_server.server import search_recipes
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
@@ -40,6 +41,7 @@ def deps(db_engine: Engine) -> Generator[Deps]:
         targets=TargetRepository(db_engine),
         exercise_log=ExerciseLogRepository(db_engine),
         pending=PendingLinkRepository(db_engine),
+        batches=BatchRepository(db_engine),
     )
     with (
         patch("dispensa.mcp_server.server.get_deps", return_value=wired),

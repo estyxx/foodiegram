@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 
 from dispensa.settings import Settings
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.db import create_db_engine, init_db
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
@@ -31,6 +32,7 @@ class Deps(BaseModel):
     targets: TargetRepository
     exercise_log: ExerciseLogRepository
     pending: PendingLinkRepository
+    batches: BatchRepository
 
 
 class AuthConfig(BaseModel):
@@ -55,6 +57,7 @@ def build_deps(database_url: str) -> Deps:
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
         pending=PendingLinkRepository(engine),
+        batches=BatchRepository(engine),
     )
 
 
@@ -81,3 +84,12 @@ def get_openai_client() -> OpenAI:
 
 
 OpenAIClientDep = Annotated[OpenAI, Depends(get_openai_client)]
+
+
+@functools.cache
+def get_settings() -> Settings:
+    """Return the app settings, for endpoints that reach OpenAI (batch extraction)."""
+    return Settings()
+
+
+SettingsDep = Annotated[Settings, Depends(get_settings)]

@@ -9,6 +9,7 @@ from dispensa.domain.enums import MedCategory
 from dispensa.domain.models import CategoryServing, Recipe
 from dispensa.domain.pantry import PantryItem
 from dispensa.mcp_server.server import get_planning_context
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
@@ -33,6 +34,7 @@ def _deps(engine: Engine) -> Deps:
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
         pending=PendingLinkRepository(engine),
+        batches=BatchRepository(engine),
     )
 
 

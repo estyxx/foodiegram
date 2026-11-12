@@ -4,6 +4,7 @@ from sqlalchemy import Engine
 
 from dispensa.deps import Deps
 from dispensa.mcp_server.server import get_recipe
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
@@ -28,6 +29,7 @@ def _deps(engine: Engine) -> Deps:
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
         pending=PendingLinkRepository(engine),
+        batches=BatchRepository(engine),
     )
 
 

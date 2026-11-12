@@ -434,3 +434,11 @@ class QueueCaption(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     caption: str
+
+
+class QueueExtractResult(BaseModel):
+    """How many links a launch submitted, or a finished batch imported."""
+
+    model_config = ConfigDict(frozen=True)
+
+    count: int

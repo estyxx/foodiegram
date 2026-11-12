@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 from dispensa.api import create_app
 from dispensa.deps import Deps
 from dispensa.domain.exercise_log import ExerciseCategory, ExerciseCompletion
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
@@ -74,6 +75,7 @@ def client(engine: Engine) -> TestClient:
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
         pending=PendingLinkRepository(engine),
+        batches=BatchRepository(engine),
     )
     return TestClient(create_app(deps=deps))
 

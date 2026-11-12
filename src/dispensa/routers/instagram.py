@@ -3,10 +3,21 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from dispensa.api_models import PendingLinkOut, QueueCaption, QueueLinkCreate
+from dispensa.api_models import (
+    PendingLinkOut,
+    QueueCaption,
+    QueueExtractResult,
+    QueueLinkCreate,
+)
 from dispensa.app.queue import queue_link, set_queued_caption
-from dispensa.deps import DepsDep
-from dispensa.domain.errors import LinkAlreadyKnownError, PendingLinkNotFoundError
+from dispensa.app.queue_extraction import launch_queue_extraction
+from dispensa.app.queue_import import import_finished_queue
+from dispensa.deps import DepsDep, SettingsDep
+from dispensa.domain.errors import (
+    ConfigurationError,
+    LinkAlreadyKnownError,
+    PendingLinkNotFoundError,
+)
 from dispensa.domain.pending import PendingLink
 
 router = APIRouter(prefix="/api/instagram")
@@ -45,6 +56,38 @@ async def add_to_queue(body: QueueLinkCreate, deps: DepsDep) -> PendingLinkOut:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_out(link)
+
+
+@router.post("/queue/extract")
+async def extract_queue(deps: DepsDep, settings: SettingsDep) -> QueueExtractResult:
+    """Submit an OpenAI batch for the ready queue items (D56). Returns the count."""
+    try:
+        submitted = launch_queue_extraction(
+            settings,
+            pending=deps.pending,
+            batches=deps.batches,
+            now=datetime.now(tz=UTC),
+        )
+    except ConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return QueueExtractResult(count=submitted)
+
+
+@router.post("/queue/import")
+async def import_queue(deps: DepsDep, settings: SettingsDep) -> QueueExtractResult:
+    """Import a finished batch into recipes and mark the links imported. Count back."""
+    try:
+        imported = import_finished_queue(
+            settings,
+            pending=deps.pending,
+            recipes=deps.recipes,
+            extractions=deps.extractions,
+            batches=deps.batches,
+            now=datetime.now(tz=UTC),
+        )
+    except ConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return QueueExtractResult(count=imported)
 
 
 @router.patch("/queue/{code}")

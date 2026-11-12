@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -9,9 +10,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from dispensa.api import create_app
+from dispensa.app import queue_extraction, queue_import
 from dispensa.deps import AuthConfig, Deps, get_openai_client
-from dispensa.domain.enums import MedCategory, RecipeSource
+from dispensa.domain.enums import MedCategory, PendingStatus, RecipeSource
 from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.domain.pending import PendingLink
+from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
 from dispensa.storage.pantry_db import PantryRepository
@@ -64,6 +68,7 @@ def _make_deps(engine: Engine) -> Deps:
         targets=TargetRepository(engine),
         exercise_log=ExerciseLogRepository(engine),
         pending=PendingLinkRepository(engine),
+        batches=BatchRepository(engine),
     )
 
 
@@ -1108,3 +1113,57 @@ def test_delete_refuses_an_instagram_recipe(client: TestClient, deps: Deps) -> N
 def test_delete_unknown_recipe_is_404(client: TestClient) -> None:
     """Deleting a code that does not exist is a 404."""
     assert client.delete("/api/recipes/NOPE").status_code == HTTPStatus.NOT_FOUND
+
+
+def _ready_link(code: str) -> PendingLink:
+    """Build a captioned queue link ready for extraction."""
+    return PendingLink(
+        code=code,
+        url=f"https://www.instagram.com/p/{code}/",
+        caption="a pasted caption long enough to extract from",
+        status=PendingStatus.READY,
+        created_at=datetime.now(tz=UTC),
+    )
+
+
+def test_queue_extract_endpoint_submits_ready_links(
+    client: TestClient, deps: Deps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """POST /queue/extract submits the ready links and marks them extracting."""
+    deps.pending.add(_ready_link("DQ111111111"))
+
+    def _create(_settings: object, *, input_path: object) -> str:
+        _ = input_path
+        return "batch_api"
+
+    monkeypatch.setattr(
+        queue_extraction, "write_batch_input", lambda _items: Path("unused.jsonl")
+    )
+    monkeypatch.setattr(queue_extraction, "create_batch", _create)
+
+    response = client.post("/api/instagram/queue/extract")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["count"] == 1
+    link = deps.pending.get("DQ111111111")
+    assert link is not None
+    assert link.status is PendingStatus.EXTRACTING
+
+
+def test_queue_import_endpoint_returns_count_when_batch_not_ready(
+    client: TestClient, deps: Deps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """POST /queue/import wires to the use-case; an unfinished batch imports 0."""
+    deps.pending.add(
+        _ready_link("DQ222222222").model_copy(
+            update={"status": PendingStatus.EXTRACTING, "batch_id": "batch_api"},
+        ),
+    )
+    monkeypatch.setattr(
+        queue_import, "fetch_batch_output", lambda _settings, _batch_id: None
+    )
+
+    response = client.post("/api/instagram/queue/import")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["count"] == 0
