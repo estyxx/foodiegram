@@ -342,6 +342,7 @@ class ExerciseLogCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     client_id: str = Field(min_length=1, max_length=64)
+    exercise_id: str = Field(min_length=1, max_length=120)
     exercise: str = Field(min_length=1, max_length=120)
     category: ExerciseCategory
     done_on: date
@@ -355,6 +356,7 @@ class ExerciseLogOut(BaseModel):
 
     id: int | None
     client_id: str
+    exercise_id: str
     exercise: str
     category: str
     done_on: date

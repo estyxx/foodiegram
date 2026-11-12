@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 from dispensa.api import create_app
 from dispensa.deps import Deps
 from dispensa.domain.exercise_log import ExerciseCategory, ExerciseCompletion
+from dispensa.exercise_routine import name_to_id
 from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
@@ -23,18 +24,21 @@ _NEXT_DAY = date(2026, 10, 13)
 _MORNING = datetime(2026, 10, 12, 8, 0, tzinfo=UTC)
 _NOON = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
 _TWICE = 2
+_ROUTINE_SIZE = 30
 
 
 def _completion(
     client_id: str,
     *,
     exercise: str = "Pelvic Lift",
+    exercise_id: str = "pelvic-lift",
     done_on: date = _DAY,
     completed_at: datetime = _MORNING,
 ) -> ExerciseCompletion:
     """Build a Mobilize completion with a few overridable fields."""
     return ExerciseCompletion(
         client_id=client_id,
+        exercise_id=exercise_id,
         exercise=exercise,
         category=ExerciseCategory.MOBILIZE,
         done_on=done_on,
@@ -50,6 +54,7 @@ def _body(
     """Build a valid POST body."""
     return {
         "client_id": client_id,
+        "exercise_id": "squat",
         "exercise": "Squat",
         "category": "Strengthen",
         "done_on": "2026-10-12",
@@ -205,3 +210,41 @@ def test_api_range_rejects_reversed_or_huge_spans(
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_routine_endpoint_lists_the_catalog(client: TestClient) -> None:
+    """GET /routine returns the four categories, each exercise carrying an id."""
+    body = client.get("/api/exercise-log/routine").json()
+
+    assert [c["name"] for c in body] == ["Mobilize", "Move", "Strengthen", "Activate"]
+    exercises = [ex for cat in body for ex in cat["exercises"]]
+    assert len(exercises) == _ROUTINE_SIZE
+    assert all(ex["id"] and ex["name"] for ex in exercises)
+    ids = [ex["id"] for ex in exercises]
+    assert len(set(ids)) == len(ids)
+
+
+def test_history_is_linked_by_exercise_id_not_name(repo: ExerciseLogRepository) -> None:
+    """Completions of one exercise group by id, so a renamed exercise keeps history."""
+    repo.add(_completion("c1", exercise="Squat", exercise_id="squat"))
+    repo.add(
+        _completion(
+            "c2",
+            exercise="Back Squat",  # the display name changed later
+            exercise_id="squat",
+            done_on=_NEXT_DAY,
+        ),
+    )
+
+    rows = repo.list_between(start=_DAY, end=_NEXT_DAY)
+
+    assert {row.exercise_id for row in rows} == {"squat"}
+    assert {row.exercise for row in rows} == {"Squat", "Back Squat"}
+
+
+def test_catalog_names_map_to_stable_ids() -> None:
+    """Every routine name resolves to a unique id (the backfill mapping source)."""
+    mapping = name_to_id()
+    assert len(mapping) == _ROUTINE_SIZE
+    assert len(set(mapping.values())) == _ROUTINE_SIZE
+    assert mapping["Squat"] == "squat"

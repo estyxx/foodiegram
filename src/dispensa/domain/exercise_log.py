@@ -25,6 +25,10 @@ class ExerciseCompletion(BaseModel):
     # Minted by the page per tap, so a retried POST is idempotent while two real
     # repeats of the same exercise stay two rows.
     client_id: str
+    # Stable catalog id (exercise_routine). The display name can change; this does
+    # not, so a completion keeps its history when an exercise is renamed.
+    exercise_id: str
+    # The exercise's display name at the time it was logged.
     exercise: str
     category: ExerciseCategory
     # The user's local calendar day; the server cannot derive it from a UTC instant.

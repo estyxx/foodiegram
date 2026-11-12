@@ -18,6 +18,7 @@ from dispensa.storage.db import (
     truncate_all_tables,
 )
 from dispensa.storage.maintenance import ensure_database
+from dispensa.storage.migrations_runner import stamp_head
 
 _FIXTURE_AT = datetime(2026, 7, 4, 12, 0, tzinfo=UTC)
 
@@ -121,6 +122,9 @@ def postgres_engine() -> Generator[Engine]:
     engine = create_db_engine(test_url)
     SQLModel.metadata.create_all(engine)
     _ensure_schema_patches(engine)
+    # create_all builds the current (head) schema; stamp it so init_db, which runs
+    # migrations, treats the database as already managed instead of re-applying them.
+    stamp_head(test_url)
     yield engine
     engine.dispose()
 
@@ -147,6 +151,7 @@ def postgres_target_engine() -> Generator[Engine]:
     engine = create_db_engine(url)
     SQLModel.metadata.create_all(engine)
     _ensure_schema_patches(engine)
+    stamp_head(url)
     yield engine
     engine.dispose()
 

@@ -428,235 +428,49 @@
     <script>
       "use strict";
 
-      // --- Data: 30 exercises, 4 categories ------------------------------------
-      const PROGRESSIVE_NOTE =
-        "Ordine dal più facile al più difficile — non farli tutti dal giorno 1, avanza gradualmente.";
+      // --- Routine: fetched from the server (single source), cached offline -----
+      let CATEGORIES = [];
+      let FLAT = [];
 
-      const CATEGORIES = [
-        {
-          name: "Mobilize",
-          color: "#7C9885",
-          tint: "#f2f6f3",
-          exercises: [
-            {
-              name: "Pelvic Lift",
-              pose: "supineBent",
-              reps: "10 volte",
-              tip: "Muovi il bacino avanti e indietro appiattendo e inarcando leggermente la zona lombare. Movimento piccolo e lento, non forzare.",
-            },
-            {
-              name: "Knee Rolling",
-              pose: "supineBent",
-              reps: "10 volte",
-              tip: "Ginocchia unite, ruota entrambe da un lato senza sollevare le spalle da terra. Ferma se senti tirare troppo.",
-            },
-            {
-              name: "Hip Flex",
-              pose: "supineTabletop",
-              reps: "10 volte per lato",
-              tip: "Porta un ginocchio verso il petto tenendo l'altra gamba rilassata. Non trattenere il respiro.",
-            },
-            {
-              name: "Knees to Chest",
-              pose: "supineTabletop",
-              reps: "10 volte",
-              tip: "Entrambe le ginocchia al petto insieme, dondolo leggero se comodo. Fermati se senti fitte, non solo tensione.",
-            },
-            {
-              name: "Sitting Forward Position",
-              pose: "seatedForward",
-              reps: "10 volte",
-              tip: "Seduta su sedia, piega il busto in avanti portando le mani verso il pavimento. Piega dalle anche, non incurvare solo le spalle.",
-            },
-            {
-              name: "Hip Extension",
-              pose: "standingLegBack",
-              reps: "10 volte per lato",
-              tip: "In piedi, porta una gamba dritta indietro senza inarcare la zona lombare. Il movimento parte dall'anca, non dalla schiena.",
-            },
-            {
-              name: "Forward Bend",
-              pose: "standingForwardFold",
-              reps: "10 volte",
-              tip: "Scendi lentamente vertebra per vertebra, ginocchia morbide. Risali altrettanto lentamente, testa per ultima.",
-            },
-            {
-              name: "Front Lying Back Lift",
-              pose: "proneExtend",
-              reps: "10 volte",
-              tip: "A pancia in giù, solleva leggermente il petto senza spingere con le mani. Sollevamento piccolo, non da superman completo.",
-            },
-          ],
-        },
-        {
-          name: "Move",
-          color: "#6B8CAE",
-          tint: "#f0f4f8",
-          exercises: [
-            {
-              name: "Cat / Camel",
-              pose: "quadruped",
-              reps: "10 volte",
-              tip: "Carponi, alterna inarcare (camel) e incavare (cat) la schiena seguendo il respiro. Movimento fluido, non a scatti.",
-            },
-            {
-              name: "Child's Pose",
-              pose: "childPose",
-              reps: "10 volte",
-              tip: "Siedi sui talloni, busto disteso in avanti, braccia lunghe davanti. Lascia che il peso affondi, non spingere.",
-            },
-            {
-              name: "Thread the Needle",
-              pose: "quadruped",
-              reps: "10 volte per lato",
-              tip: "Carponi, infila un braccio sotto l'altra spalla ruotando il busto. Muovi dal centro schiena, tieni i fianchi fermi.",
-            },
-            {
-              name: "Leg Cross Overs",
-              pose: "sideLying",
-              reps: "5 volte",
-              tip: "Da sdraiata, porta le ginocchia piegate da un lato all'altro tenendo le spalle a terra. Rotazione controllata, non lasciarla cadere di peso.",
-            },
-            {
-              name: "Marching",
-              pose: "standingKneeUp",
-              reps: "10 volte per lato",
-              tip: "In piedi o sdraiata, solleva un ginocchio alla volta come se marciassi. Bacino stabile, non oscillare.",
-            },
-            {
-              name: "Hip Up and Out",
-              pose: "standingKneeUp",
-              reps: "4–5 volte, entrambi i lati",
-              tip: "Solleva il ginocchio poi apri l'anca verso l'esterno. Movimento lento, appoggio stabile sull'altra gamba.",
-            },
-            {
-              name: "Shoulder Blade Squeeze",
-              pose: "standingSqueeze",
-              reps: "10 volte",
-              tip: "Stringi le scapole verso la colonna, spalle basse e rilassate. Non alzare le spalle verso le orecchie.",
-            },
-            {
-              name: "Standing Bow and Arrow",
-              pose: "standingLegBack",
-              reps: "10 volte per lato",
-              tip: "In piedi, simula il gesto di tirare con l'arco ruotando il busto. Ruota dal torace, mantieni il bacino stabile.",
-            },
-          ],
-        },
-        {
-          name: "Strengthen",
-          color: "#B08968",
-          tint: "#f9f3ee",
-          note: PROGRESSIVE_NOTE,
-          exercises: [
-            {
-              name: "Static Glutes",
-              pose: "supineBent",
-              reps: "10 volte, tieni 5 sec",
-              tip: "Sdraiata, ginocchia piegate, contrai i glutei senza sollevare il bacino. Solo contrazione isometrica, nessun movimento.",
-            },
-            {
-              name: "Bilateral Bridge",
-              pose: "supineBent",
-              reps: "10 volte",
-              tip: "Solleva il bacino da terra fino ad allineare ginocchia-anche-spalle. Non inarcare oltre la linea retta, spingi con i talloni.",
-            },
-            {
-              name: "Offset Bridge",
-              pose: "supineBent",
-              reps: "10 volte per lato",
-              tip: "Come il ponte, ma con più peso su una gamba. Bacino livellato, non far cadere il lato scarico.",
-            },
-            {
-              name: "Split Stance Hip Hinge",
-              pose: "lungeSquat",
-              reps: "10 volte per lato",
-              tip: "Un piede avanti, uno indietro, piega dalle anche mantenendo la schiena dritta. La schiena resta neutra, il movimento è all'anca.",
-            },
-            {
-              name: "Forward Bend Hip Hinge",
-              pose: "standingForwardFold",
-              reps: "10 volte",
-              tip: "Piega il busto in avanti spingendo i fianchi indietro, schiena piatta, non arrotondata. Ginocchia morbide, peso sui talloni.",
-            },
-            {
-              name: "Squat",
-              pose: "lungeSquat",
-              reps: "10 volte",
-              tip: "Scendi come per sederti su una sedia, ginocchia in linea con le punte dei piedi. Non lasciare che le ginocchia cadano verso l'interno.",
-            },
-            {
-              name: "Jefferson Curl",
-              pose: "standingForwardFold",
-              reps: "8–10 volte, lento",
-              tip: "Arrotola la colonna vertebra per vertebra dall'alto verso il basso, poi risali allo stesso modo. Corpo libero, mai a scatti. Evita se hai un'ernia diagnosticata o dolore acuto in flessione — verifica con il fisioterapista prima.",
-            },
-            {
-              name: "Exercise Top End",
-              pose: "standingSqueeze",
-              reps: "10 volte",
-              tip: "Solleva le braccia mantenendo il core attivo e la schiena neutra. Non inarcare la lombare per guadagnare altezza.",
-            },
-          ],
-        },
-        {
-          name: "Activate",
-          color: "#A0616A",
-          tint: "#faf1f1",
-          note: PROGRESSIVE_NOTE,
-          exercises: [
-            {
-              name: "Superman",
-              pose: "proneExtend",
-              reps: "10 volte",
-              tip: "A pancia in giù, solleva braccio e gamba opposti insieme. Sollevamento controllato, non un colpo secco verso l'alto.",
-            },
-            {
-              name: "Deadbug",
-              pose: "supineTabletop",
-              reps: "10 volte per lato",
-              tip: "Sdraiata, ginocchia a 90°, estendi braccio e gamba opposti mantenendo la lombare a contatto col pavimento. Se la schiena si inarca, riduci l'ampiezza del movimento.",
-            },
-            {
-              name: "Half Front Plank",
-              pose: "plank",
-              reps: "tieni 10–15 sec",
-              tip: "Sugli avambracci, corpo in linea da testa a ginocchia. Non far cadere il bacino né alzarlo a punta.",
-            },
-            {
-              name: "Half Side Plank",
-              pose: "sideLying",
-              reps: "tieni 10–15 sec per lato",
-              tip: "Su un fianco, appoggio su avambraccio e ginocchio, solleva il bacino. Corpo in linea, non ruotare in avanti.",
-            },
-            {
-              name: "Child's Pose + Extension",
-              pose: "childPose",
-              reps: "10 volte",
-              tip: "Dalla posizione del bambino, scivola in avanti allungando la schiena, poi torna indietro. Movimento lento e continuo.",
-            },
-            {
-              name: "Lunge and Twist",
-              pose: "lungeSquat",
-              reps: "10 volte per lato",
-              tip: "In affondo, ruota il busto verso la gamba avanti. Ruota dal torace tenendo il bacino rivolto in avanti.",
-            },
-          ],
-        },
-      ];
+      function buildFlat() {
+        FLAT = CATEGORIES.flatMap((cat) =>
+          cat.exercises.map((ex) => ({
+            id: ex.id,
+            name: ex.name,
+            pose: ex.pose,
+            reps: ex.reps,
+            tip: ex.tip,
+            category: cat.name,
+            color: cat.color,
+            tint: cat.tint,
+            note: cat.note,
+          })),
+        );
+      }
 
-      const FLAT = CATEGORIES.flatMap((cat) =>
-        cat.exercises.map((ex) => ({
-          name: ex.name,
-          pose: ex.pose,
-          reps: ex.reps,
-          tip: ex.tip,
-          category: cat.name,
-          color: cat.color,
-          tint: cat.tint,
-          note: cat.note,
-        })),
-      );
+      const ROUTINE_CACHE_KEY = "schiena-routine";
+
+      // Fetch the catalogue once; fall back to the last cached copy offline.
+      async function loadRoutine() {
+        try {
+          const res = await fetch("/api/exercise-log/routine");
+          if (!res.ok) throw new Error("routine " + res.status);
+          CATEGORIES = await res.json();
+          try {
+            localStorage.setItem(ROUTINE_CACHE_KEY, JSON.stringify(CATEGORIES));
+          } catch (e) {
+            // storage blocked; the in-memory copy still serves this session.
+          }
+        } catch (e) {
+          try {
+            const cached = localStorage.getItem(ROUTINE_CACHE_KEY);
+            CATEGORIES = cached ? JSON.parse(cached) : [];
+          } catch (e2) {
+            CATEGORIES = [];
+          }
+        }
+        buildFlat();
+      }
 
       // --- Sections by body position ------------------------------------
       // Names, not copies: a section is a filtered view of the catalogue above, in
@@ -962,6 +776,7 @@
             const i = rotation[cat.name] % cat.exercises.length;
             const ex = cat.exercises[i];
             return {
+              id: ex.id,
               name: ex.name,
               pose: ex.pose,
               reps: ex.reps,
@@ -1113,6 +928,7 @@
           const now = new Date();
           pending.push({
             client_id: newClientId(),
+            exercise_id: ex.id,
             exercise: ex.name,
             category: ex.category,
             done_on: dayKey(now),
@@ -1620,9 +1436,12 @@
         if (mode === null) paint();
       });
 
-      render();
-      refreshToday();
-      flushPending();
+      // Load the catalogue (or its offline cache), then paint.
+      loadRoutine().then(() => {
+        render();
+        refreshToday();
+        flushPending();
+      });
     </script>
   </body>
 </html>

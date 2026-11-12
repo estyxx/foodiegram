@@ -222,7 +222,7 @@ A separate context (`body`) with its own import contract, page and per-user data
 sharing only the login.
 
 - [x] Isolate the exercise domain so it imports nothing from the food domain.
-- [ ] Stable exercise ids: move the routine into one tracked data file with an id per
+- [x] Stable exercise ids: move the routine into one tracked data file with an id per
   exercise so renaming an exercise keeps its history. Now unblocked by migrations.
 - [ ] A month view on the Progressi screen: days done per week for the last eight weeks.
 
@@ -271,8 +271,8 @@ by pointing at the same row, with no membership table or sharing UI now.
 
 In priority order, the first actionable items:
 
-1. **Stable exercise ids** (back exercises), now unblocked by migrations: a tracked
-   data file with an id per exercise, then the month view.
+1. **A month view on Progressi** (back exercises): days done per week for the last
+   eight weeks, now that the log is keyed by stable ids.
 2. **Recipe edit UI**, once the `language`-field question below is settled.
 3. **Identity**, the largest piece, when there is appetite for it: the `households`
    and `users` tables and their migration first, then WorkOS web login.

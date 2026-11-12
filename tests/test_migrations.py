@@ -13,6 +13,7 @@ from dispensa.storage.maintenance import ensure_database
 from dispensa.storage.migrations_runner import (
     current_revision,
     stamp_head,
+    upgrade_to,
     upgrade_to_head,
 )
 
@@ -107,3 +108,30 @@ def test_init_db_adopts_a_pre_alembic_database(empty_engine: Engine) -> None:
 
     assert current_revision(empty_engine) is not None
     assert inspect(empty_engine).has_table(RecipeRow.__tablename__)
+
+
+_BASELINE = "7391519ae25e"
+
+
+def test_exercise_id_is_backfilled_from_the_name(empty_engine: Engine) -> None:
+    """An old exercise_log row (name only) gets the matching id when upgraded."""
+    url = _initdb_database_url()
+    upgrade_to(url, _BASELINE)
+    with Session(empty_engine) as session:
+        session.execute(
+            text(
+                "INSERT INTO exercise_log "
+                "(client_id, exercise, category, done_on, completed_at) "
+                "VALUES ('x', 'Squat', 'Strengthen', '2026-10-12', "
+                "'2026-10-12 08:00:00')",
+            ),
+        )
+        session.commit()
+
+    upgrade_to_head(url)
+
+    with empty_engine.connect() as connection:
+        exercise_id = connection.execute(
+            text("SELECT exercise_id FROM exercise_log WHERE client_id = 'x'"),
+        ).scalar_one()
+    assert exercise_id == "squat"

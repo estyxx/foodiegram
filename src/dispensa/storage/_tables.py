@@ -148,6 +148,7 @@ class ExerciseLogRow(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     client_id: str = Field(unique=True)
+    exercise_id: str
     exercise: str
     category: str
     done_on: date = Field(index=True)

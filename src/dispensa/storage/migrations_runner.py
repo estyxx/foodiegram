@@ -37,6 +37,11 @@ def upgrade_to_head(url: str) -> None:
     command.upgrade(_config(url), "head")
 
 
+def upgrade_to(url: str, revision: str) -> None:
+    """Apply migrations up to a specific revision (for stepwise tests/rollouts)."""
+    command.upgrade(_config(url), revision)
+
+
 def stamp_head(url: str) -> None:
     """Mark the database as being at the latest revision without running DDL.
 

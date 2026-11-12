@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from dispensa.api_models import ExerciseLogCreate, ExerciseLogOut
 from dispensa.deps import DepsDep
 from dispensa.domain.exercise_log import ExerciseCompletion
+from dispensa.exercise_routine import ROUTINE, RoutineCategory
 
 router = APIRouter(prefix="/api/exercise-log")
 
@@ -18,11 +19,18 @@ def _to_out(entry: ExerciseCompletion) -> ExerciseLogOut:
     return ExerciseLogOut(
         id=entry.id,
         client_id=entry.client_id,
+        exercise_id=entry.exercise_id,
         exercise=entry.exercise,
         category=entry.category.value,
         done_on=entry.done_on,
         completed_at=entry.completed_at,
     )
+
+
+@router.get("/routine")
+async def get_routine() -> list[RoutineCategory]:
+    """Return the back-exercise routine (the catalog the page renders)."""
+    return list(ROUTINE)
 
 
 @router.get("")
@@ -50,6 +58,7 @@ async def log_exercise(body: ExerciseLogCreate, deps: DepsDep) -> ExerciseLogOut
     entry = deps.exercise_log.add(
         ExerciseCompletion(
             client_id=body.client_id,
+            exercise_id=body.exercise_id,
             exercise=body.exercise,
             category=body.category,
             done_on=body.done_on,

@@ -17,6 +17,7 @@ def _to_completion(row: ExerciseLogRow) -> ExerciseCompletion:
         {
             "id": row.id,
             "client_id": row.client_id,
+            "exercise_id": row.exercise_id,
             "exercise": row.exercise,
             "category": row.category,
             "done_on": row.done_on,
@@ -44,6 +45,7 @@ class ExerciseLogRepository:
                 return _to_completion(existing)
             row = ExerciseLogRow(
                 client_id=entry.client_id,
+                exercise_id=entry.exercise_id,
                 exercise=entry.exercise,
                 category=entry.category.value,
                 done_on=entry.done_on,
