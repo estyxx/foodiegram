@@ -40,6 +40,7 @@ class RecipeEdit(BaseModel):
     difficulty: Difficulty | None = None
     mediterranean_categories: list[CategoryServing] | None = None
     archived: bool | None = None
+    language: str | None = None
 
 
 def update_recipe(

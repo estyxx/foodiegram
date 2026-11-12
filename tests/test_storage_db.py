@@ -557,3 +557,18 @@ def test_pre_d31_pantry_row_reads_as_unknown_location(engine: Engine) -> None:
 
     assert item.location is PantryLocation.UNKNOWN
     assert item.quantity == ""
+
+
+def test_language_defaults_to_italian_and_round_trips(engine: Engine) -> None:
+    """A recipe's content language defaults to Italian and a set value persists."""
+    repo = RecipeRepository(engine)
+    repo.save(_full_recipe())
+
+    stored = repo.get("ABC")
+    assert stored is not None
+    assert stored.language == "it"
+
+    repo.save(_full_recipe().model_copy(update={"language": "en"}))
+    reloaded = repo.get("ABC")
+    assert reloaded is not None
+    assert reloaded.language == "en"

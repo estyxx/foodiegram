@@ -1167,3 +1167,13 @@ def test_queue_import_endpoint_returns_count_when_batch_not_ready(
 
     assert response.status_code == HTTPStatus.OK
     assert response.json()["count"] == 0
+
+
+def test_patch_language_updates_the_recipe(client: TestClient, deps: Deps) -> None:
+    """PATCH language changes the recipe's content language and is readable back."""
+    deps.recipes.save(_fish_recipe("LANG1"))
+
+    patched = client.patch("/api/recipes/LANG1", json={"language": "en"})
+
+    assert patched.status_code == HTTPStatus.OK
+    assert client.get("/api/recipes/LANG1").json()["language"] == "en"

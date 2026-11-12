@@ -169,6 +169,11 @@ class Recipe(BaseModel):
     edited_fields: frozenset[str] = frozenset()
     archived: bool = False
 
+    # Language of the verbatim content (title, ingredients, instructions), as a
+    # two-letter code. Mostly Italian; defaults to it, corrected by hand on the
+    # edit page so the page can mark the text with the right lang attribute.
+    language: str = "it"
+
     # Codes (Instagram or manual) of recipes that inspired this one. Chaining is
     # allowed: a remix of a remix lists only its immediate parent(s).
     inspired_by: list[str] = Field(default_factory=list)

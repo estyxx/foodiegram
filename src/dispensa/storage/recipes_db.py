@@ -55,6 +55,7 @@ def _to_row(recipe: Recipe, *, created_at: datetime, updated_at: datetime) -> Re
         cloudinary_url=recipe.cloudinary_url,
         thumbnail_url=recipe.thumbnail_url,
         archived=recipe.archived,
+        language=recipe.language,
         is_recipe=recipe.is_recipe,
         confidence=recipe.confidence,
         extracted_at=recipe.extracted_at,
@@ -131,6 +132,7 @@ def _to_domain(row: RecipeRow) -> Recipe:
             # Nullable until the ADD COLUMN backfills on existing rows.
             "inspired_by": row.inspired_by or [],
             "archived": row.archived,
+            "language": row.language,
             "is_recipe": row.is_recipe,
             "confidence": row.confidence,
             "extracted_at": ensure_utc(row.extracted_at),
