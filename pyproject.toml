@@ -9,6 +9,7 @@ authors = [
 keywords = ["instagram", "recipes", "ocr", "nlp", "data-extraction"]
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.1",
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.115",
@@ -51,8 +52,13 @@ build-backend = "uv_build"
 target-version = "py314"
 line-length = 89
 fix = true
-# Standalone reference artifacts that are not part of the package.
-extend-exclude = ["Recipe Management System Architecture", "cookstagram-data"]
+# Standalone reference artifacts that are not part of the package, plus the
+# generated Alembic migration scripts (env.py / script.py.mako stay linted).
+extend-exclude = [
+    "Recipe Management System Architecture",
+    "cookstagram-data",
+    "migrations/versions",
+]
 
 
 [tool.ruff.lint]
@@ -97,6 +103,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlmodel.SQLModel"]
 "src/dispensa/settings.py" = ["S104"]
 # Sequence is the public parameter type for cosine_similarity.
 "src/dispensa/domain/similarity.py" = ["TC003"]
+# Alembic loads env.py directly; it is an entry script, not a package module.
+"migrations/env.py" = ["INP001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
