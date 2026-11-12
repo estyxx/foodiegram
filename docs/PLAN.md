@@ -8,8 +8,8 @@ is a solo hobby project for personal use, ADHD-friendly by design.
 
 This is the single planning document: the product, the roadmap and the reasoning.
 Architecture rules and coding conventions live in `CLAUDE.md`; this file does not
-repeat them. Status markers below mean: ✅ done, 🔧 partial, ⬜ next (not started),
-💤 deferred.
+repeat them. Roadmap items use checkboxes: `[x]` done, `[ ]` still to do. A heading marked
+(in progress) or (not started) flags where an area stands at a glance.
 
 ## Contents
 
@@ -127,143 +127,143 @@ Grouped by area rather than by the original phase numbers, which accumulated acr
 several planning rounds. Done work is kept so the history of what was built stays
 legible.
 
-### Foundations: domain, pipeline, storage ✅
+### Foundations: domain, pipeline, storage
 
-- ✅ Pure domain layer: enums (8 Mediterranean categories including plant_protein),
+- [x] Pure domain layer: enums (8 Mediterranean categories including plant_protein),
   models, `promote()` with the edited-fields rule (the anchor test of the codebase),
   diffing, planning, pantry and shopping, synonyms.
-- ✅ DDD-lite package layout by pure moves; import-linter contracts replace the old
+- [x] DDD-lite package layout by pure moves; import-linter contracts replace the old
   architecture test.
-- ✅ Postgres everywhere (SQLite removed): hand-written repositories per aggregate,
+- [x] Postgres everywhere (SQLite removed): hand-written repositories per aggregate,
   SQLModel rows private to `storage/`.
-- ✅ Append-only `extractions`; `promote` merges into `recipes` preserving user edits;
+- [x] Append-only `extractions`; `promote` merges into `recipes` preserving user edits;
   `diff_batch` answers "I changed the prompt, what changed?".
-- ✅ Local data loaded and round-tripped; extraction history backfilled; a re-promote
+- [x] Local data loaded and round-tripped; extraction history backfilled; a re-promote
   changes nothing (idempotence proven).
-- 🔧 Debt sweep: edit-tracking finished, dead code and the `posts` staging table
+- [ ] Debt sweep: edit-tracking finished, dead code and the `posts` staging table
   removed, CLI and prod-guard tests added. Deferred by choice: the caption-changed
   re-extract wiring (D26, caption edits are rare) and a one-off pipeline run to fill
   ~831 empty `summary` fields.
 
-### Planning engine and API ✅
+### Planning engine and API
 
-- ✅ `domain/planning.py`: week balance (multi-category, slot-not-portion,
+- [x] `domain/planning.py`: week balance (multi-category, slot-not-portion,
   under/ok/over), oily-fish count, gap suggestions ranked by confidence then
   favourites, all pure and tested.
-- ✅ Plan, pantry and targets endpoints; `GET /api/plans/{week}` returns plan,
+- [x] Plan, pantry and targets endpoints; `GET /api/plans/{week}` returns plan,
   balance and suggestions in one payload so the frontend does no balance math.
-- ✅ A meal slot holds one or more dishes (D34); moving a dish across days and across
+- [x] A meal slot holds one or more dishes (D34); moving a dish across days and across
   weeks.
 
-### Claude and the MCP server ✅
+### Claude and the MCP server
 
-- ✅ MCP server over stdio or mounted at `/mcp` behind a JWT/OAuth verifier, with a
+- [x] MCP server over stdio or mounted at `/mcp` behind a JWT/OAuth verifier, with a
   subject allow-list.
-- ✅ Read tools (`search_recipes`, `get_recipe`, `get_planning_context`) and write
+- [x] Read tools (`search_recipes`, `get_recipe`, `get_planning_context`) and write
   tools (`add_meal`, `clear_meal`, `set_portions`, `save_recipe`, `update_recipe`,
   `add`/`remove_pantry_items`), all thin wrappers over the same use-cases the API
   calls.
 
-### Web app and speed ✅
+### Web app and speed
 
-- ✅ Design tokens and the component system (no-build ES modules, `// @ts-check`,
+- [x] Design tokens and the component system (no-build ES modules, `// @ts-check`,
   pure function components, `textContent` only, a11y as a review gate).
-- ✅ Browse, recipe detail ("split workbench" redesign), plan page ("Plan v5"),
+- [x] Browse, recipe detail ("split workbench" redesign), plan page ("Plan v5"),
   favourites; cooking mode with step timers that hand off to the iPhone Clock.
-- ✅ Client-side session index for instant lexical search, facet counts and favourite
+- [x] Client-side session index for instant lexical search, facet counts and favourite
   toggles; semantic search stays server-side; one shared numpy embedding matrix.
 - Note: `#week` (a home dashboard) was never built and is deferred; the planner is
   Mon-Fri with a weekend toggle (D33).
 
-### Weekly loop: shopping and pantry ✅
+### Weekly loop: shopping and pantry
 
-- ✅ Shopping-list page from the plan: the week's not-in-pantry ingredients grouped by
+- [x] Shopping-list page from the plan: the week's not-in-pantry ingredients grouped by
   aisle, tick-to-strike persisted per device, offline via the service worker.
-- ✅ Aisle map built from the library's own ingredient words.
-- ✅ Pantry page (list by location, add, remove); cross-language synonym pairs for the
+- [x] Aisle map built from the library's own ingredient words.
+- [x] Pantry page (list by location, add, remove); cross-language synonym pairs for the
   common pantry words.
-- ✅ Installable PWA: manifest, icons, service worker for the app shell and the current
+- [x] Installable PWA: manifest, icons, service worker for the app shell and the current
   shopping list.
-- ✅ Diet-pyramid targets with optional ceilings (plant floors, animal ceilings).
+- [x] Diet-pyramid targets with optional ceilings (plant floors, animal ceilings).
 
-### Editing and manual recipes 🔧
+### Editing and manual recipes (in progress)
 
-- ✅ Widen the recipe PATCH and `edited_fields` to cover title, ingredients,
+- [x] Widen the recipe PATCH and `edited_fields` to cover title, ingredients,
   instructions, times, difficulty, categories with servings and the archived flag;
   MCP `update_recipe` gains the same.
-- ✅ Revert one edited field to its latest extracted value.
-- ✅ Archive an Instagram save, delete a manual recipe; archived recipes leave browse,
+- [x] Revert one edited field to its latest extracted value.
+- [x] Archive an Instagram save, delete a manual recipe; archived recipes leave browse,
   search, semantic ranking and gap suggestions but still render on a past plan.
-- ⬜ Edit mode on the recipe page: edit in place, a per-field "edited" marker, save
+- [ ] Edit mode on the recipe page: edit in place, a per-field "edited" marker, save
   through the existing PATCH. Needs a per-recipe `language` field first so verbatim
   Italian text can be marked `lang="it"` without mislabelling English recipes.
-- ⬜ Paste a recipe: save pasted text at once as a manual recipe "waiting for
+- [ ] Paste a recipe: save pasted text at once as a manual recipe "waiting for
   extraction", filled in by the next batch run; and an optional "extract now" button,
   only if the wait proves to hurt.
 
-### Capture queue and extraction ✅ core
+### Capture queue and extraction
 
 The in-app queue, which supersedes the earlier scripted capture plans.
 
-- ✅ `pending_links` table and the queue endpoints; the `#queue` page with per-item
+- [x] `pending_links` table and the queue endpoints; the `#queue` page with per-item
   caption paste.
-- ✅ Launch a batch for the ready items against Neon, import the finished batch into
+- [x] Launch a batch for the ready items against Neon, import the finished batch into
   recipes, with launch/import buttons on the queue page. Batch state in the DB. This
   reverses the old "extraction never runs against Neon" rule (D56).
-- ⬜ iOS Shortcut: share sheet to `POST /api/instagram/queue`, so capture needs no
+- [ ] iOS Shortcut: share sheet to `POST /api/instagram/queue`, so capture needs no
   laptop.
-- ⬜ Retire the local scripts once the queue is in daily use (keep `export` and
+- [ ] Retire the local scripts once the queue is in daily use (keep `export` and
   `db dump`). The first real extraction against Neon is still the owner's to run,
   under the spend cap.
 
-### Back exercises 🔧
+### Back exercises (in progress)
 
 A separate context (`body`) with its own import contract, page and per-user data,
 sharing only the login.
 
-- ✅ Isolate the exercise domain so it imports nothing from the food domain.
-- ⬜ Stable exercise ids: move the routine into one tracked data file with an id per
+- [x] Isolate the exercise domain so it imports nothing from the food domain.
+- [ ] Stable exercise ids: move the routine into one tracked data file with an id per
   exercise so renaming an exercise keeps its history. Now unblocked by migrations.
-- ⬜ A month view on the Progressi screen: days done per week for the last eight weeks.
+- [ ] A month view on the Progressi screen: days done per week for the last eight weeks.
 
-### Safety net: CI, backups, migrations ✅
+### Safety net: CI, backups, migrations
 
-- ✅ CI runs the full gate on every push and pull request.
-- ✅ Weekly Neon backup in a separate private repo; a restore drill proven.
-- ✅ Health endpoints for uptime monitoring that let Neon sleep.
-- ✅ Date-based version plus the deployed commit in the footer.
-- ✅ Alembic migrations with a baseline matching the models; `init_db` runs migrations
+- [x] CI runs the full gate on every push and pull request.
+- [x] Weekly Neon backup in a separate private repo; a restore drill proven.
+- [x] Health endpoints for uptime monitoring that let Neon sleep.
+- [x] Date-based version plus the deployed commit in the footer.
+- [x] Alembic migrations with a baseline matching the models; `init_db` runs migrations
   at startup and adopts a pre-Alembic database by stamping it at the baseline (no
   manual prod step). DDL now lives in migrations, not in `create_all`.
 
-### Identity: one household per person ⬜
+### Identity: one household per person (not started)
 
 The biggest remaining block.
 
-- ⬜ `households` and `users`; a migration seeds the owner's household owning every
+- [ ] `households` and `users`; a migration seeds the owner's household owning every
   existing row; a CLI command adds a user with a household of one and default targets.
-- ⬜ Web login with WorkOS AuthKit (already the MCP identity provider); Basic auth stays
+- [ ] Web login with WorkOS AuthKit (already the MCP identity provider); Basic auth stays
   behind a setting for one release as the way back.
-- ⬜ Scope the data by `household_id` (`week_plans`, `pantry_items`, `targets`,
+- [ ] Scope the data by `household_id` (`week_plans`, `pantry_items`, `targets`,
   `user_state`), threaded router to deps to repositories, with no unscoped reads left.
-- ⬜ MCP resolves the user from the token; the allow-list becomes the `users` table.
-- ⬜ Download-my-data export and account removal.
+- [ ] MCP resolves the user from the token; the allow-list becomes the `users` table.
+- [ ] Download-my-data export and account removal.
 
 The recipe library stays shared (one library); only plans, pantry, targets,
 favourites and notes become per-household, so two people can share a household later
 by pointing at the same row, with no membership table or sharing UI now.
 
-### Deferred and someday 💤
+### Deferred and someday
 
-- 💤 AI companion: expiry nudges, a taste profile that ranks gap suggestions, a
+- [ ] AI companion: expiry nudges, a taste profile that ranks gap suggestions, a
   "draft my week" agent. Only after several weeks of real use; not designed now.
-- 💤 pgvector (semantic search uses JSON embeddings plus Python cosine until ~10k rows).
-- 💤 A native shell (Capacitor around the same web code) until a share-sheet or
+- [ ] pgvector (semantic search uses JSON embeddings plus Python cosine until ~10k rows).
+- [ ] A native shell (Capacitor around the same web code) until a share-sheet or
   notification need is real. React Native is off the board.
-- 💤 Screenshot or OCR capture: capture is link plus pasted caption only.
-- 💤 Hourly caption sync in GitHub Actions (dropped: it scripts a flagged account from
+- [ ] Screenshot or OCR capture: capture is link plus pasted caption only.
+- [ ] Hourly caption sync in GitHub Actions (dropped: it scripts a flagged account from
   datacenter addresses).
-- 💤 A home region for the app: FastAPI Cloud (us-east-1) and Neon (London) are on
+- [ ] A home region for the app: FastAPI Cloud (us-east-1) and Neon (London) are on
   opposite sides of the Atlantic, so every query pays the round trip. Decision: wait
   for a European FastAPI Cloud region, then move the app next to Neon.
 
