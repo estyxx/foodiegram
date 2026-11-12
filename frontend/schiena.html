@@ -256,6 +256,14 @@
         text-transform: uppercase;
         color: #a8a29e;
       }
+      .backlink {
+        display: inline-block;
+        color: #78716c;
+        text-decoration: none;
+        font-size: 0.9rem;
+        min-height: 2.75rem;
+        line-height: 2.75rem;
+      }
       .pair {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1205,6 +1213,11 @@
 
       function menuScreen() {
         return el("div", { class: "screen" }, [
+          el("a", {
+            class: "backlink",
+            text: "← Dispensa",
+            attrs: { href: "/" },
+          }),
           el("h1", { class: "title", text: "Esercizi schiena" }),
           el("p", {
             class: "lede",
