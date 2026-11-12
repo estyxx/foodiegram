@@ -2,7 +2,9 @@
 
 import {
   deleteQueued,
+  extractQueue,
   getQueue,
+  importQueue,
   pasteCaption,
   queueLink,
 } from "../api/client.js";
@@ -97,6 +99,68 @@ function renderItem(link, reload) {
 }
 
 /**
+ * The launch/import toolbar: one batch button per actionable queue state.
+ * @param {PendingLink[]} links
+ * @param {() => void} reload
+ * @returns {HTMLElement}
+ */
+function buildToolbar(links, reload) {
+  const ready = links.filter((link) => link.status === "ready").length;
+  const extracting = links.filter((link) => link.status === "extracting").length;
+
+  const bar = el("div", "queue__toolbar");
+  const status = el("p", "queue__toolbar-status");
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+
+  /**
+   * @param {string} label
+   * @param {number} n
+   * @param {() => Promise<number>} action
+   * @param {(n: number) => string} done
+   * @returns {HTMLButtonElement}
+   */
+  const button = (label, n, action, done) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "queue__batch-btn";
+    btn.textContent = n > 0 ? `${label} (${n})` : label;
+    btn.disabled = n === 0;
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      status.textContent = "Working…";
+      action()
+        .then((count) => {
+          status.textContent = done(count);
+          reload();
+        })
+        .catch(() => {
+          status.textContent = "That didn't work — check the server and try again.";
+          btn.disabled = false;
+        });
+    });
+    return btn;
+  };
+
+  bar.append(
+    button(
+      "Launch extraction",
+      ready,
+      extractQueue,
+      (n) => `Submitted ${n} for extraction.`,
+    ),
+    button(
+      "Import finished",
+      extracting,
+      importQueue,
+      (n) => (n > 0 ? `Imported ${n} recipe${n === 1 ? "" : "s"}.` : "Nothing ready yet."),
+    ),
+    status,
+  );
+  return bar;
+}
+
+/**
  * Render the capture queue (#queue).
  * @param {HTMLElement} container
  */
@@ -155,6 +219,7 @@ export async function renderQueue(container) {
     return;
   }
 
+  body.append(buildToolbar(links, reload));
   for (const link of links) {
     body.append(renderItem(link, reload));
   }

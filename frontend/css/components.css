@@ -4145,3 +4145,36 @@
   font-size: var(--text-sm);
   color: var(--ink-muted);
 }
+.queue__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-row);
+}
+.queue__batch-btn {
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-sm);
+  background: var(--teal);
+  color: var(--on-dark);
+  cursor: pointer;
+}
+.queue__batch-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.queue__toolbar-status {
+  margin: 0;
+  flex: 1 1 100%;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+.queue__toolbar-status:empty {
+  display: none;
+}

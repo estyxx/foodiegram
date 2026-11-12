@@ -390,6 +390,28 @@ export async function deleteQueued(code) {
 }
 
 /**
+ * Submit an OpenAI batch for the ready queue items. Returns how many were sent.
+ * @returns {Promise<number>}
+ */
+export async function extractQueue() {
+  const result = /** @type {{ count: number }} */ (
+    await apiFetch("/instagram/queue/extract", { method: "POST" })
+  );
+  return result.count;
+}
+
+/**
+ * Import a finished batch into recipes. Returns how many were imported.
+ * @returns {Promise<number>}
+ */
+export async function importQueue() {
+  const result = /** @type {{ count: number }} */ (
+    await apiFetch("/instagram/queue/import", { method: "POST" })
+  );
+  return result.count;
+}
+
+/**
  * @typedef {object} MealCreateBody
  * @property {string} day ISO date.
  * @property {"lunch" | "dinner"} meal
