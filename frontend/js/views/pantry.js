@@ -6,316 +6,735 @@ import {
   getPantry,
   updatePantryItem,
 } from "../api/client.js";
+import {
+  LOCATIONS,
+  expiryNote,
+  expiryStatus,
+  isoOffset,
+  locationLabel,
+  sections,
+  summaryLine,
+  useSoon,
+} from "../lib/pantryModel.js";
 
 /** @typedef {import("../api/client.js").PantryItem} PantryItem */
 
-/** Locations in shopping order, with their display label. */
-const LOCATIONS = /** @type {const} */ ([
-  ["fridge", "Fridge"],
-  ["pantry", "Pantry"],
-  ["freezer", "Freezer"],
-  ["unknown", "Other"],
+const TOAST_MS = 7000;
+const STAPLES = ["olio extravergine", "sale", "pasta", "ceci secchi", "passata di pomodoro"];
+const QUICK_DATES = /** @type {const} */ ([
+  ["No date", null],
+  ["+3 days", 3],
+  ["+1 week", 7],
+  ["+1 month", 30],
 ]);
-const SOON_DAYS = 3;
-const MS_PER_DAY = 86400000;
 
 /**
  * @param {string} tag
  * @param {string} className
+ * @param {string} [text]
  * @returns {HTMLElement}
  */
-function el(tag, className) {
+function el(tag, className, text) {
   const node = document.createElement(tag);
-  node.className = className;
+  if (className) {
+    node.className = className;
+  }
+  if (text !== undefined) {
+    node.textContent = text;
+  }
   return node;
 }
 
 /**
- * Whole days from today to an ISO date, or null when there is no date.
- * @param {string | null} expires
- * @returns {number | null}
+ * A down chevron, decorative.
+ * @returns {SVGElement}
  */
-function daysToExpiry(expires) {
-  if (expires === null) {
-    return null;
-  }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(`${expires}T00:00:00`);
-  return Math.round((due.getTime() - today.getTime()) / MS_PER_DAY);
+function chevron() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 14 14");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "pantry__chevron");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M3.5 5.5L7 9l3.5-3.5");
+  svg.append(path);
+  return svg;
 }
 
 /**
- * Sort key: soonest expiry first, undated last, then by name.
- * @param {PantryItem} item
- * @returns {number}
- */
-function expirySort(item) {
-  const days = daysToExpiry(item.expires);
-  return days === null ? Number.MAX_SAFE_INTEGER : days;
-}
-
-/**
- * @param {string | null} expires
- * @returns {HTMLElement | null}
- */
-function expiryBadge(expires) {
-  const days = daysToExpiry(expires);
-  if (days === null || days > SOON_DAYS) {
-    return null;
-  }
-  const badge = el("span", "pantry__badge");
-  if (days < 0) {
-    badge.classList.add("pantry__badge--expired");
-    badge.textContent = "Expired";
-  } else {
-    badge.classList.add("pantry__badge--soon");
-    badge.textContent = days === 0 ? "Today" : `${days}d`;
-  }
-  return badge;
-}
-
-/**
- * A labelled location <select> prefilled to current.
+ * A four-way segmented location picker. Returns the fieldset plus a getter.
+ * @param {string} legend
  * @param {string} current
- * @returns {HTMLSelectElement}
+ * @param {(value: string) => void} onPick
+ * @returns {HTMLFieldSetElement}
  */
-function locationSelect(current) {
-  const select = document.createElement("select");
-  select.className = "pantry__input";
-  select.setAttribute("aria-label", "Location");
+function segmentedLocation(legend, current, onPick) {
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "pantry__seg-set";
+  const caption = el("legend", "pantry__field-label", legend);
+  const group = el("div", "pantry__seg");
+  const name = `loc-${Math.random().toString(36).slice(2, 8)}`;
   for (const [value, label] of LOCATIONS) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    option.selected = value === current;
-    select.append(option);
+    const option = document.createElement("label");
+    option.className = "pantry__seg-btn";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = name;
+    radio.value = value;
+    radio.checked = value === current;
+    radio.className = "pantry__seg-radio";
+    radio.addEventListener("change", () => onPick(value));
+    option.append(radio, document.createTextNode(label));
+    group.append(option);
   }
-  return select;
+  fieldset.append(caption, group);
+  return fieldset;
 }
 
 /**
- * One pantry item: a read row that swaps in place for an editor on "Edit".
- * @param {PantryItem} item
- * @param {() => void} reload
- * @returns {HTMLLIElement}
- */
-function renderItem(item, reload) {
-  const li = document.createElement("li");
-  li.className = "pantry__item";
-  showRead();
-  return li;
-
-  function showRead() {
-    const main = el("div", "pantry__item-main");
-    const name = el("span", "pantry__name");
-    name.textContent = item.name;
-    main.append(name);
-    if (item.quantity) {
-      const qty = el("span", "pantry__qty");
-      qty.textContent = item.quantity;
-      main.append(qty);
-    }
-    const badge = expiryBadge(item.expires);
-    if (badge) {
-      main.append(badge);
-    }
-
-    const edit = document.createElement("button");
-    edit.type = "button";
-    edit.className = "pantry__edit";
-    edit.setAttribute("aria-label", `Edit ${item.name}`);
-    edit.textContent = "✎";
-    edit.addEventListener("click", showEdit);
-
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "pantry__remove";
-    remove.setAttribute("aria-label", `Remove ${item.name}`);
-    remove.textContent = "×";
-    remove.addEventListener("click", () => {
-      if (item.id !== null) {
-        void deletePantryItem(item.id).then(reload);
-      }
-    });
-
-    li.replaceChildren(main, edit, remove);
-  }
-
-  function showEdit() {
-    li.replaceChildren(buildItemEditor(item, showRead, reload));
-  }
-}
-
-/**
- * Inline editor for a pantry item: name, quantity, location and expiry.
- * @param {PantryItem} item
- * @param {() => void} onCancel
- * @param {() => void} reload
- * @returns {HTMLFormElement}
- */
-function buildItemEditor(item, onCancel, reload) {
-  const form = document.createElement("form");
-  form.className = "pantry__edit-form";
-
-  const name = document.createElement("input");
-  name.type = "text";
-  name.required = true;
-  name.value = item.name;
-  name.className = "pantry__input pantry__input--name";
-  name.setAttribute("aria-label", "Item name");
-
-  const location = locationSelect(item.location);
-
-  const quantity = document.createElement("input");
-  quantity.type = "text";
-  quantity.value = item.quantity;
-  quantity.placeholder = "Qty (optional)";
-  quantity.className = "pantry__input pantry__input--qty";
-  quantity.setAttribute("aria-label", "Quantity");
-
-  const expires = document.createElement("input");
-  expires.type = "date";
-  expires.value = item.expires ?? "";
-  expires.className = "pantry__input";
-  expires.setAttribute("aria-label", "Expiry date");
-
-  const save = document.createElement("button");
-  save.type = "submit";
-  save.className = "pantry__add";
-  save.textContent = "Save";
-
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "pantry__cancel";
-  cancel.textContent = "Cancel";
-  cancel.addEventListener("click", onCancel);
-
-  form.append(name, location, quantity, expires, save, cancel);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (item.id === null || name.value.trim() === "") {
-      return;
-    }
-    save.disabled = true;
-    void updatePantryItem(item.id, {
-      name: name.value.trim(),
-      location: location.value,
-      quantity: quantity.value.trim(),
-      expires: expires.value || null,
-    })
-      .then(reload)
-      .catch(() => {
-        save.disabled = false;
-      });
-  });
-  return form;
-}
-
-/**
+ * A labelled text/date input inside its own field wrapper.
  * @param {string} label
- * @param {PantryItem[]} items
- * @param {() => void} reload
- * @returns {HTMLElement}
+ * @param {string} type
+ * @param {string} value
+ * @param {string} [placeholder]
+ * @returns {{ field: HTMLElement, input: HTMLInputElement }}
  */
-function renderGroup(label, items, reload) {
-  const section = el("section", "pantry__group");
-  const heading = el("h2", "pantry__location");
-  heading.textContent = `${label} (${items.length})`;
-  const list = document.createElement("ul");
-  list.className = "pantry__items";
-  for (const item of [...items].sort((a, b) => expirySort(a) - expirySort(b))) {
-    list.append(renderItem(item, reload));
+function field(label, type, value, placeholder) {
+  const wrapper = el("label", "pantry__field");
+  wrapper.append(el("span", "pantry__field-label", label));
+  const input = document.createElement("input");
+  input.type = type;
+  input.value = value;
+  input.className = "pantry__input";
+  if (placeholder) {
+    input.placeholder = placeholder;
   }
-  section.append(heading, list);
-  return section;
+  wrapper.append(input);
+  return { field: wrapper, input };
 }
 
 /**
- * The add-an-item form.
- * @param {() => void} reload
- * @returns {HTMLFormElement}
- */
-function renderForm(reload) {
-  const form = document.createElement("form");
-  form.className = "pantry__form";
-  const name = document.createElement("input");
-  name.type = "text";
-  name.required = true;
-  name.placeholder = "Add an item…";
-  name.className = "pantry__input pantry__input--name";
-  name.setAttribute("aria-label", "Item name");
-
-  const location = locationSelect("fridge");
-
-  const quantity = document.createElement("input");
-  quantity.type = "text";
-  quantity.placeholder = "Qty (optional)";
-  quantity.className = "pantry__input pantry__input--qty";
-  quantity.setAttribute("aria-label", "Quantity");
-
-  const expires = document.createElement("input");
-  expires.type = "date";
-  expires.className = "pantry__input";
-  expires.setAttribute("aria-label", "Expiry date");
-
-  const submit = document.createElement("button");
-  submit.type = "submit";
-  submit.className = "pantry__add";
-  submit.textContent = "Add";
-
-  form.append(name, location, quantity, expires, submit);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (name.value.trim() === "") {
-      return;
-    }
-    void addPantryItem({
-      name: name.value.trim(),
-      kind: "fresh",
-      location: location.value,
-      quantity: quantity.value.trim(),
-      expires: expires.value || null,
-    }).then(reload);
-  });
-  return form;
-}
-
-/**
- * Render the pantry page (#pantry).
+ * Render the pantry page (#pantry) with its own local state.
  * @param {HTMLElement} container
  */
 export async function renderPantry(container) {
-  const page = el("div", "pantry");
-  const title = el("h1", "pantry__title");
-  title.textContent = "Pantry";
-  const body = el("div", "pantry__body");
-  const reload = () => {
-    void renderPantry(container);
+  const today = new Date();
+
+  /**
+   * @typedef {object} Toast
+   * @property {string} message
+   * @property {(() => void) | null} undo
+   */
+
+  const state = {
+    /** @type {PantryItem[]} */
+    items: [],
+    /** @type {number | null} */
+    editId: null,
+    /** @type {{ name: string, location: string, quantity: string, expires: string }} */
+    editDraft: { name: "", location: "fridge", quantity: "", expires: "" },
+    /** @type {{ name: string, location: string, quantity: string, expires: string }} */
+    addDraft: { name: "", location: "fridge", quantity: "", expires: "" },
+    addOpen: false,
+    expOpen: false,
+    /** @type {number | null} */
+    flashId: null,
+    /** @type {Toast | null} */
+    toast: null,
   };
-  page.append(title, renderForm(reload), body);
-  container.replaceChildren(page);
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let toastTimer;
 
-  /** @type {PantryItem[]} */
-  let items;
   try {
-    items = await getPantry();
+    state.items = await getPantry();
   } catch {
-    body.append(stateMsg("Could not load the pantry."));
+    container.replaceChildren(stateMsg("Could not load the pantry."));
     return;
   }
 
-  if (items.length === 0) {
-    body.append(stateMsg("The pantry is empty. Add what you keep in stock above."));
-    return;
+  /**
+   * @param {string} message
+   * @param {(() => void) | null} undo
+   */
+  function showToast(message, undo) {
+    state.toast = { message, undo };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      state.toast = null;
+      state.flashId = null;
+      paint();
+    }, TOAST_MS);
   }
 
-  for (const [location, label] of LOCATIONS) {
-    const inLocation = items.filter((item) => item.location === location);
-    if (inLocation.length > 0) {
-      body.append(renderGroup(label, inLocation, reload));
+  /** Reload from the server after an unexpected write failure. */
+  async function resync() {
+    try {
+      state.items = await getPantry();
+    } catch {
+      // Keep the optimistic view; a later action will retry.
     }
+    paint();
   }
+
+  /**
+   * @param {PantryItem} item
+   */
+  function openEditor(item) {
+    if (item.id === null) {
+      return;
+    }
+    state.editId = item.id;
+    state.editDraft = {
+      name: item.name,
+      location: item.location,
+      quantity: item.quantity,
+      expires: item.expires ?? "",
+    };
+    paint();
+  }
+
+  function closeEditor() {
+    state.editId = null;
+    paint();
+  }
+
+  /**
+   * @param {PantryItem} item
+   */
+  function saveEditor(item) {
+    if (item.id === null) {
+      return;
+    }
+    const id = item.id;
+    const next = state.editDraft;
+    const name = next.name.trim();
+    if (name === "") {
+      return;
+    }
+    const moved = next.location !== item.location;
+    const updated = {
+      ...item,
+      name,
+      location: next.location,
+      quantity: next.quantity.trim(),
+      expires: next.expires || null,
+    };
+    state.items = state.items.map((row) => (row.id === id ? updated : row));
+    state.editId = null;
+    state.flashId = id;
+    const message = moved ? `${name} moved to ${locationLabel(next.location)}.` : `${name} saved.`;
+    showToast(
+      message,
+      moved
+        ? () => {
+            state.items = state.items.map((row) =>
+              row.id === id ? { ...row, location: item.location } : row,
+            );
+            state.flashId = id;
+            state.toast = null;
+            paint();
+            void updatePantryItem(id, { location: item.location }).catch(resync);
+          }
+        : null,
+    );
+    paint();
+    void updatePantryItem(id, {
+      name,
+      location: next.location,
+      quantity: next.quantity.trim(),
+      expires: next.expires || null,
+    }).catch(resync);
+  }
+
+  /**
+   * @param {PantryItem} item
+   */
+  function removeItem(item) {
+    if (item.id === null) {
+      return;
+    }
+    const id = item.id;
+    const snapshot = item;
+    state.items = state.items.filter((row) => row.id !== id);
+    state.editId = null;
+    showToast(`${item.name} removed.`, () => {
+      state.toast = null;
+      void addPantryItem({
+        name: snapshot.name,
+        kind: snapshot.kind,
+        location: snapshot.location,
+        quantity: snapshot.quantity,
+        expires: snapshot.expires,
+      })
+        .then((created) => {
+          state.items = [...state.items, created];
+          state.flashId = created.id;
+          paint();
+        })
+        .catch(resync);
+    });
+    paint();
+    void deletePantryItem(id).catch(resync);
+  }
+
+  /**
+   * @param {{ name: string, location: string, quantity: string, expires: string }} draft
+   */
+  function addDraft(draft) {
+    const name = draft.name.trim();
+    if (name === "") {
+      return;
+    }
+    state.addDraft = { name: "", location: draft.location, quantity: "", expires: "" };
+    void addPantryItem({
+      name,
+      kind: "fresh",
+      location: draft.location,
+      quantity: draft.quantity.trim(),
+      expires: draft.expires || null,
+    })
+      .then((created) => {
+        state.items = [...state.items, created];
+        state.flashId = created.id;
+        showToast(`${name} added to ${locationLabel(draft.location)}.`, () => {
+          state.toast = null;
+          if (created.id !== null) {
+            const id = created.id;
+            state.items = state.items.filter((row) => row.id !== id);
+            paint();
+            void deletePantryItem(id).catch(resync);
+          }
+        });
+        paint();
+      })
+      .catch(resync);
+  }
+
+  // ---- rendering ----------------------------------------------------------
+
+  /**
+   * @param {PantryItem} item
+   * @returns {HTMLLIElement}
+   */
+  function renderRow(item) {
+    const li = document.createElement("li");
+    li.className = "pantry__item";
+    if (state.flashId !== null && item.id === state.flashId) {
+      li.classList.add("pantry__item--flash");
+    }
+    if (state.editId !== null && item.id === state.editId) {
+      li.append(renderEditor(item));
+    } else {
+      li.append(renderReadRow(item));
+    }
+    return li;
+  }
+
+  /**
+   * @param {PantryItem} item
+   * @returns {HTMLButtonElement}
+   */
+  function renderReadRow(item) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pantry__row";
+    button.addEventListener("click", () => openEditor(item));
+
+    const main = el("div", "pantry__row-main");
+    main.append(el("span", "pantry__name", item.name));
+    if (item.quantity) {
+      main.append(el("span", "pantry__qty", item.quantity));
+    }
+    button.append(main);
+
+    const status = expiryStatus(item.expires, today);
+    if (status) {
+      const badge = el("span", "pantry__badge", status.short);
+      badge.classList.add(
+        status.kind === "expired" ? "pantry__badge--expired" : "pantry__badge--soon",
+      );
+      button.append(badge);
+    }
+    button.append(chevron());
+    return button;
+  }
+
+  /**
+   * @param {PantryItem} item
+   * @returns {HTMLFormElement}
+   */
+  function renderEditor(item) {
+    const form = document.createElement("form");
+    form.className = "pantry__editor";
+    form.setAttribute("aria-label", `Edit ${item.name}`);
+    const draft = state.editDraft;
+
+    const head = el("div", "pantry__editor-head");
+    head.append(el("span", "pantry__eyebrow", "Editing"));
+    const close = el("button", "pantry__icon-btn");
+    close.setAttribute("type", "button");
+    close.setAttribute("aria-label", "Close without saving");
+    close.textContent = "×";
+    close.addEventListener("click", closeEditor);
+    head.append(close);
+    form.append(head);
+
+    const name = field("Name", "text", draft.name);
+    name.input.required = true;
+    name.input.addEventListener("input", () => {
+      draft.name = name.input.value;
+    });
+    const quantity = field("Quantity", "text", draft.quantity, "optional, e.g. mezzo barattolo");
+    quantity.input.addEventListener("input", () => {
+      draft.quantity = quantity.input.value;
+    });
+    form.append(name.field, quantity.field);
+
+    const movedNote = el("p", "pantry__moved-note");
+    const refreshMovedNote = () => {
+      if (draft.location !== item.location) {
+        movedNote.textContent = `Moves from ${locationLabel(item.location)} to ${locationLabel(draft.location)} when you save.`;
+        movedNote.hidden = false;
+      } else {
+        movedNote.hidden = true;
+      }
+      save.textContent = draft.location !== item.location ? "Save & move" : "Save";
+    };
+    const seg = segmentedLocation("Where it lives", draft.location, (value) => {
+      draft.location = value;
+      refreshMovedNote();
+    });
+    seg.append(movedNote);
+    form.append(seg);
+
+    const expires = field("Best before", "date", draft.expires);
+    const noteLine = el("p", "pantry__exp-note");
+    const refreshExpNote = () => {
+      const status = expiryStatus(draft.expires || null, today);
+      noteLine.className = "pantry__exp-note";
+      if (status?.kind === "expired") {
+        noteLine.classList.add("pantry__exp-note--expired");
+      } else if (status?.kind === "soon") {
+        noteLine.classList.add("pantry__exp-note--soon");
+      }
+      noteLine.textContent = expiryNote(draft.expires || null, today);
+    };
+    expires.input.addEventListener("input", () => {
+      draft.expires = expires.input.value;
+      refreshExpNote();
+    });
+    const quick = el("div", "pantry__quick");
+    quick.setAttribute("role", "group");
+    quick.setAttribute("aria-label", "Quick dates");
+    for (const [label, offset] of QUICK_DATES) {
+      const chip = el("button", "pantry__chip", label);
+      chip.setAttribute("type", "button");
+      chip.addEventListener("click", () => {
+        draft.expires = offset === null ? "" : isoOffset(today, offset);
+        expires.input.value = draft.expires;
+        refreshExpNote();
+      });
+      quick.append(chip);
+    }
+    const dateBlock = el("div", "pantry__date-block");
+    dateBlock.append(expires.field, quick, noteLine);
+    form.append(dateBlock);
+
+    const actions = el("div", "pantry__editor-actions");
+    const remove = el("button", "pantry__remove", "Remove");
+    remove.setAttribute("type", "button");
+    remove.addEventListener("click", () => removeItem(item));
+    const cancel = el("button", "pantry__cancel", "Cancel");
+    cancel.setAttribute("type", "button");
+    cancel.addEventListener("click", closeEditor);
+    const save = el("button", "pantry__save", "Save");
+    save.setAttribute("type", "submit");
+    actions.append(remove, cancel, save);
+    form.append(actions);
+
+    refreshMovedNote();
+    refreshExpNote();
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      saveEditor(item);
+    });
+    return form;
+  }
+
+  /**
+   * @param {"desktop" | "mobile"} variant
+   * @returns {HTMLFormElement}
+   */
+  function renderAddForm(variant) {
+    const draft = state.addDraft;
+    const form = document.createElement("form");
+    form.className = `pantry__add-form pantry__add-form--${variant}`;
+    if (variant === "mobile" && state.addOpen) {
+      form.classList.add("pantry__add-form--open");
+    }
+    form.setAttribute("aria-label", "Add an item");
+
+    const details = el("div", "pantry__add-details");
+    if (variant === "desktop") {
+      details.append(el("div", "pantry__eyebrow", "Add an item"));
+    }
+
+    const submit = el("button", "pantry__save", variant === "desktop" ? "" : "Add");
+    submit.setAttribute("type", "submit");
+    const seg = segmentedLocation("Where", draft.location, (value) => {
+      draft.location = value;
+      if (variant === "desktop") {
+        submit.textContent = `Add to ${locationLabel(value)}`;
+      }
+    });
+
+    const row = el("div", "pantry__add-row");
+    const quantity = field("Quantity", "text", draft.quantity, "optional");
+    quantity.input.addEventListener("input", () => {
+      draft.quantity = quantity.input.value;
+    });
+    const expires = field("Best before", "date", draft.expires);
+    expires.input.addEventListener("input", () => {
+      draft.expires = expires.input.value;
+    });
+    row.append(quantity.field, expires.field);
+
+    if (variant === "desktop") {
+      const nameField = field("Name", "text", draft.name, "e.g. ceci secchi");
+      nameField.input.required = true;
+      nameField.input.addEventListener("input", () => {
+        draft.name = nameField.input.value;
+      });
+      submit.classList.add("pantry__save--block");
+      submit.textContent = `Add to ${locationLabel(draft.location)}`;
+      details.append(nameField.field, seg, row, submit);
+      form.append(details);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        draft.name = nameField.input.value;
+        addDraft(draft);
+      });
+      return form;
+    }
+
+    // mobile: collapsible details above a name + add bar
+    details.append(seg, row);
+    const bar = el("div", "pantry__add-bar");
+    const nameWrap = el("label", "pantry__add-name");
+    nameWrap.append(el("span", "pantry__vh", "Add an item"));
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = draft.name;
+    nameInput.placeholder = "Add an item…";
+    nameInput.className = "pantry__input";
+    nameInput.addEventListener("input", () => {
+      draft.name = nameInput.value;
+    });
+    nameInput.addEventListener("focus", () => {
+      if (!state.addOpen) {
+        state.addOpen = true;
+        form.classList.add("pantry__add-form--open");
+      }
+    });
+    nameWrap.append(nameInput);
+    bar.append(nameWrap, submit);
+    form.append(details, bar);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      draft.name = nameInput.value;
+      addDraft(draft);
+    });
+    return form;
+  }
+
+  /**
+   * @param {PantryItem[]} list
+   * @param {boolean} expired
+   * @returns {HTMLUListElement}
+   */
+  function renderUseList(list, expired) {
+    const ul = document.createElement("ul");
+    ul.className = "pantry__use-list";
+    for (const item of list) {
+      const status = expiryStatus(item.expires, today);
+      const li = document.createElement("li");
+      li.className = "pantry__use-item";
+      const button = el("button", "pantry__use-row");
+      button.setAttribute("type", "button");
+      button.addEventListener("click", () => openEditor(item));
+      button.append(el("span", "pantry__use-name", item.name));
+      button.append(el("span", "pantry__use-loc", locationLabel(item.location)));
+      const when = el("span", "pantry__use-when", status ? status.long : "");
+      if (expired) {
+        when.classList.add("pantry__use-when--expired");
+      }
+      button.append(when);
+      li.append(button);
+      ul.append(li);
+    }
+    return ul;
+  }
+
+  /**
+   * @returns {HTMLElement | null}
+   */
+  function renderUseSoon() {
+    const { soon, expired } = useSoon(state.items, today);
+    if (soon.length === 0 && expired.length === 0) {
+      return null;
+    }
+    const section = el("section", "pantry__soon");
+    section.setAttribute("aria-label", "Use soon");
+    const head = el("div", "pantry__soon-head");
+    head.append(el("h2", "pantry__soon-title", "Use soon"));
+    head.append(
+      el("span", "pantry__eyebrow", soon.length ? `${soon.length} this week` : "nothing pressing"),
+    );
+    section.append(head);
+    if (soon.length) {
+      section.append(renderUseList(soon, false));
+    }
+    if (expired.length) {
+      const toggle = el("button", "pantry__exp-toggle");
+      toggle.setAttribute("type", "button");
+      toggle.setAttribute("aria-expanded", state.expOpen ? "true" : "false");
+      const label = `${expired.length} ${expired.length === 1 ? "item is" : "items are"} past the date`;
+      toggle.append(el("span", "pantry__exp-toggle-label", label));
+      toggle.append(el("span", "pantry__eyebrow", state.expOpen ? "Hide" : "Show"));
+      toggle.addEventListener("click", () => {
+        state.expOpen = !state.expOpen;
+        paint();
+      });
+      section.append(toggle);
+      if (state.expOpen) {
+        section.append(renderUseList(expired, true));
+      }
+    }
+    return section;
+  }
+
+  /**
+   * @returns {HTMLElement}
+   */
+  function renderEmpty() {
+    const section = el("section", "pantry__empty");
+    section.setAttribute("aria-label", "Empty pantry");
+    section.append(el("div", "pantry__eyebrow", "Nothing stored yet"));
+    section.append(
+      el("h2", "pantry__empty-title", "An empty shelf is a fine place to start."),
+    );
+    section.append(
+      el(
+        "p",
+        "pantry__empty-body",
+        "Add what is already in your kitchen. Dispensa will then show what you are missing for a recipe and build the shopping list around it.",
+      ),
+    );
+    const chips = el("div", "pantry__staples");
+    for (const name of STAPLES) {
+      const chip = el("button", "pantry__chip pantry__chip--staple", `+ ${name}`);
+      chip.setAttribute("type", "button");
+      chip.addEventListener("click", () =>
+        addDraft({ name, location: "pantry", quantity: "", expires: "" }),
+      );
+      chips.append(chip);
+    }
+    section.append(chips);
+    return section;
+  }
+
+  /**
+   * @returns {HTMLElement}
+   */
+  function renderList() {
+    const column = el("div", "pantry__list");
+    const grouped = sections(state.items, today);
+
+    const chips = el("nav", "pantry__jump");
+    chips.setAttribute("aria-label", "Jump to section");
+    for (const section of grouped) {
+      const chip = el("button", "pantry__jump-chip");
+      chip.setAttribute("type", "button");
+      chip.append(document.createTextNode(section.label));
+      chip.append(el("span", "pantry__jump-count", String(section.items.length)));
+      chip.addEventListener("click", () => {
+        const target = column.querySelector(`[data-sec="${section.key}"]`);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      chips.append(chip);
+    }
+    column.append(chips);
+
+    for (const section of grouped) {
+      const block = el("section", "pantry__group");
+      block.setAttribute("data-sec", section.key);
+      block.setAttribute("aria-label", `${section.label}, ${section.items.length} items`);
+      const head = el("div", "pantry__group-head");
+      head.append(el("h2", "pantry__group-title", section.label));
+      head.append(
+        el(
+          "span",
+          "pantry__eyebrow",
+          `${section.items.length} ${section.items.length === 1 ? "item" : "items"}`,
+        ),
+      );
+      if (section.soonCount > 0) {
+        head.append(el("span", "pantry__group-note", `${section.soonCount} to use soon`));
+      }
+      block.append(head);
+      const card = el("div", "pantry__card");
+      const list = el("ul", "pantry__items");
+      for (const item of section.items) {
+        list.append(renderRow(item));
+      }
+      card.append(list);
+      block.append(card);
+      column.append(block);
+    }
+    return column;
+  }
+
+  function paint() {
+    const page = el("div", "pantry");
+
+    const rail = el("div", "pantry__rail");
+    const intro = el("div", "pantry__intro");
+    intro.append(el("h1", "pantry__title", "Pantry"));
+    intro.append(el("p", "pantry__summary", summaryLine(state.items, today)));
+    rail.append(intro);
+    rail.append(renderAddForm("desktop"));
+    const soon = state.items.length > 0 ? renderUseSoon() : null;
+    if (soon) {
+      rail.append(soon);
+    }
+
+    const main = el("div", "pantry__main");
+    main.append(rail);
+    main.append(state.items.length === 0 ? renderEmpty() : renderList());
+    page.append(main);
+
+    if (state.toast) {
+      const toast = el("div", "pantry__toast");
+      toast.setAttribute("role", "status");
+      toast.append(el("span", "pantry__toast-msg", state.toast.message));
+      if (state.toast.undo) {
+        const undo = el("button", "pantry__toast-undo", "Undo");
+        undo.setAttribute("type", "button");
+        const action = state.toast.undo;
+        undo.addEventListener("click", () => {
+          clearTimeout(toastTimer);
+          action();
+        });
+        toast.append(undo);
+      }
+      page.append(toast);
+    }
+
+    page.append(renderAddForm("mobile"));
+    container.replaceChildren(page);
+  }
+
+  paint();
 }
 
 /**
@@ -323,7 +742,5 @@ export async function renderPantry(container) {
  * @returns {HTMLElement}
  */
 function stateMsg(message) {
-  const p = el("p", "state-msg");
-  p.textContent = message;
-  return p;
+  return el("p", "state-msg", message);
 }

@@ -139,6 +139,14 @@
   --switch-off: #C9BFA6;    /* weekend switch track, off */
   --dot-empty: #B9AF98;     /* day-tab ring for an open meal */
 
+  /* ---- Pantry expiry badges + change flash ---- */
+  --garnet: #7A1F1F;          /* expired / remove text */
+  --badge-soon-bg: #F3EBD6;
+  --badge-soon-border: #D9C79A;
+  --badge-expired-bg: #F3E3DF;
+  --badge-expired-border: #D9B8B2;
+  --flash-wash: #E3ECE9;      /* teal wash on a just-changed row */
+
   /* ---- Destructive actions ---- */
   --danger-fg: #8A3A26;
   --danger-bg: #F6EDE8;
