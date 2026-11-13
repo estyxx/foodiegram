@@ -325,6 +325,19 @@ export async function addPantryItem(item) {
 }
 
 /**
+ * Edit a pantry item; only the provided fields change. Changing location moves
+ * it to another section.
+ * @param {number} id
+ * @param {{ name?: string, location?: string, quantity?: string, expires?: string | null }} patch
+ * @returns {Promise<PantryItem>}
+ */
+export async function updatePantryItem(id, patch) {
+  return /** @type {PantryItem} */ (
+    await apiFetch(`/pantry/${id}`, { method: "PATCH", body: JSON.stringify(patch) })
+  );
+}
+
+/**
  * Remove a pantry item by id (204, no body).
  * @param {number} id
  * @returns {Promise<void>}

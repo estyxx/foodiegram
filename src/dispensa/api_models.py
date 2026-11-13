@@ -337,6 +337,21 @@ class PantryItemCreate(BaseModel):
     expires: date | None = None
 
 
+class PantryItemUpdate(BaseModel):
+    """PATCH body for a pantry item; only the fields set are applied.
+
+    Changing location moves the item to another section.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    kind: Literal["staple", "fresh"] | None = None
+    location: PantryLocation | None = None
+    quantity: str | None = None
+    expires: date | None = None
+
+
 class ExerciseLogCreate(BaseModel):
     """POST body to log one completed back exercise."""
 

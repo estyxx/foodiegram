@@ -53,6 +53,22 @@ class PantryRepository:
             session.refresh(row)
             return _to_item(row)
 
+    def update(self, item: PantryItem) -> PantryItem | None:
+        """Replace a stored item's fields by its id; None if it does not exist."""
+        with get_session(self._engine) as session:
+            row = session.get(PantryItemRow, item.id)
+            if row is None:
+                return None
+            row.name = item.name
+            row.kind = item.kind
+            row.location = item.location.value
+            row.quantity = item.quantity
+            row.expires = item.expires
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return _to_item(row)
+
     def delete(self, item_id: int) -> bool:
         """Delete the pantry item for item_id; return True if it existed."""
         with get_session(self._engine) as session:

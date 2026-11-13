@@ -1,6 +1,11 @@
 // @ts-check
 
-import { addPantryItem, deletePantryItem, getPantry } from "../api/client.js";
+import {
+  addPantryItem,
+  deletePantryItem,
+  getPantry,
+  updatePantryItem,
+} from "../api/client.js";
 
 /** @typedef {import("../api/client.js").PantryItem} PantryItem */
 
@@ -71,6 +76,26 @@ function expiryBadge(expires) {
 }
 
 /**
+ * A labelled location <select> prefilled to current.
+ * @param {string} current
+ * @returns {HTMLSelectElement}
+ */
+function locationSelect(current) {
+  const select = document.createElement("select");
+  select.className = "pantry__input";
+  select.setAttribute("aria-label", "Location");
+  for (const [value, label] of LOCATIONS) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    option.selected = value === current;
+    select.append(option);
+  }
+  return select;
+}
+
+/**
+ * One pantry item: a read row that swaps in place for an editor on "Edit".
  * @param {PantryItem} item
  * @param {() => void} reload
  * @returns {HTMLLIElement}
@@ -78,31 +103,113 @@ function expiryBadge(expires) {
 function renderItem(item, reload) {
   const li = document.createElement("li");
   li.className = "pantry__item";
-  const main = el("div", "pantry__item-main");
-  const name = el("span", "pantry__name");
-  name.textContent = item.name;
-  main.append(name);
-  if (item.quantity) {
-    const qty = el("span", "pantry__qty");
-    qty.textContent = item.quantity;
-    main.append(qty);
-  }
-  const badge = expiryBadge(item.expires);
-  if (badge) {
-    main.append(badge);
-  }
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "pantry__remove";
-  remove.setAttribute("aria-label", `Remove ${item.name}`);
-  remove.textContent = "×";
-  remove.addEventListener("click", () => {
-    if (item.id !== null) {
-      void deletePantryItem(item.id).then(reload);
-    }
-  });
-  li.append(main, remove);
+  showRead();
   return li;
+
+  function showRead() {
+    const main = el("div", "pantry__item-main");
+    const name = el("span", "pantry__name");
+    name.textContent = item.name;
+    main.append(name);
+    if (item.quantity) {
+      const qty = el("span", "pantry__qty");
+      qty.textContent = item.quantity;
+      main.append(qty);
+    }
+    const badge = expiryBadge(item.expires);
+    if (badge) {
+      main.append(badge);
+    }
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "pantry__edit";
+    edit.setAttribute("aria-label", `Edit ${item.name}`);
+    edit.textContent = "✎";
+    edit.addEventListener("click", showEdit);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "pantry__remove";
+    remove.setAttribute("aria-label", `Remove ${item.name}`);
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      if (item.id !== null) {
+        void deletePantryItem(item.id).then(reload);
+      }
+    });
+
+    li.replaceChildren(main, edit, remove);
+  }
+
+  function showEdit() {
+    li.replaceChildren(buildItemEditor(item, showRead, reload));
+  }
+}
+
+/**
+ * Inline editor for a pantry item: name, quantity, location and expiry.
+ * @param {PantryItem} item
+ * @param {() => void} onCancel
+ * @param {() => void} reload
+ * @returns {HTMLFormElement}
+ */
+function buildItemEditor(item, onCancel, reload) {
+  const form = document.createElement("form");
+  form.className = "pantry__edit-form";
+
+  const name = document.createElement("input");
+  name.type = "text";
+  name.required = true;
+  name.value = item.name;
+  name.className = "pantry__input pantry__input--name";
+  name.setAttribute("aria-label", "Item name");
+
+  const location = locationSelect(item.location);
+
+  const quantity = document.createElement("input");
+  quantity.type = "text";
+  quantity.value = item.quantity;
+  quantity.placeholder = "Qty (optional)";
+  quantity.className = "pantry__input pantry__input--qty";
+  quantity.setAttribute("aria-label", "Quantity");
+
+  const expires = document.createElement("input");
+  expires.type = "date";
+  expires.value = item.expires ?? "";
+  expires.className = "pantry__input";
+  expires.setAttribute("aria-label", "Expiry date");
+
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.className = "pantry__add";
+  save.textContent = "Save";
+
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "pantry__cancel";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", onCancel);
+
+  form.append(name, location, quantity, expires, save, cancel);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (item.id === null || name.value.trim() === "") {
+      return;
+    }
+    save.disabled = true;
+    void updatePantryItem(item.id, {
+      name: name.value.trim(),
+      location: location.value,
+      quantity: quantity.value.trim(),
+      expires: expires.value || null,
+    })
+      .then(reload)
+      .catch(() => {
+        save.disabled = false;
+      });
+  });
+  return form;
 }
 
 /**
@@ -139,15 +246,7 @@ function renderForm(reload) {
   name.className = "pantry__input pantry__input--name";
   name.setAttribute("aria-label", "Item name");
 
-  const location = document.createElement("select");
-  location.className = "pantry__input";
-  location.setAttribute("aria-label", "Location");
-  for (const [value, label] of LOCATIONS) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    location.append(option);
-  }
+  const location = locationSelect("fridge");
 
   const quantity = document.createElement("input");
   quantity.type = "text";

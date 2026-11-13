@@ -4,12 +4,35 @@ from typing import TYPE_CHECKING
 from dispensa.domain.errors import PantryItemNotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from dispensa.domain.pantry import PantryItem
     from dispensa.storage.pantry_db import PantryRepository
 
 logger = logging.getLogger(__name__)
+
+
+def update_pantry_item(
+    item_id: int,
+    *,
+    changes: Mapping[str, object],
+    pantry: PantryRepository,
+) -> PantryItem:
+    """Apply partial changes to one pantry item; return the stored item.
+
+    Moving an item between sections is a location change. Raises
+    PantryItemNotFoundError for an unknown id, before anything is written.
+    """
+    existing = next((item for item in pantry.list_all() if item.id == item_id), None)
+    if existing is None:
+        msg = f"Pantry item id {item_id} not found"
+        raise PantryItemNotFoundError(msg)
+    updated = pantry.update(existing.model_copy(update=dict(changes)))
+    if updated is None:
+        msg = f"Pantry item id {item_id} not found"
+        raise PantryItemNotFoundError(msg)
+    logger.info("Updated pantry item %d: %s", item_id, sorted(changes))
+    return updated
 
 
 def add_pantry_items(

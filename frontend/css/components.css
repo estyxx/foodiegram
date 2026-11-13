@@ -4054,6 +4054,39 @@
 .pantry__remove:hover {
   color: var(--ink);
 }
+.pantry__edit {
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.pantry__edit:hover {
+  color: var(--ink);
+}
+.pantry__edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  padding: 0.2rem 0;
+}
+.pantry__cancel {
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
 
 /* ── Capture queue (#queue) ─────────────────────────────────────────────── */
 .queue {

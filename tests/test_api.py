@@ -1177,3 +1177,31 @@ def test_patch_language_updates_the_recipe(client: TestClient, deps: Deps) -> No
 
     assert patched.status_code == HTTPStatus.OK
     assert client.get("/api/recipes/LANG1").json()["language"] == "en"
+
+
+def test_pantry_item_moves_between_sections_and_edits(client: TestClient) -> None:
+    """PATCH moves a pantry item to another location and edits its quantity."""
+    created = client.post(
+        "/api/pantry",
+        json={"name": "yogurt", "kind": "fresh", "location": "fridge"},
+    )
+    item_id = created.json()["id"]
+
+    moved = client.patch(
+        f"/api/pantry/{item_id}",
+        json={"location": "freezer", "quantity": "2 vasetti"},
+    )
+
+    assert moved.status_code == HTTPStatus.OK
+    body = moved.json()
+    assert body["location"] == "freezer"
+    assert body["quantity"] == "2 vasetti"
+    assert body["name"] == "yogurt"
+    listed = client.get("/api/pantry").json()
+    assert listed[0]["location"] == "freezer"
+
+
+def test_patch_unknown_pantry_item_is_404(client: TestClient) -> None:
+    """Editing a pantry item that does not exist is a 404."""
+    response = client.patch("/api/pantry/9999", json={"location": "pantry"})
+    assert response.status_code == HTTPStatus.NOT_FOUND

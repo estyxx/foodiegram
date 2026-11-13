@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from dispensa.api_models import PantryItemCreate, PantryItemOut
-from dispensa.app.pantry import add_pantry_items, remove_pantry_items
+from dispensa.api_models import PantryItemCreate, PantryItemOut, PantryItemUpdate
+from dispensa.app.pantry import add_pantry_items, remove_pantry_items, update_pantry_item
 from dispensa.deps import DepsDep
 from dispensa.domain.errors import PantryItemNotFoundError
 from dispensa.domain.pantry import PantryItem
@@ -43,6 +43,21 @@ async def create_pantry_item(body: PantryItemCreate, deps: DepsDep) -> PantryIte
         ],
         pantry=deps.pantry,
     )
+    return _to_out(item)
+
+
+@router.patch("/{item_id}")
+async def update_pantry(
+    item_id: int,
+    body: PantryItemUpdate,
+    deps: DepsDep,
+) -> PantryItemOut:
+    """Apply partial edits to a pantry item (location moves it); 404 if unknown."""
+    changes = {field: getattr(body, field) for field in body.model_fields_set}
+    try:
+        item = update_pantry_item(item_id, changes=changes, pantry=deps.pantry)
+    except PantryItemNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return _to_out(item)
 
 
