@@ -170,6 +170,7 @@ async function apiFetch(path, options) {
   });
   if (res.status === 401) {
     await redirectToLogin(res);
+    throw new Error("You are signed out. Sign in to continue.");
   }
   if (!res.ok) {
     throw new Error(`Request failed (${res.status}): ${path}`);
@@ -179,15 +180,40 @@ async function apiFetch(path, options) {
 
 /** Where the page was when the session ran out, restored after signing in. */
 export const RETURN_HASH_KEY = "dispensa.returnHash";
+/** When this tab last left for the login, to stop a redirect loop. */
+const LOGIN_ATTEMPT_KEY = "dispensa.loginAttempt";
+/** A second 401 this soon after a login means the session did not stick. */
+const LOGIN_RETRY_MS = 60000;
+
+let leavingForLogin = false;
 
 /**
- * Send a signed-out owner to the web login. A shared recipe page stays put: a
- * friend with the link is not asked to sign in.
+ * True when this tab came back from the login less than a minute ago.
+ * @returns {boolean}
+ */
+function justTriedLogin() {
+  try {
+    const last = Number(window.sessionStorage.getItem(LOGIN_ATTEMPT_KEY));
+    return last > 0 && Date.now() - last < LOGIN_RETRY_MS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Send a signed-out owner to the web login, once. A shared recipe page stays
+ * put (a friend with the link is not asked to sign in), and so does a tab that
+ * has just come back from the login: redirecting again would loop forever.
+ * Resolves only when the page is staying; while leaving it never resolves, so
+ * the caller shows no error on a page that is about to be replaced.
  * @param {Response} res
  * @returns {Promise<void>}
  */
 async function redirectToLogin(res) {
-  if (window.location.hash.startsWith("#recipe/")) {
+  if (leavingForLogin) {
+    return new Promise(() => {});
+  }
+  if (window.location.hash.startsWith("#recipe/") || justTriedLogin()) {
     return;
   }
   /** @type {{ login_url?: unknown }} */
@@ -202,10 +228,39 @@ async function redirectToLogin(res) {
   }
   try {
     window.sessionStorage.setItem(RETURN_HASH_KEY, window.location.hash);
+    window.sessionStorage.setItem(LOGIN_ATTEMPT_KEY, String(Date.now()));
   } catch {
     // Private mode: sign-in still works, it just lands on the home page.
   }
+  leavingForLogin = true;
   window.location.assign(body.login_url);
+  return new Promise(() => {});
+}
+
+/**
+ * @typedef {object} SessionInfo
+ * @property {boolean} signed_in
+ */
+
+/**
+ * Whether this browser holds a web-login session; null when the web login is
+ * not enabled on this server.
+ * @returns {Promise<SessionInfo | null>}
+ */
+export async function getSession() {
+  const res = await fetch("/auth/session");
+  if (!res.ok) {
+    return null;
+  }
+  return /** @type {SessionInfo} */ (await res.json());
+}
+
+/**
+ * Sign out of this browser.
+ * @returns {Promise<void>}
+ */
+export async function signOut() {
+  await fetch("/auth/logout", { method: "POST" });
 }
 
 /**

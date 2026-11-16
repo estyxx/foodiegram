@@ -275,3 +275,15 @@ def test_login_settings_are_all_or_nothing() -> None:
             login_from_settings(Settings(_env_file=None, **partial))
     with pytest.raises(ConfigurationError):
         login_from_settings(Settings(_env_file=None, **{**full, "session_secret": "x"}))
+
+
+def test_session_reports_the_sign_in_state(db_engine: Engine) -> None:
+    """The footer can ask, without credentials, whether this browser is signed in."""
+    client = _client(db_engine)
+
+    before = client.get("/auth/session").json()
+    _sign_in(client)
+    after = client.get("/auth/session").json()
+
+    assert before == {"signed_in": False}
+    assert after == {"signed_in": True}

@@ -1,6 +1,6 @@
 // @ts-check
 
-import { RETURN_HASH_KEY, getVersion } from "./api/client.js";
+import { RETURN_HASH_KEY, getSession, getVersion, signOut } from "./api/client.js";
 import { CookingMode } from "./components/CookingMode.js";
 import { CookingPill } from "./components/CookingPill.js";
 import { renderBrowse } from "./views/browse.js";
@@ -107,6 +107,37 @@ async function showVersion() {
   }
 }
 
+/**
+ * Show "Sign out" or "Sign in" in the footer. Hidden when the server has no web
+ * login (Basic auth or local dev), where there is nothing to sign out of.
+ */
+async function showAuthLink() {
+  const link = document.getElementById("auth-link");
+  if (link === null) {
+    return;
+  }
+  let session;
+  try {
+    session = await getSession();
+  } catch {
+    return;
+  }
+  if (session === null) {
+    return;
+  }
+  link.hidden = false;
+  if (!session.signed_in) {
+    return;
+  }
+  link.textContent = "Sign out";
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    void signOut().then(() => {
+      window.location.assign("/");
+    });
+  });
+}
+
 // Outside #view: cooking mode and its timers survive route changes.
 document.body.append(CookingMode(), CookingPill());
 
@@ -135,3 +166,4 @@ window.addEventListener("hashchange", route);
 restoreReturnHash();
 route();
 showVersion();
+showAuthLink();

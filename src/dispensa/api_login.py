@@ -13,6 +13,7 @@ from dispensa.api_session import (
     LoginConfig,
     is_https,
     issue_login_session,
+    login_subject,
     set_session_cookie,
 )
 
@@ -171,6 +172,16 @@ def build_login_router(
             request=request,
         )
         return response
+
+    @router.get("/session")
+    async def session(request: Request) -> dict[str, bool]:
+        """Report whether this browser holds a valid session for an allowed user."""
+        subject = login_subject(
+            request.cookies.get(LOGIN_COOKIE),
+            secret=config.session_secret,
+            now=clock(),
+        )
+        return {"signed_in": subject in config.allowed_subjects}
 
     @router.post("/logout", status_code=204)
     async def logout() -> Response:

@@ -1,6 +1,6 @@
 // Dispensa service worker: an offline app shell and the last-loaded data, while
 // staying fresh online (network-first, falling back to cache only when offline).
-const CACHE = "dispensa-v1";
+const CACHE = "dispensa-v2";
 
 // The app shell: enough to open offline and render the frame. The rest of the JS
 // modules and any data are cached at runtime on first online use.
@@ -43,7 +43,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") {
     return;
   }
-  if (new URL(request.url).origin !== self.location.origin) {
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+  // Sign-in is a chain of redirects that set cookies; it must reach the network
+  // untouched, and must never be answered with the cached app shell.
+  if (url.pathname.startsWith("/auth/")) {
     return;
   }
   event.respondWith(
