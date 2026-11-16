@@ -6,6 +6,8 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 
+from dispensa.api_session import MIN_SECRET_LENGTH, LoginConfig
+from dispensa.domain.errors import ConfigurationError
 from dispensa.settings import Settings
 from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.db import create_db_engine, init_db
@@ -66,6 +68,38 @@ def auth_from_settings(settings: Settings) -> AuthConfig:
     return AuthConfig(
         username=settings.basic_auth_username,
         password=settings.basic_auth_password,
+    )
+
+
+def login_from_settings(settings: Settings) -> LoginConfig | None:
+    """Return the web-login config, or None when the login is not configured.
+
+    Raises ConfigurationError for a half-configured login, so a typo in one
+    variable can never silently fall back to a weaker setup.
+    """
+    required = {
+        "WORKOS_CLIENT_ID": settings.workos_client_id,
+        "WORKOS_API_KEY": settings.workos_api_key,
+        "WORKOS_REDIRECT_URI": settings.workos_redirect_uri,
+        "SESSION_SECRET": settings.session_secret,
+    }
+    if not any(required.values()):
+        return None
+    missing = [name for name, value in required.items() if not value]
+    if not settings.mcp_oauth_allowed_subjects.split():
+        missing.append("MCP_OAUTH_ALLOWED_SUBJECTS")
+    if missing:
+        msg = f"{', '.join(missing)} required to enable the web login"
+        raise ConfigurationError(msg)
+    if len(settings.session_secret) < MIN_SECRET_LENGTH:
+        msg = f"SESSION_SECRET must be at least {MIN_SECRET_LENGTH} characters"
+        raise ConfigurationError(msg)
+    return LoginConfig(
+        client_id=settings.workos_client_id,
+        api_key=settings.workos_api_key,
+        redirect_uri=settings.workos_redirect_uri,
+        session_secret=settings.session_secret,
+        allowed_subjects=frozenset(settings.mcp_oauth_allowed_subjects.split()),
     )
 
 

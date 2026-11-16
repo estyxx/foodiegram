@@ -74,6 +74,18 @@ class Settings(BaseSettings):
     basic_auth_username: str = ""
     basic_auth_password: str = ""
 
+    # Web login through WorkOS AuthKit, replacing the shared password. On only
+    # when all four are set (a partial set refuses to boot). The API key and the
+    # session secret are secrets; the redirect URI is the public /auth/callback
+    # URL registered in the WorkOS dashboard. Who may sign in is
+    # MCP_OAUTH_ALLOWED_SUBJECTS below: one list of people for the app and /mcp.
+    workos_client_id: str = ""
+    workos_api_key: str = ""
+    workos_redirect_uri: str = ""
+    # Signs the session cookie; at least 32 characters. Rotating it signs
+    # everyone out.
+    session_secret: str = ""
+
     # OAuth 2.1 for the HTTP MCP endpoint (/mcp). The composed ASGI app refuses to
     # build unless issuer, JWKS URI, and resource URL are all set, so an
     # unauthenticated MCP write surface can never ship. The local stdio server

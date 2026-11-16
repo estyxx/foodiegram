@@ -8,8 +8,17 @@ import time
 from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.status import HTTP_401_UNAUTHORIZED
+
+from dispensa.api_session import (
+    LOGIN_COOKIE,
+    SESSION_SECONDS,
+    LoginConfig,
+    issue_login_session,
+    login_subject,
+    set_session_cookie,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -25,7 +34,10 @@ _REALM = 'Basic realm="dispensa"'
 # and an HMAC of it; the key is derived from the credentials, so changing the
 # password invalidates every outstanding cookie without any new secret to manage.
 _COOKIE_NAME = "dispensa_session"
-_SESSION_SECONDS = 30 * 24 * 60 * 60
+_SESSION_SECONDS = SESSION_SECONDS
+# Where the SPA sends a signed-out visitor when the web login is on.
+LOGIN_PATH = "/auth/login"
+LOGOUT_PATH = "/auth/logout"
 _KEY_SALT = b"dispensa-session-v1"
 # scrypt (16 MiB at these settings) makes guessing the password from a leaked
 # cookie costly; it runs once at startup, never per request.
@@ -119,14 +131,8 @@ def _session_valid(token: str | None, *, key: bytes, now: float) -> bool:
     return signature_ok and expires > now
 
 
-def _is_https(request: Request) -> bool:
-    """Return True when the client reached us over TLS, directly or via a proxy."""
-    forwarded = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
-    return request.url.scheme == "https" or forwarded == "https"
-
-
 class BasicAuthMiddleware(BaseHTTPMiddleware):
-    """Require HTTP Basic auth, or its remember-me cookie, except on public pages."""
+    """Require a web-login session or HTTP Basic auth, except on public pages."""
 
     def __init__(
         self,
@@ -134,15 +140,17 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         *,
         username: str,
         password: str,
+        login: LoginConfig | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
-        """Wrap app, enforcing credentials only when username is non-empty.
+        """Wrap app, enforcing auth when a username or a login config is given.
 
         clock is injectable so tests can move time; production uses wall time.
         """
         super().__init__(app)  # type: ignore[arg-type]  # reason: Starlette ASGIApp
         self._username = username
         self._password = password
+        self._login = login
         self._clock = clock
         self._key = (
             _session_key(username=username, password=password) if username else b""
@@ -154,9 +162,58 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         """Pass through when auth is off or the request is public; else demand creds."""
-        if not self._username or _is_public(request):
+        if (not self._username and self._login is None) or _is_public(request):
             return await call_next(request)
         now = self._clock()
+        subject = self._signed_in_subject(request, now=now)
+        if self._login is not None and subject is not None:
+            response = await call_next(request)
+            if request.url.path == LOGOUT_PATH:
+                # Renewing here would undo the sign-out the route just did.
+                return response
+            # Sliding expiry: an app opened at least monthly stays signed in.
+            set_session_cookie(
+                response,
+                name=LOGIN_COOKIE,
+                value=issue_login_session(
+                    secret=self._login.session_secret,
+                    subject=subject,
+                    now=now,
+                ),
+                request=request,
+            )
+            return response
+        if not self._basic_ok(request, now=now):
+            return self._unauthorized()
+        response = await call_next(request)
+        # Renew the Basic remember-me cookie on any authenticated request.
+        set_session_cookie(
+            response,
+            name=_COOKIE_NAME,
+            value=_issue_session(self._key, now=now),
+            request=request,
+        )
+        return response
+
+    def _signed_in_subject(self, request: Request, *, now: float) -> str | None:
+        """Return the allow-listed subject of the request's login session, if any.
+
+        The allow-list is checked on every request, so removing a subject signs
+        that person out at once.
+        """
+        if self._login is None:
+            return None
+        subject = login_subject(
+            request.cookies.get(LOGIN_COOKIE),
+            secret=self._login.session_secret,
+            now=now,
+        )
+        return subject if subject in self._login.allowed_subjects else None
+
+    def _basic_ok(self, request: Request, *, now: float) -> bool:
+        """Return True for valid Basic credentials or their remember-me cookie."""
+        if not self._username:
+            return False
         basic_ok = _authorized(
             request.headers.get("Authorization"),
             username=self._username,
@@ -167,23 +224,20 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             key=self._key,
             now=now,
         )
-        if not (basic_ok or cookie_ok):
-            return Response(
+        return basic_ok or cookie_ok
+
+    def _unauthorized(self) -> Response:
+        """Answer 401: point at the web login when it is on, else challenge Basic.
+
+        With the web login on there is no Basic challenge header, so the browser
+        never pops its password prompt; explicit Basic credentials still work.
+        """
+        if self._login is not None:
+            return JSONResponse(
+                {"detail": "Sign in required", "login_url": LOGIN_PATH},
                 status_code=HTTP_401_UNAUTHORIZED,
-                headers={"WWW-Authenticate": _REALM},
             )
-        response = await call_next(request)
-        # Renew the cookie on any authenticated request, so an installed app that
-        # is used at least monthly stays signed in (sliding expiry).
-        if basic_ok or cookie_ok:
-            # Strict: the SPA is same-origin, so the cookie never needs to ride a
-            # cross-site request (which also narrows CSRF compared with Basic).
-            response.set_cookie(
-                _COOKIE_NAME,
-                _issue_session(self._key, now=now),
-                max_age=_SESSION_SECONDS,
-                httponly=True,
-                samesite="strict",
-                secure=_is_https(request),
-            )
-        return response
+        return Response(
+            status_code=HTTP_401_UNAUTHORIZED,
+            headers={"WWW-Authenticate": _REALM},
+        )

@@ -13,8 +13,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from dispensa.api_auth import BasicAuthMiddleware
+from dispensa.api_login import CodeExchanger, WorkOSCodeExchanger, build_login_router
 from dispensa.app.version import log_runtime_probe
-from dispensa.deps import AuthConfig, Deps, auth_from_settings, build_deps
+from dispensa.deps import (
+    AuthConfig,
+    Deps,
+    auth_from_settings,
+    build_deps,
+    login_from_settings,
+)
 from dispensa.routers import (
     exercise_log,
     instagram,
@@ -32,6 +39,8 @@ if TYPE_CHECKING:
 
     from starlette.responses import Response
     from starlette.types import Scope
+
+    from dispensa.api_session import LoginConfig
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +77,18 @@ def create_app(
     *,
     deps: Deps,
     auth: AuthConfig | None = None,
+    login: LoginConfig | None = None,
+    exchanger: CodeExchanger | None = None,
     cors_origins: list[str] | None = None,
     frontend_dir: Path | None = None,
     git_sha: str = "",
     deployment_id: str = "",
     clock: Callable[[], float] = time.time,
 ) -> FastAPI:
-    """Build a FastAPI app wired to deps, behind Basic auth and optional CORS."""
+    """Build a FastAPI app wired to deps, behind the web login and/or Basic auth.
+
+    login turns on the WorkOS sign-in; exchanger is injectable for tests.
+    """
     auth = auth or AuthConfig()
     frontend = frontend_dir or _FRONTEND
     app = FastAPI(title="Dispensa API")
@@ -86,6 +100,7 @@ def create_app(
         BasicAuthMiddleware,
         username=auth.username,
         password=auth.password,
+        login=login,
         clock=clock,
     )
     # The all-recipes list is a large JSON payload; compress it (and the JS/CSS)
@@ -109,6 +124,18 @@ def create_app(
     app.include_router(meta.router)
     app.include_router(exercise_log.router)
     app.include_router(instagram.router)
+    if login is not None:
+        app.include_router(
+            build_login_router(
+                config=login,
+                exchanger=exchanger
+                or WorkOSCodeExchanger(
+                    client_id=login.client_id,
+                    api_key=login.api_key,
+                ),
+                clock=clock,
+            ),
+        )
 
     @app.get("/")
     async def serve_index() -> FileResponse:
@@ -130,6 +157,7 @@ def _default_app() -> FastAPI:
     return create_app(
         deps=build_deps(settings.database_url),
         auth=auth_from_settings(settings),
+        login=login_from_settings(settings),
         cors_origins=settings.cors_origins(),
         frontend_dir=settings.frontend_dir,
         git_sha=settings.git_sha,

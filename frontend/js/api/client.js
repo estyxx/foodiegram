@@ -168,10 +168,44 @@ async function apiFetch(path, options) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (res.status === 401) {
+    await redirectToLogin(res);
+  }
   if (!res.ok) {
     throw new Error(`Request failed (${res.status}): ${path}`);
   }
   return res.json();
+}
+
+/** Where the page was when the session ran out, restored after signing in. */
+export const RETURN_HASH_KEY = "dispensa.returnHash";
+
+/**
+ * Send a signed-out owner to the web login. A shared recipe page stays put: a
+ * friend with the link is not asked to sign in.
+ * @param {Response} res
+ * @returns {Promise<void>}
+ */
+async function redirectToLogin(res) {
+  if (window.location.hash.startsWith("#recipe/")) {
+    return;
+  }
+  /** @type {{ login_url?: unknown }} */
+  let body;
+  try {
+    body = await res.clone().json();
+  } catch {
+    return;
+  }
+  if (typeof body.login_url !== "string" || !body.login_url.startsWith("/")) {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(RETURN_HASH_KEY, window.location.hash);
+  } catch {
+    // Private mode: sign-in still works, it just lands on the home page.
+  }
+  window.location.assign(body.login_url);
 }
 
 /**

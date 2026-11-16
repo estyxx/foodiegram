@@ -1,6 +1,6 @@
 // @ts-check
 
-import { getVersion } from "./api/client.js";
+import { RETURN_HASH_KEY, getVersion } from "./api/client.js";
 import { CookingMode } from "./components/CookingMode.js";
 import { CookingPill } from "./components/CookingPill.js";
 import { renderBrowse } from "./views/browse.js";
@@ -118,6 +118,20 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+/** After signing in, go back to the page the session ran out on. */
+function restoreReturnHash() {
+  try {
+    const saved = window.sessionStorage.getItem(RETURN_HASH_KEY);
+    window.sessionStorage.removeItem(RETURN_HASH_KEY);
+    if (saved && saved.startsWith("#") && window.location.hash === "") {
+      window.history.replaceState(null, "", saved);
+    }
+  } catch {
+    // Storage blocked: stay on the home page.
+  }
+}
+
 window.addEventListener("hashchange", route);
+restoreReturnHash();
 route();
 showVersion();

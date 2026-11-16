@@ -904,6 +904,15 @@
         const day = today;
         try {
           const res = await fetch(LOG_URL + "?day=" + encodeURIComponent(day));
+          if (res.status === 401) {
+            // Signed out: the web login returns here. Without it (Basic auth)
+            // the body carries no login_url and nothing happens.
+            const body = await res.json().catch(() => null);
+            if (body && body.login_url === "/auth/login") {
+              window.location.assign("/auth/login?next=/schiena.html");
+            }
+            return;
+          }
           if (!res.ok || day !== today) return;
           todayLog = await res.json();
           paint();

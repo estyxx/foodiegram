@@ -19,7 +19,7 @@ from starlette.routing import Mount, Route
 
 from dispensa.api import create_app
 from dispensa.app.version import log_runtime_probe
-from dispensa.deps import auth_from_settings, build_deps
+from dispensa.deps import auth_from_settings, build_deps, login_from_settings
 from dispensa.mcp_server import mcp
 from dispensa.mcp_server.auth import JwtTokenVerifier, oauth_config
 from dispensa.settings import Settings
@@ -60,6 +60,7 @@ def build_asgi_app(
     api_app = create_app(
         deps=build_deps(settings.database_url),
         auth=auth_from_settings(settings),
+        login=login_from_settings(settings),
         cors_origins=settings.cors_origins(),
         frontend_dir=settings.frontend_dir,
         git_sha=settings.git_sha,
