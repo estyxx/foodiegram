@@ -117,9 +117,10 @@ The core app is in daily use: browse and search (keyword plus semantic), weekly
 planning with the live balance panel, pantry and shopping list, recipe editing,
 cooking mode, and an installable PWA. The MCP server is deployed behind OAuth so
 Claude can read the library and write plans. The data pipeline, the safety net (CI,
-weekly Neon backup, migrations) and the in-app capture queue are all in place. What
-remains is mostly the recipe-edit UI, the identity layer (per-household login), and
-a few capture conveniences.
+weekly Neon backup, migrations) and the in-app capture queue are all in place, and
+recipes and pantry items are editable in place. What remains, in order: hardening
+the security of a single-owner app, capture without pasting captions by hand, a home
+page and tidier navigation, and then the smaller threads (language, timers, identity).
 
 ## Roadmap
 
@@ -211,8 +212,20 @@ The in-app queue, which supersedes the earlier scripted capture plans.
 - [x] Launch a batch for the ready items against Neon, import the finished batch into
   recipes, with launch/import buttons on the queue page. Batch state in the DB. This
   reverses the old "extraction never runs against Neon" rule (D56).
-- [ ] iOS Shortcut: share sheet to `POST /api/instagram/queue`, so capture needs no
-  laptop.
+- [ ] Capture with the caption attached, so pasting is the fallback and not the
+  routine. `POST /api/instagram/queue` accepts an optional caption and marks the link
+  ready at once. The caption is read on the owner's own device, never by the server
+  (D45 and D53 stand: no scripted Instagram from a datacenter address).
+  - [ ] Phone: an iOS Shortcut on the share sheet that fetches the shared post's
+    public page on the phone, pulls the caption out and posts link plus caption. To
+    prove first: what the public page gives an anonymous phone request today.
+  - [ ] Desktop: a "Send to Dispensa" bookmarklet that reads the caption from the
+    open post in the logged-in browser (what the collector extension did) and opens
+    the queue page with link and caption prefilled.
+  - [ ] The caption box stays for posts with no caption, recipes in the comments or
+    on a linked website; it also accepts any URL-less paste (see "Paste a recipe").
+- [ ] A capture token: a second credential that may only add to the queue, so the
+  Shortcut never stores the app password.
 - [ ] Retire the local scripts once the queue is in daily use (keep `export` and
   `db dump`). The first real extraction against Neon is still the owner's to run,
   under the spend cap.
@@ -237,14 +250,118 @@ sharing only the login.
   at startup and adopts a pre-Alembic database by stamping it at the baseline (no
   manual prod step). DDL now lives in migrations, not in `create_all`.
 
+### Security hardening (not started)
+
+One owner, personal data, a public repo and a public URL. Found in the November
+review of the auth code; ordered by how much each one exposes.
+
+- [ ] Replace the shared password with a real login. Web login through WorkOS AuthKit,
+  which is already the identity provider for the MCP server, so sign-in is a passkey
+  or a one-time code with a second factor, and the app never holds a password. The
+  app keeps only a signed session cookie (HttpOnly, SameSite strict) and an allow-list
+  of who may sign in, the same list the MCP endpoint uses. This is pulled forward out
+  of Identity: it needs no `households` or `users` tables, just the login. Basic auth
+  stays behind a setting for one release as the way back (D43), then goes. It also
+  retires two weaknesses at once: unlimited guesses on one password, and Basic
+  credentials that browsers attach on their own.
+- [ ] Keep sharing, on purpose. A recipe link (`/#recipe/{code}`) stays readable
+  without signing in, so a recipe can be sent to a friend. What a friend sees is the
+  recipe itself: title, photo, ingredients, method, source. The owner's layer
+  (notes, favourite, anything from the plan or pantry) is returned only to a signed-in
+  request. The notes hold nothing sensitive today, so this is tidiness and a rule for
+  later features more than an urgent fix: public means the recipe, never the owner's
+  state.
+- [ ] Until the login lands, slow down password guessing: answer 429 after a handful
+  of failed attempts from one address. Skip it if the login ships first.
+- [ ] Close `/docs`, `/redoc` and `/openapi.json`, which are public because only
+  `/api/` paths are guarded.
+- [ ] Security headers on every response: a Content-Security-Policy that fits the
+  no-build frontend (self, Google Fonts, Cloudinary images), `nosniff`,
+  `frame-ancestors 'none'`, a referrer policy and HSTS.
+- [ ] Refuse cross-site writes: require a JSON content type and a same-origin
+  `Origin`/`Sec-Fetch-Site` on every mutating request. Mostly covered by the SameSite
+  session cookie once the login replaces Basic auth; keep the check as a second lock.
+- [ ] Bound the endpoints that spend money (`/api/recipes/semantic`, queue extract):
+  a per-day ceiling in the app on top of the OpenAI spend cap.
+- [ ] Supply chain in CI: dependency audit, secret scanning on push, weekly update
+  pull requests.
+- [ ] Check the backup repo: confirm it is private, and encrypt the dump so the copy
+  at rest does not rely on repository visibility alone.
+- [ ] A short threat model in this file (what is protected, from whom, what is
+  accepted), so later features are checked against it.
+
+The capture token (under Capture queue) belongs to the same work: once there is no
+password, the iOS Shortcut needs its own narrow credential.
+
+### Home and navigation (not started)
+
+- [ ] The plan becomes the home page: opening the app lands on this week (today's
+  meals first, then the balance), with "use soon" from the pantry and the queue count
+  as small panels. This is the deferred `#week` dashboard, built from payloads that
+  already exist.
+- [ ] Navigation for six destinations: on the phone a bottom tab bar (Plan, Browse,
+  Pantry, Shop) with Queue, Favourites and the exercise page under "More"; on wide
+  screens the current top bar. Favourites folds into Browse as a filter.
+- [ ] One page shell: shared page title, eyebrow and width rules, so Browse, Plan,
+  Pantry, Queue and Shop stop each carrying their own.
+
+### Language and cross-language search (not started)
+
+The model: a single recipe is written in one language, and the library mixes
+languages. So `language` stays one field per recipe, and the real requirement is
+search: an Italian recipe about "zucca" must come up for "pumpkin", and an English
+pumpkin recipe for "zucca". That is what the tag fields were extracted for. Verbatim
+text is for reading; the canonical English tags are for finding.
+
+Where it stands: plain search matches the title, the ingredient lines and the
+caption, widened by a hand-written synonym list. "zucca" and "pumpkin" are on that
+list, so that pair works today; an ingredient that is not on it (say "cavolo nero"
+and "kale") does not cross languages, and the canonical tags are not searched at all.
+
+- [ ] Search the tags. Add the canonical English fields (`proteins`, `vegetables`,
+  `grains_starches`, `herbs_spices`, `dietary_tags`, `cooking_methods`) to the text
+  the search matches. Every extracted recipe then answers to its English ingredient
+  names whatever language it is written in, with no list to maintain and no AI call.
+  This covers English query to Italian recipe completely.
+- [ ] Grow the synonym list from the data, for the other direction (Italian query
+  to English recipe). A small command lists the most frequent canonical tags that
+  have no synonym group yet, and the Italian words that appear beside them; the owner
+  approves the pairs. The list stays hand-reviewed because false friends are real
+  ("peperoni" is not "pepperoni").
+- [ ] Set `language` from the text instead of defaulting to Italian: the next prompt
+  version returns it, and existing recipes are filled once by a small pure word-list
+  check, left empty when unclear.
+- [ ] Ingredient shelves at no AI cost: surface the most common canonical tags as
+  one-tap shelves ("pumpkin", "courgette"), filtered in the browser from the session
+  index.
+- [ ] Semantic search stays for intent ("something light for a hot evening"), not
+  for ingredient lookups, which the two items above answer for free.
+- [ ] Remember query embeddings: store each semantic query's vector so a repeated
+  search (and Claude's repeated planning queries) costs nothing and skips a round
+  trip. The saving is speed more than money: one query embedding costs a tiny
+  fraction of a cent; the real spend is extraction batches.
+- [ ] Canonical ingredient identity (the open question below) stays the long-term
+  fix for the mixed-language shopping list.
+
+### Cooking timers
+
+- [x] Timers run while cooking mode is open, keep the screen awake, and hand off to
+  the iPhone Clock.
+- [ ] Survive a reload or the phone locking: persist each timer's end time and
+  restore on reopen, showing "finished 2 min ago" for one that ended meanwhile.
+- [ ] Decide on notifications: an installed PWA on iOS can receive Web Push, so the
+  server could send "timer done" while the app is closed. It needs a push
+  subscription table and a scheduler, so it is only worth it if the Clock hand-off
+  proves not enough.
+
 ### Identity: one household per person (not started)
 
 The biggest remaining block.
 
 - [ ] `households` and `users`; a migration seeds the owner's household owning every
   existing row; a CLI command adds a user with a household of one and default targets.
-- [ ] Web login with WorkOS AuthKit (already the MCP identity provider); Basic auth stays
-  behind a setting for one release as the way back.
+- [ ] Web login itself moved to Security hardening and ships first, with an
+  allow-list; here it gains the `users` table in place of that list.
 - [ ] Scope the data by `household_id` (`week_plans`, `pantry_items`, `targets`,
   `user_state`), threaded router to deps to repositories, with no unscoped reads left.
 - [ ] MCP resolves the user from the token; the allow-list becomes the `users` table.
@@ -272,12 +389,22 @@ by pointing at the same row, with no membership table or sharing UI now.
 
 In priority order, the first actionable items:
 
-1. **Paste a recipe** (editing): save pasted text at once as a manual recipe
-   "waiting for extraction", filled in by the next batch run.
-2. **A month view on Progressi** (back exercises): days done per week for the last
-   eight weeks, now that the log is keyed by stable ids.
-3. **Identity**, the largest piece, when there is appetite for it: the `households`
-   and `users` tables and their migration first, then WorkOS web login.
+1. **A real login instead of the password**: WorkOS web login with a session cookie
+   and an allow-list, Basic auth kept behind a setting for one release. With it, the
+   quick wins: close the API docs, add security headers, and keep the owner's notes
+   and favourites out of the public share link (sharing itself stays).
+2. **Capture with the caption attached**: the queue endpoint takes a caption, then
+   the iOS Shortcut and the desktop bookmarklet, with a capture token. Removes the
+   daily manual step.
+3. **Cross-language search**: search the canonical tags, then grow the synonym list
+   from the data. Small, and it is what the tags were for.
+4. **Home and navigation**: the plan as the landing page, a bottom tab bar on the
+   phone, one page shell.
+5. **Security hardening, second pass**: cross-site write check, spend ceiling, CI
+   audit and secret scanning, encrypted backup, the threat model.
+6. **Timers that survive a reload**; notifications only if still missed.
+7. **Paste a recipe**, which shares its form with the queue's caption fallback.
+8. **Identity** and the **Progressi month view**, when there is appetite.
 
 ## Open questions
 
