@@ -237,10 +237,7 @@ async function redirectToLogin(res) {
   return new Promise(() => {});
 }
 
-/**
- * @typedef {object} SessionInfo
- * @property {boolean} signed_in
- */
+/** @typedef {import("../lib/shellState.js").SessionInfo} SessionInfo */
 
 /**
  * Whether this browser holds a web-login session; null when the web login is

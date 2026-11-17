@@ -36,10 +36,12 @@ const MAX_DIET_CHIPS = 2;
  * beside the method. Below 720px (container query) the two become tabs.
  * @param {HTMLElement} container
  * @param {string} code
- * @param {{ returnTo: string }} options route hash the back link returns to
+ * @param {{ returnTo: string, visitor?: boolean }} options returnTo is the route
+ *   hash the back link returns to; visitor is true for someone reading a shared
+ *   link signed out, who gets the recipe without any of the owner's controls.
  * @returns {Promise<void>}
  */
-export async function renderDetail(container, code, { returnTo }) {
+export async function renderDetail(container, code, { returnTo, visitor = false }) {
   // Opened from inside the app, the index already has the header: show it now
   // and fill in the rest when the full recipe lands.
   const index = peekRecipeIndex();
@@ -49,7 +51,9 @@ export async function renderDetail(container, code, { returnTo }) {
     loading.className = "state-msg";
     loading.setAttribute("role", "status");
     loading.textContent = "Loading the recipe…";
-    container.replaceChildren(page(buildBack(returnTo), buildHeader(cover, null), loading));
+    container.replaceChildren(
+      page(...ownerOnly(visitor, buildBack(returnTo)), buildHeader(cover, null), loading),
+    );
   }
 
   const recipe = await getRecipe(code);
@@ -109,7 +113,7 @@ export async function renderDetail(container, code, { returnTo }) {
         onSelect: async () => {
           const updated = await editor.open(recipe);
           if (updated) {
-            await renderDetail(container, code, { returnTo });
+            await renderDetail(container, code, { returnTo, visitor });
           }
         },
       },
@@ -131,6 +135,28 @@ export async function renderDetail(container, code, { returnTo }) {
     onAnnounce: announce,
   });
 
+  if (visitor) {
+    // Owner controls (save, plan, edit, notes) are not rendered at all for a
+    // visitor, rather than hidden.
+    notes.element.remove();
+    const sharedNote = document.createElement("p");
+    sharedNote.className = "shared-note";
+    sharedNote.textContent = "Shared from Dispensa, a personal recipe library.";
+    container.replaceChildren(
+      page(
+        header,
+        ...optional(description),
+        ...optional(buildChips(recipe)),
+        buildSource(recipe),
+        status,
+        tabs.element,
+        body,
+        sharedNote,
+      ),
+    );
+    return;
+  }
+
   container.replaceChildren(
     page(
       buildBack(returnTo),
@@ -145,6 +171,15 @@ export async function renderDetail(container, code, { returnTo }) {
       editor.element,
     ),
   );
+}
+
+/**
+ * @param {boolean} visitor
+ * @param {HTMLElement} element
+ * @returns {HTMLElement[]}
+ */
+function ownerOnly(visitor, element) {
+  return visitor ? [] : [element];
 }
 
 /**

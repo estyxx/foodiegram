@@ -15,8 +15,9 @@ from dispensa.api_session import (
     LOGIN_COOKIE,
     SESSION_SECONDS,
     LoginConfig,
+    LoginSession,
     issue_login_session,
-    login_subject,
+    read_login_session,
     set_session_cookie,
 )
 
@@ -165,8 +166,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         if (not self._username and self._login is None) or _is_public(request):
             return await call_next(request)
         now = self._clock()
-        subject = self._signed_in_subject(request, now=now)
-        if self._login is not None and subject is not None:
+        session = self._signed_in(request, now=now)
+        if self._login is not None and session is not None:
             response = await call_next(request)
             if request.url.path == LOGOUT_PATH:
                 # Renewing here would undo the sign-out the route just did.
@@ -177,7 +178,7 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
                 name=LOGIN_COOKIE,
                 value=issue_login_session(
                     secret=self._login.session_secret,
-                    subject=subject,
+                    session=session,
                     now=now,
                 ),
                 request=request,
@@ -195,20 +196,22 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         )
         return response
 
-    def _signed_in_subject(self, request: Request, *, now: float) -> str | None:
-        """Return the allow-listed subject of the request's login session, if any.
+    def _signed_in(self, request: Request, *, now: float) -> LoginSession | None:
+        """Return the request's login session when its subject is allow-listed.
 
         The allow-list is checked on every request, so removing a subject signs
         that person out at once.
         """
         if self._login is None:
             return None
-        subject = login_subject(
+        session = read_login_session(
             request.cookies.get(LOGIN_COOKIE),
             secret=self._login.session_secret,
             now=now,
         )
-        return subject if subject in self._login.allowed_subjects else None
+        if session is None or session.subject not in self._login.allowed_subjects:
+            return None
+        return session
 
     def _basic_ok(self, request: Request, *, now: float) -> bool:
         """Return True for valid Basic credentials or their remember-me cookie."""

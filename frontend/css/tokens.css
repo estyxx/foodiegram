@@ -65,10 +65,14 @@
   --teal-hover: #174D49;
   --teal-deep: #16443F;
   --teal-tint: #E6EEEB;    /* step circles, soft teal fills */
+  --teal-pressed: #123E3B; /* pressed primary buttons and avatar */
+  --teal-wash: #E3ECE9;    /* pressed / open quiet controls */
+  --teal-wash-deep: #D3E1DD;
   --on-teal-muted: #AFD0CB;
 
   /* ---- Warm accent (eyebrows / editorial labels) ---- */
   --accent-ochre: #856021; /* was #A07C3C, darkened for AA */
+  --ochre-light: #E3B95B;  /* the logo dot on teal; --accent-ochre vanishes there */
 
   /* ---- Borders ---- */
   --border: #DCD5C4;       /* default hairline */
@@ -208,4 +212,8 @@
   /* ---- Layout ---- */
   --measure: 68ch;        /* readable prose width */
   --container-max: 1240px;
+  /* Shell chrome, so pinned elements can sit clear of it. Both change at the
+   * 900px shell switch (see shell.css). */
+  --header-height: 56px;
+  --tabbar-height: calc(72px + env(safe-area-inset-bottom, 0px));
 }

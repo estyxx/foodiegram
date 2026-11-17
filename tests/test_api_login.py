@@ -7,7 +7,7 @@ from sqlalchemy import Engine
 
 from dispensa.api import create_app
 from dispensa.api_login import LoginExchangeError, LoginUser
-from dispensa.api_session import LoginConfig
+from dispensa.api_session import LoginConfig, LoginSession, issue_login_session
 from dispensa.deps import AuthConfig, Deps, login_from_settings
 from dispensa.domain.errors import ConfigurationError
 from dispensa.settings import Settings
@@ -159,7 +159,7 @@ def test_a_stranger_is_refused(db_engine: Engine) -> None:
         params={"code": "stranger-code", "state": state},
     )
 
-    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.headers["location"] == "/?auth_error=not_allowed"
     assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 
@@ -174,18 +174,19 @@ def test_callback_rejects_a_wrong_or_missing_state(db_engine: Engine) -> None:
         params={"code": "owner-code", "state": "x"},
     )
 
-    assert forged.status_code == HTTPStatus.BAD_REQUEST
-    assert cold.status_code == HTTPStatus.BAD_REQUEST
+    assert forged.headers["location"] == "/?auth_error=failed"
+    assert cold.headers["location"] == "/?auth_error=failed"
+    assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_a_refused_code_is_a_bad_gateway(db_engine: Engine) -> None:
+def test_a_refused_code_lands_on_the_failed_page(db_engine: Engine) -> None:
     """When WorkOS rejects the code the login fails without a session."""
     client = _client(db_engine)
     state = _start(client)
 
     response = client.get("/auth/callback", params={"code": "nope", "state": state})
 
-    assert response.status_code == HTTPStatus.BAD_GATEWAY
+    assert response.headers["location"] == "/?auth_error=failed"
     assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 
@@ -203,13 +204,15 @@ def test_session_expires_and_slides(db_engine: Engine) -> None:
     assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_a_tampered_session_is_refused(db_engine: Engine) -> None:
-    """Changing the subject inside the cookie breaks its signature."""
+def test_a_session_signed_with_another_secret_is_refused(db_engine: Engine) -> None:
+    """A cookie forged without the server's secret never authorizes."""
     client = _client(db_engine)
-    _sign_in(client)
-    genuine = client.cookies.get("dispensa_login") or ""
-    client.cookies.clear()
-    client.cookies.set("dispensa_login", genuine.replace(_OWNER, "user_other"))
+    forged = issue_login_session(
+        secret="another-secret-of-sufficient-length-000",
+        session=LoginSession(subject=_OWNER),
+        now=_Clock().now,
+    )
+    client.cookies.set("dispensa_login", forged)
 
     assert client.get("/api/targets").status_code == HTTPStatus.UNAUTHORIZED
 
@@ -285,5 +288,5 @@ def test_session_reports_the_sign_in_state(db_engine: Engine) -> None:
     _sign_in(client)
     after = client.get("/auth/session").json()
 
-    assert before == {"signed_in": False}
-    assert after == {"signed_in": True}
+    assert before == {"signed_in": False, "email": ""}
+    assert after == {"signed_in": True, "email": "owner@example.com"}

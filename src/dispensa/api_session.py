@@ -1,8 +1,9 @@
+import base64
 import hashlib
 import hmac
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -13,8 +14,6 @@ SESSION_SECONDS = 30 * 24 * 60 * 60
 # A session secret shorter than this is refused at startup: the cookie's HMAC is
 # only as strong as its key.
 MIN_SECRET_LENGTH = 32
-# subject.expires.signature
-_TOKEN_PARTS = 3
 
 
 class LoginConfig(BaseModel):
@@ -29,33 +28,63 @@ class LoginConfig(BaseModel):
     allowed_subjects: frozenset[str]
 
 
+class LoginSession(BaseModel):
+    """Who a session cookie belongs to: the WorkOS user id and their email."""
+
+    model_config = ConfigDict(frozen=True)
+
+    subject: str
+    # Shown in the account menu only; access is decided by subject.
+    email: str = ""
+
+
+class _SessionClaims(BaseModel):
+    """The signed cookie payload."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sub: str
+    email: str = ""
+    exp: int
+
+
 def _sign(*, secret: str, payload: str) -> str:
     """Return the hex HMAC-SHA256 of payload under the session secret."""
     return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
-def issue_login_session(*, secret: str, subject: str, now: float) -> str:
-    """Return a signed token naming subject, valid for SESSION_SECONDS from now."""
-    payload = f"{subject}.{int(now) + SESSION_SECONDS}"
+def issue_login_session(*, secret: str, session: LoginSession, now: float) -> str:
+    """Return a signed token for session, valid for SESSION_SECONDS from now."""
+    claims = _SessionClaims(
+        sub=session.subject,
+        email=session.email,
+        exp=int(now) + SESSION_SECONDS,
+    )
+    payload = base64.urlsafe_b64encode(claims.model_dump_json().encode()).decode()
     return f"{payload}.{_sign(secret=secret, payload=payload)}"
 
 
-def login_subject(token: str | None, *, secret: str, now: float) -> str | None:
-    """Return the subject of a genuine, unexpired session token, else None."""
+def read_login_session(
+    token: str | None,
+    *,
+    secret: str,
+    now: float,
+) -> LoginSession | None:
+    """Return the session of a genuine, unexpired token, else None."""
     if not token:
         return None
-    parts = token.rsplit(".", 2)
-    if len(parts) != _TOKEN_PARTS:
+    payload, sep, signature = token.partition(".")
+    if not sep:
         return None
-    subject, expires_text, signature = parts
-    expected = _sign(secret=secret, payload=f"{subject}.{expires_text}")
-    if not hmac.compare_digest(signature, expected):
+    if not hmac.compare_digest(signature, _sign(secret=secret, payload=payload)):
         return None
     try:
-        expires = int(expires_text)
-    except ValueError:
+        claims = _SessionClaims.model_validate_json(base64.urlsafe_b64decode(payload))
+    except (ValueError, ValidationError):
         return None
-    return subject if expires > now else None
+    if claims.exp <= now:
+        return None
+    return LoginSession(subject=claims.sub, email=claims.email)
 
 
 def is_https(request: Request) -> bool:

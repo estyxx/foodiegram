@@ -1,6 +1,6 @@
 // Dispensa service worker: an offline app shell and the last-loaded data, while
 // staying fresh online (network-first, falling back to cache only when offline).
-const CACHE = "dispensa-v2";
+const CACHE = "dispensa-v3";
 
 // The app shell: enough to open offline and render the frame. The rest of the JS
 // modules and any data are cached at runtime on first online use.
@@ -10,9 +10,12 @@ const SHELL = [
   "/css/tokens.css",
   "/css/base.css",
   "/css/components.css",
+  "/css/shell.css",
   "/js/main.js",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
+  "/icons/dispensa-icon-512.svg",
+  "/icons/dispensa-favicon.svg",
   "/icons/apple-touch-icon.png",
 ];
 

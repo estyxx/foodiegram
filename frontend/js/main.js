@@ -1,8 +1,10 @@
 // @ts-check
 
-import { RETURN_HASH_KEY, getSession, getVersion, signOut } from "./api/client.js";
+import { RETURN_HASH_KEY, getVersion } from "./api/client.js";
 import { CookingMode } from "./components/CookingMode.js";
 import { CookingPill } from "./components/CookingPill.js";
+import { isRecipeRoute } from "./lib/shellState.js";
+import { markActiveNav, showSignedOut, startShell } from "./shell.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderDetail } from "./views/detail.js";
 import { renderPlan } from "./views/plan.js";
@@ -12,11 +14,17 @@ import { renderShop } from "./views/shop.js";
 
 const view = requireElement("view");
 
+/** The page the app opens on. */
+const HOME_ROUTE = "plan";
+
 /** Pages a recipe can be opened from; anything else falls back to browse. */
 const RETURN_ROUTES = new Set(["browse", "favourites", "plan"]);
 
 /** Last page route, so a recipe's back link returns to where it was opened. */
 let returnTo = "browse";
+
+/** True for someone reading a shared recipe without being signed in. */
+let visitor = false;
 
 /**
  * @param {string} id
@@ -32,9 +40,14 @@ function requireElement(id) {
 
 /** Render the view for the current location hash. */
 async function route() {
-  const hash = window.location.hash.slice(1) || "browse";
+  if (visitor && !isRecipeRoute(window.location.hash)) {
+    // A visitor may read the recipe they were sent, nothing else.
+    showSignedOut();
+    return;
+  }
+  const hash = window.location.hash.slice(1) || HOME_ROUTE;
   const [name, param] = hash.split("/");
-  markActiveNav(name === "shop" ? "plan" : name);
+  markActiveNav(name);
   if (name !== "recipe") {
     returnTo = RETURN_ROUTES.has(name) ? hash : "browse";
   }
@@ -43,7 +56,7 @@ async function route() {
 
   try {
     if (name === "recipe" && param) {
-      await renderDetail(view, param, { returnTo });
+      await renderDetail(view, param, { returnTo, visitor });
     } else if (name === "plan") {
       await renderPlan(view);
     } else if (name === "shop" && param) {
@@ -54,27 +67,13 @@ async function route() {
       await renderQueue(view);
     } else if (name === "favourites") {
       await renderBrowse(view, { favourites: true });
-    } else {
+    } else if (name === "browse") {
       await renderBrowse(view, { favourites: false });
+    } else {
+      await renderPlan(view);
     }
   } catch (error) {
     renderError(error);
-  }
-}
-
-/**
- * @param {string} name
- */
-function markActiveNav(name) {
-  const active = name === "recipe" ? "" : name;
-  for (const link of document.querySelectorAll(".app-nav__link")) {
-    const isActive = link.getAttribute("data-route") === active;
-    link.classList.toggle("app-nav__link--active", isActive);
-    if (isActive) {
-      link.setAttribute("aria-current", "page");
-    } else {
-      link.removeAttribute("aria-current");
-    }
   }
 }
 
@@ -107,37 +106,6 @@ async function showVersion() {
   }
 }
 
-/**
- * Show "Sign out" or "Sign in" in the footer. Hidden when the server has no web
- * login (Basic auth or local dev), where there is nothing to sign out of.
- */
-async function showAuthLink() {
-  const link = document.getElementById("auth-link");
-  if (link === null) {
-    return;
-  }
-  let session;
-  try {
-    session = await getSession();
-  } catch {
-    return;
-  }
-  if (session === null) {
-    return;
-  }
-  link.hidden = false;
-  if (!session.signed_in) {
-    return;
-  }
-  link.textContent = "Sign out";
-  link.addEventListener("click", (event) => {
-    event.preventDefault();
-    void signOut().then(() => {
-      window.location.assign("/");
-    });
-  });
-}
-
 // Outside #view: cooking mode and its timers survive route changes.
 document.body.append(CookingMode(), CookingPill());
 
@@ -162,8 +130,17 @@ function restoreReturnHash() {
   }
 }
 
-window.addEventListener("hashchange", route);
-restoreReturnHash();
-route();
-showVersion();
-showAuthLink();
+/** Check who is there, then start the app (or leave the gate showing). */
+async function boot() {
+  const state = await startShell();
+  if (state !== "app" && state !== "shared") {
+    return;
+  }
+  visitor = state === "shared";
+  window.addEventListener("hashchange", route);
+  restoreReturnHash();
+  route();
+  showVersion();
+}
+
+boot();

@@ -4,16 +4,17 @@ from typing import TYPE_CHECKING, Annotated, Protocol
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from dispensa.api_session import (
     LOGIN_COOKIE,
     LoginConfig,
+    LoginSession,
     is_https,
     issue_login_session,
-    login_subject,
+    read_login_session,
     set_session_cookie,
 )
 
@@ -35,6 +36,9 @@ _STATE_SEPARATOR = "|"
 # redirect to another site.
 _RETURN_PATHS = frozenset({"/", "/schiena.html"})
 _DEFAULT_RETURN = "/"
+# A failed sign-in lands back on the app, which shows the matching page.
+_NOT_ALLOWED_URL = "/?auth_error=not_allowed"
+_FAILED_URL = "/?auth_error=failed"
 
 
 class LoginUser(BaseModel):
@@ -52,6 +56,15 @@ class _AuthenticateResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     user: LoginUser
+
+
+class SessionOut(BaseModel):
+    """What the app shell needs to know about this browser's session."""
+
+    model_config = ConfigDict(frozen=True)
+
+    signed_in: bool
+    email: str = ""
 
 
 class LoginExchangeError(Exception):
@@ -146,19 +159,18 @@ def build_login_router(
         expected, _, return_to = request.cookies.get(_STATE_COOKIE, "").partition(
             _STATE_SEPARATOR,
         )
-        if not code or not state or not expected:
-            raise HTTPException(status_code=400, detail="Sign-in was not started here")
-        if not secrets.compare_digest(state, expected):
-            raise HTTPException(status_code=400, detail="Sign-in state does not match")
+        started_here = bool(code and state and expected)
+        if not started_here or not secrets.compare_digest(state or "", expected):
+            return RedirectResponse(_FAILED_URL, status_code=303)
         try:
-            user = await exchanger.exchange(code)
-        except LoginExchangeError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            user = await exchanger.exchange(code or "")
+        except LoginExchangeError:
+            return RedirectResponse(_FAILED_URL, status_code=303)
         if user.id not in config.allowed_subjects:
             # The id is an opaque WorkOS user id, not a secret; logging it is how
             # the owner finds the id to add to the allow-list.
             logger.warning("Refused sign-in: user %r is not allowed", user.id)
-            raise HTTPException(status_code=403, detail="This account is not allowed")
+            return RedirectResponse(_NOT_ALLOWED_URL, status_code=303)
         response = RedirectResponse(_return_path(return_to), status_code=303)
         response.delete_cookie(_STATE_COOKIE, path="/auth")
         set_session_cookie(
@@ -166,7 +178,7 @@ def build_login_router(
             name=LOGIN_COOKIE,
             value=issue_login_session(
                 secret=config.session_secret,
-                subject=user.id,
+                session=LoginSession(subject=user.id, email=user.email),
                 now=clock(),
             ),
             request=request,
@@ -174,14 +186,16 @@ def build_login_router(
         return response
 
     @router.get("/session")
-    async def session(request: Request) -> dict[str, bool]:
+    async def session(request: Request) -> SessionOut:
         """Report whether this browser holds a valid session for an allowed user."""
-        subject = login_subject(
+        current = read_login_session(
             request.cookies.get(LOGIN_COOKIE),
             secret=config.session_secret,
             now=clock(),
         )
-        return {"signed_in": subject in config.allowed_subjects}
+        if current is None or current.subject not in config.allowed_subjects:
+            return SessionOut(signed_in=False)
+        return SessionOut(signed_in=True, email=current.email)
 
     @router.post("/logout", status_code=204)
     async def logout() -> Response:
