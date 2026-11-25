@@ -8,8 +8,9 @@ from dispensa.domain.enums import PendingStatus
 class PendingLink(BaseModel):
     """A shared Instagram link waiting to become a recipe (the capture queue).
 
-    The caption is pasted by hand (public links carry no full caption, D55); the
-    thumbnail and batch id are filled as the item moves through extraction.
+    The caption is read from the public post when the link is queued (D57),
+    or pasted by hand when Instagram refuses; the thumbnail and batch id are
+    filled as the item moves through extraction.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

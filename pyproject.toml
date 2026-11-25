@@ -13,6 +13,7 @@ dependencies = [
     "cloudinary>=1.44.1",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.115",
+    "instaloader>=4.16",
     "mcp[cli]>=2.0.0",
     "numpy>=2.5.4",
     "openai>=2.44.0",
@@ -25,6 +26,7 @@ dependencies = [
     "sqlmodel>=0.0.39",
     "typer>=0.15.0",
     "uvicorn[standard]>=0.30",
+    "yt-dlp>=2026.11.23",
 ]
 
 [project.optional-dependencies]
@@ -116,9 +118,9 @@ mypy_path = "src"
 explicit_package_bases = true
 files = ["src", "tests"]
 
-# instagrapi and cloudinary ship no type stubs / py.typed marker.
+# instagrapi, cloudinary and yt-dlp ship no type stubs / py.typed marker.
 [[tool.mypy.overrides]]
-module = ["instagrapi.*", "cloudinary.*"]
+module = ["instagrapi.*", "cloudinary.*", "yt_dlp.*"]
 ignore_missing_imports = true
 
 
@@ -160,6 +162,8 @@ forbidden_modules = [
     "dispensa.deps",
     "dispensa.settings",
     "instagrapi",
+    "yt_dlp",
+    "instaloader",
     "openai",
     "cloudinary",
     "sqlmodel",

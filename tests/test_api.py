@@ -2,19 +2,22 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from dispensa.api import create_app
 from dispensa.app import queue_extraction, queue_import
-from dispensa.deps import AuthConfig, Deps, get_openai_client
+from dispensa.deps import AuthConfig, Deps, get_caption_fetcher, get_openai_client
 from dispensa.domain.enums import MedCategory, PendingStatus, RecipeSource
 from dispensa.domain.models import CategoryServing, Recipe
 from dispensa.domain.pending import PendingLink
+from dispensa.instagram import CaptionFetch, CaptionOutcome
 from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.exercise_log_db import ExerciseLogRepository
 from dispensa.storage.extractions_db import ExtractionRepository
@@ -1205,3 +1208,83 @@ def test_patch_unknown_pantry_item_is_404(client: TestClient) -> None:
     """Editing a pantry item that does not exist is a 404."""
     response = client.patch("/api/pantry/9999", json={"location": "pantry"})
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def _fake_instagram(client: TestClient, result: CaptionFetch) -> list[str]:
+    """Answer every caption lookup with result; return the codes looked up."""
+    calls: list[str] = []
+
+    def fetch(code: str, /) -> CaptionFetch:
+        calls.append(code)
+        return result
+
+    app = cast("FastAPI", client.app)
+    app.dependency_overrides[get_caption_fetcher] = lambda: fetch
+    return calls
+
+
+def test_queueing_a_link_reads_its_caption(client: TestClient) -> None:
+    """A link with a public caption is ready at once, no paste needed."""
+    _fake_instagram(
+        client,
+        CaptionFetch(
+            outcome=CaptionOutcome.FOUND, caption="Pasta e ceci", source="yt-dlp"
+        ),
+    )
+
+    response = client.post(
+        "/api/instagram/queue",
+        json={"url": "https://www.instagram.com/p/ABC123/"},
+    )
+
+    body = response.json()
+    assert response.status_code == HTTPStatus.CREATED
+    assert body["status"] == "ready"
+    assert body["caption"] == "Pasta e ceci"
+    assert body["caption_lookup"] == "found"
+
+
+def test_a_refused_lookup_still_queues_the_link(client: TestClient) -> None:
+    """When Instagram refuses, the link waits for a paste and says why."""
+    _fake_instagram(client, CaptionFetch(outcome=CaptionOutcome.LOGIN_WALL))
+
+    body = client.post(
+        "/api/instagram/queue",
+        json={"url": "https://www.instagram.com/p/ABC123/"},
+    ).json()
+
+    assert body["status"] == "new"
+    assert body["caption"] is None
+    assert body["caption_lookup"] == "login_wall"
+
+
+def test_a_caption_sent_with_the_link_skips_the_lookup(client: TestClient) -> None:
+    """A share sheet that already has the caption never touches Instagram."""
+    calls = _fake_instagram(
+        client, CaptionFetch(outcome=CaptionOutcome.FOUND, caption="x")
+    )
+
+    body = client.post(
+        "/api/instagram/queue",
+        json={"url": "https://www.instagram.com/p/ABC123/", "caption": " Mine "},
+    ).json()
+
+    assert body["caption"] == "Mine"
+    assert body["status"] == "ready"
+    assert calls == []
+
+
+def test_caption_lookup_can_be_retried(client: TestClient) -> None:
+    """A link that was refused can be looked up again; unknown links are 404."""
+    _fake_instagram(client, CaptionFetch(outcome=CaptionOutcome.RATE_LIMITED))
+    client.post(
+        "/api/instagram/queue", json={"url": "https://www.instagram.com/p/ABC123/"}
+    )
+    _fake_instagram(client, CaptionFetch(outcome=CaptionOutcome.FOUND, caption="Later"))
+
+    retry = client.post("/api/instagram/queue/ABC123/caption-lookup")
+    missing = client.post("/api/instagram/queue/NOPE/caption-lookup")
+
+    assert retry.json()["caption"] == "Later"
+    assert retry.json()["caption_lookup"] == "found"
+    assert missing.status_code == HTTPStatus.NOT_FOUND

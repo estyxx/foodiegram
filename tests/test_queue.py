@@ -3,10 +3,11 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import Engine
 
-from dispensa.app.queue import queue_link, set_queued_caption
+from dispensa.app.queue import look_up_caption, queue_link, set_queued_caption
 from dispensa.domain.enums import MedCategory, PendingStatus
 from dispensa.domain.errors import LinkAlreadyKnownError, PendingLinkNotFoundError
 from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.instagram import CaptionFetch, CaptionOutcome
 from dispensa.storage.pending_db import PendingLinkRepository
 from dispensa.storage.recipes_db import RecipeRepository
 
@@ -97,4 +98,85 @@ def test_paste_caption_on_an_unknown_link_raises(db_engine: Engine) -> None:
             code="NOPE",
             caption="x",
             pending=PendingLinkRepository(db_engine),
+        )
+
+
+class _Fetcher:
+    """Stand in for Instagram: answers one fixed result and counts the calls."""
+
+    def __init__(self, result: CaptionFetch) -> None:
+        self.result = result
+        self.calls: list[str] = []
+
+    def __call__(self, code: str, /) -> CaptionFetch:
+        """Record the lookup and return the fixed result."""
+        self.calls.append(code)
+        return self.result
+
+
+def _queued(engine: Engine) -> PendingLinkRepository:
+    """Queue the test link and return the repository holding it."""
+    pending = PendingLinkRepository(engine)
+    queue_link(url=_URL, now=_NOW, pending=pending, recipes=RecipeRepository(engine))
+    return pending
+
+
+def test_found_caption_marks_the_link_ready(db_engine: Engine) -> None:
+    """A caption read from Instagram is stored and the link is ready."""
+    pending = _queued(db_engine)
+    fetch = _Fetcher(
+        CaptionFetch(
+            outcome=CaptionOutcome.FOUND, caption="Pasta e ceci", source="yt-dlp"
+        ),
+    )
+
+    result = look_up_caption(code="ABC123", pending=pending, fetch=fetch)
+
+    assert result.lookup is CaptionOutcome.FOUND
+    assert result.link.caption == "Pasta e ceci"
+    assert result.link.status is PendingStatus.READY
+
+
+def test_a_refusal_leaves_the_link_waiting_for_a_paste(db_engine: Engine) -> None:
+    """When Instagram refuses, nothing is stored and the outcome says why."""
+    pending = _queued(db_engine)
+    fetch = _Fetcher(CaptionFetch(outcome=CaptionOutcome.LOGIN_WALL, source="yt-dlp"))
+
+    result = look_up_caption(code="ABC123", pending=pending, fetch=fetch)
+
+    assert result.lookup is CaptionOutcome.LOGIN_WALL
+    assert result.link.caption is None
+    assert result.link.status is PendingStatus.NEW
+
+
+def test_a_post_without_caption_is_not_ready(db_engine: Engine) -> None:
+    """An empty caption is not a caption: the link still waits for a paste."""
+    pending = _queued(db_engine)
+    fetch = _Fetcher(CaptionFetch(outcome=CaptionOutcome.NO_CAPTION, source="yt-dlp"))
+
+    result = look_up_caption(code="ABC123", pending=pending, fetch=fetch)
+
+    assert result.link.status is PendingStatus.NEW
+
+
+def test_a_caption_already_there_is_never_replaced(db_engine: Engine) -> None:
+    """A pasted caption wins: Instagram is not even asked."""
+    pending = _queued(db_engine)
+    set_queued_caption(code="ABC123", caption="Mine", pending=pending)
+    fetch = _Fetcher(CaptionFetch(outcome=CaptionOutcome.FOUND, caption="Theirs"))
+
+    result = look_up_caption(code="ABC123", pending=pending, fetch=fetch)
+
+    assert result.link.caption == "Mine"
+    assert result.lookup is None
+    assert fetch.calls == []
+
+
+def test_looking_up_an_unknown_link_raises(db_engine: Engine) -> None:
+    """Only a queued link can be looked up."""
+    fetch = _Fetcher(CaptionFetch(outcome=CaptionOutcome.FOUND, caption="x"))
+
+    with pytest.raises(PendingLinkNotFoundError):
+        look_up_caption(
+            code="NOPE", pending=PendingLinkRepository(db_engine), fetch=fetch
         )

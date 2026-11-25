@@ -104,9 +104,10 @@ touches plans, pantry, notes or manual recipes.
 
 ### Capture (the in-app queue)
 
-The newer path replaces the local scripts for day-to-day capture. Share an Instagram
-link to the queue, paste its caption, launch an OpenAI batch, and import the finished
-recipes, all from the app against Neon. Batch state lives in the `batch_runs` table,
+The newer path replaces the local scripts for day-to-day capture. Add an Instagram
+link to the queue and the server reads its caption from the public post, without
+logging in (D57); when Instagram refuses, paste the caption instead. Then launch an
+OpenAI batch and import the finished recipes, all from the app against Neon. Batch state lives in the `batch_runs` table,
 not on disk, so a disk-less prod process can submit a batch in one request and apply
 it in another. The recipe is born on import, when the batch finishes, which keeps
 browse clean while a post is still extracting.
@@ -212,18 +213,22 @@ The in-app queue, which supersedes the earlier scripted capture plans.
 - [x] Launch a batch for the ready items against Neon, import the finished batch into
   recipes, with launch/import buttons on the queue page. Batch state in the DB. This
   reverses the old "extraction never runs against Neon" rule (D56).
-- [ ] Capture with the caption attached, so pasting is the fallback and not the
-  routine. `POST /api/instagram/queue` accepts an optional caption and marks the link
-  ready at once. The caption is read on the owner's own device, never by the server
-  (D45 and D53 stand: no scripted Instagram from a datacenter address).
-  - [ ] Phone: an iOS Shortcut on the share sheet that fetches the shared post's
-    public page on the phone, pulls the caption out and posts link plus caption. To
-    prove first: what the public page gives an anonymous phone request today.
-  - [ ] Desktop: a "Send to Dispensa" bookmarklet that reads the caption from the
-    open post in the logged-in browser (what the collector extension did) and opens
-    the queue page with link and caption prefilled.
-  - [ ] The caption box stays for posts with no caption, recipes in the comments or
-    on a linked website; it also accepts any URL-less paste (see "Paste a recipe").
+- [x] Read the caption from the link, so pasting is the fallback and not the routine
+  (D57). Queuing a link reads the public post once, without logging in, the way
+  IGbulkDL does: yt-dlp's metadata (which also covers photo posts), then
+  instaloader when yt-dlp is turned away. No waiting out rate limits. A refusal
+  leaves the link waiting for a paste, with the reason shown and a button to try
+  again. `POST /api/instagram/queue` also accepts a caption the sender already has.
+  Every attempt logs its outcome.
+  - [ ] Judge the success rate from the production logs ("Caption lookup" lines)
+    after a week of real use. If Instagram refuses the server most of the time,
+    try `curl_cffi` (lets yt-dlp present itself as a browser), then the phone
+    Shortcut below.
+  - [ ] Phone, only if the server is refused too often: an iOS Shortcut on the
+    share sheet that reads the post from the phone's own connection and sends
+    link plus caption.
+  - [x] The caption box stays for posts with no caption, recipes in the comments or
+    on a linked website.
 - [ ] A capture token: a second credential that may only add to the queue, so the
   Shortcut never stores the app password.
 - [ ] Retire the local scripts once the queue is in daily use (keep `export` and
@@ -393,9 +398,8 @@ In priority order, the first actionable items:
    and an allow-list, Basic auth kept behind a setting for one release. With it, the
    quick wins: close the API docs, add security headers, and keep the owner's notes
    and favourites out of the public share link (sharing itself stays).
-2. **Capture with the caption attached**: the queue endpoint takes a caption, then
-   the iOS Shortcut and the desktop bookmarklet, with a capture token. Removes the
-   daily manual step.
+2. **Capture without pasting**: built (D57). What is left is judging the
+   success rate from the logs, and the capture token if a Shortcut is ever needed.
 3. **Cross-language search**: search the canonical tags, then grow the synonym list
    from the data. Small, and it is what the tags were for.
 4. **Home and navigation**: the plan as the landing page, a bottom tab bar on the
@@ -477,6 +481,7 @@ earlier entry is kept and marked, because the reasoning still matters.
 | D54 | The in-app capture queue (a `pending_links` table and a `#queue` page) replaces the scripts; no instagrapi, no laptop. |
 | D55 | The full caption is pasted per post, not scraped; one paste per queue item replaces the whole export. |
 | D56 | Extraction runs from the app against Neon (the queue flow), reversing the earlier local-only rule; the recipe is born on import. |
+| D57 | The server reads a queued link's caption from the public post, anonymously (yt-dlp, then instaloader), once and without waiting out rate limits; a refusal falls back to the pasted caption. No account is involved, so this does not reopen D45 (which dropped scripting the flagged, logged-in account); it supersedes D55's "pasted, not scraped" for the routine case. |
 
 ## Reference
 

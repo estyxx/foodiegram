@@ -444,6 +444,9 @@ export async function deletePantryItem(id) {
  * @property {string | null} thumbnail_url
  * @property {string} status new | ready | extracting | imported | failed
  * @property {string} created_at
+ * @property {string | null} [caption_lookup] what reading the caption from
+ *   Instagram found, on the response that tried: found | no_caption |
+ *   login_wall | rate_limited | not_found | failed
  */
 
 /**
@@ -461,6 +464,17 @@ export async function getQueue() {
 export async function queueLink(url) {
   return /** @type {PendingLink} */ (
     await apiFetch("/instagram/queue", { method: "POST", body: JSON.stringify({ url }) })
+  );
+}
+
+/**
+ * Try reading a queued link's caption from Instagram again.
+ * @param {string} code
+ * @returns {Promise<PendingLink>}
+ */
+export async function lookUpCaption(code) {
+  return /** @type {PendingLink} */ (
+    await apiFetch(`/instagram/queue/${code}/caption-lookup`, { method: "POST" })
   );
 }
 

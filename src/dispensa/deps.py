@@ -1,4 +1,5 @@
 import functools
+from collections.abc import Callable
 from typing import Annotated, cast
 
 from fastapi import Depends
@@ -8,6 +9,7 @@ from starlette.requests import Request
 
 from dispensa.api_session import MIN_SECRET_LENGTH, LoginConfig
 from dispensa.domain.errors import ConfigurationError
+from dispensa.instagram import CaptionFetch, fetch_public_caption
 from dispensa.settings import Settings
 from dispensa.storage.batches_db import BatchRepository
 from dispensa.storage.db import create_db_engine, init_db
@@ -127,3 +129,14 @@ def get_settings() -> Settings:
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def get_caption_fetcher() -> Callable[[str], CaptionFetch]:
+    """Return the public caption reader; tests override this with a fake."""
+    return fetch_public_caption
+
+
+CaptionFetcherDep = Annotated[
+    Callable[[str], CaptionFetch],
+    Depends(get_caption_fetcher),
+]

@@ -436,14 +436,20 @@ class PendingLinkOut(BaseModel):
     thumbnail_url: str | None
     status: str
     created_at: datetime
+    # What the caption lookup found, on the response that ran one: found,
+    # no_caption, login_wall, rate_limited, not_found or failed.
+    caption_lookup: str | None = None
 
 
 class QueueLinkCreate(BaseModel):
-    """POST body to queue a shared Instagram URL."""
+    """POST body to queue a shared Instagram URL, with its caption if known."""
 
     model_config = ConfigDict(extra="forbid")
 
     url: str
+    # Optional: a caption the sender already has (a share sheet, a paste). When
+    # absent the server reads it from the public post.
+    caption: str | None = None
 
 
 class QueueCaption(BaseModel):
