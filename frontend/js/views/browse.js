@@ -4,6 +4,7 @@ import { searchRecipesSemantic } from "../api/client.js";
 import { FilterPanel, FiltersToggle } from "../components/FilterPanel.js";
 import { RecipeCard } from "../components/RecipeCard.js";
 import { SearchBar } from "../components/SearchBar.js";
+import { loadBrowseState, saveBrowseState } from "../lib/browseState.js";
 import { SEGMENTS, segmentCount, segmentHint } from "../lib/facets.js";
 import { searchLocally } from "../lib/localFilter.js";
 import { loadRecipeIndex, setFavourite } from "../lib/recipeIndex.js";
@@ -40,16 +41,24 @@ const AI_RESULT_LIMIT = 60;
 export async function renderBrowse(container, options) {
   const favourites = options?.favourites ?? false;
   container.replaceChildren();
+  const tab = favourites ? "favourites" : "browse";
+  // Coming back from a recipe (or the tab), pick up the search where it was.
+  const restored = loadBrowseState(tab);
 
-  let filters = emptyFilters();
+  let filters = restored?.filters ?? emptyFilters();
   /** @type {RecipeCounts} */
   let counts = { complete: 0, recipes: 0, all_saves: 0 };
   // Typing fires a request per keystroke; only the newest answer may land.
   let latestRequest = 0;
   /** @type {SearchMode} */
-  let mode = "lexical";
+  let mode = restored?.mode ?? "lexical";
   let searching = false;
   let searchError = "";
+
+  /** Remember where Browse is, so a round trip to a recipe lands back here. */
+  function remember() {
+    saveBrowseState(tab, { filters, mode, shown: rendered, scrollY: window.scrollY });
+  }
 
   const searchBar = SearchBar({
     onQueryChange: (text) => void apply({ ...filters, query: text }),
@@ -142,6 +151,7 @@ export async function renderBrowse(container, options) {
   async function apply(next) {
     filters = next;
     await refetch();
+    remember();
   }
 
   async function refetch() {
@@ -205,6 +215,7 @@ export async function renderBrowse(container, options) {
   async function toggleMode() {
     mode = mode === "ai" ? "lexical" : "ai";
     await refetch();
+    remember();
   }
 
   /**
@@ -309,6 +320,7 @@ export async function renderBrowse(container, options) {
       grid.append(RecipeCard(recipe, { onToggleFavourite }));
     }
     rendered += next.length;
+    remember();
     updateCount();
     const remaining = results.length - rendered;
     loadMore.hidden = remaining <= 0;
@@ -344,7 +356,38 @@ export async function renderBrowse(container, options) {
     await refetch();
   }
 
+  if (restored) {
+    searchBar.setQuery(filters.query);
+  }
   await refetch();
+  if (restored) {
+    // Show as many cards as before, then scroll back to where the reader was.
+    while (rendered < Math.min(restored.shown, results.length)) {
+      renderMore();
+    }
+    window.scrollTo(0, restored.scrollY);
+    remember();
+  }
+
+  // Track the scroll position while this Browse is on screen; a passive
+  // listener costs nothing, and it stops once the view is replaced.
+  let scrollTimer = 0;
+  const mounted = () => container.contains(grid);
+  const onScroll = () => {
+    window.clearTimeout(scrollTimer);
+    if (!mounted()) {
+      window.removeEventListener("scroll", onScroll);
+      return;
+    }
+    // Checked again when the timer fires: by then a recipe may have replaced
+    // Browse, and its scroll position must not overwrite this one.
+    scrollTimer = window.setTimeout(() => {
+      if (mounted()) {
+        remember();
+      }
+    }, 150);
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
 }
 
 /* ---- Empty state -------------------------------------------------------- */

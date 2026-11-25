@@ -21,6 +21,7 @@ const PLACEHOLDER_AI = "try: something sweet for breakfast with protein\u2026";
  * @typedef {object} SearchBarView
  * @property {HTMLElement} element
  * @property {(ingredients: string[], mode: SearchMode) => void} render
+ * @property {(text: string) => void} setQuery put text back in the box (a restored search)
  */
 
 /**
@@ -96,6 +97,9 @@ export function SearchBar(handlers) {
 
   return {
     element: field,
+    setQuery(text) {
+      input.value = text;
+    },
     render(next, mode) {
       ingredients = next;
       // Removing a chip destroys the button that was clicked, so hand focus
