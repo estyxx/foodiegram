@@ -102,6 +102,8 @@ async def add_to_queue(
             pending=deps.pending,
         )
         return _to_out(pasted)
+    if not body.read_caption:
+        return _to_out(link)
     return await _look_up(link.code, deps=deps, fetch=fetch)
 
 

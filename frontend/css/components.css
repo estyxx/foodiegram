@@ -4527,6 +4527,7 @@
 }
 .queue__add {
   display: flex;
+  align-items: flex-start;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
@@ -4540,6 +4541,7 @@
   border-radius: var(--radius-sm);
   background: var(--paper);
   color: var(--ink);
+  resize: vertical;
 }
 .queue__add-btn,
 .queue__save {
@@ -4664,6 +4666,10 @@
   background: var(--teal);
   color: var(--on-dark);
   cursor: pointer;
+}
+.queue__batch-btn--quiet {
+  background: transparent;
+  color: var(--teal);
 }
 .queue__batch-btn:disabled {
   opacity: 0.45;

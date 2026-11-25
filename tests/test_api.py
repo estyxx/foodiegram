@@ -1288,3 +1288,18 @@ def test_caption_lookup_can_be_retried(client: TestClient) -> None:
     assert retry.json()["caption"] == "Later"
     assert retry.json()["caption_lookup"] == "found"
     assert missing.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_a_link_can_be_queued_without_reading_its_caption(client: TestClient) -> None:
+    """After Instagram refuses, the rest of a list is queued without asking it."""
+    found = CaptionFetch(outcome=CaptionOutcome.FOUND, caption="x")
+    calls = _fake_instagram(client, found)
+
+    body = client.post(
+        "/api/instagram/queue",
+        json={"url": "https://www.instagram.com/p/ABC123/", "read_caption": False},
+    ).json()
+
+    assert body["status"] == "new"
+    assert body["caption_lookup"] is None
+    assert calls == []

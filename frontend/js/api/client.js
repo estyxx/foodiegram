@@ -173,9 +173,22 @@ async function apiFetch(path, options) {
     throw new Error("You are signed out. Sign in to continue.");
   }
   if (!res.ok) {
-    throw new Error(`Request failed (${res.status}): ${path}`);
+    throw new ApiError(res.status, path);
   }
   return res.json();
+}
+
+/** A request the server answered with an error status. */
+export class ApiError extends Error {
+  /**
+   * @param {number} status
+   * @param {string} path
+   */
+  constructor(status, path) {
+    super(`Request failed (${status}): ${path}`);
+    this.name = "ApiError";
+    this.status = status;
+  }
 }
 
 /** Where the page was when the session ran out, restored after signing in. */
@@ -457,13 +470,18 @@ export async function getQueue() {
 }
 
 /**
- * Queue a shared Instagram URL.
+ * Queue a shared Instagram URL; the server reads its caption unless told not to.
+ * Rejects with an ApiError of status 409 when the post is already a recipe.
  * @param {string} url
+ * @param {{ readCaption?: boolean }} [options]
  * @returns {Promise<PendingLink>}
  */
-export async function queueLink(url) {
+export async function queueLink(url, { readCaption = true } = {}) {
   return /** @type {PendingLink} */ (
-    await apiFetch("/instagram/queue", { method: "POST", body: JSON.stringify({ url }) })
+    await apiFetch("/instagram/queue", {
+      method: "POST",
+      body: JSON.stringify({ url, read_caption: readCaption }),
+    })
   );
 }
 

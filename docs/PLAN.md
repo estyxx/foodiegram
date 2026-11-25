@@ -220,6 +220,9 @@ The in-app queue, which supersedes the earlier scripted capture plans.
   leaves the link waiting for a paste, with the reason shown and a button to try
   again. `POST /api/instagram/queue` also accepts a caption the sender already has.
   Every attempt logs its outcome.
+  - [x] Paste a whole list of links at once (the old IGbulkDL dry run, in the app),
+    and read every waiting caption with one button. The page drives it one link at
+    a time with a short pause, and stops asking as soon as Instagram refuses.
   - [ ] Judge the success rate from the production logs ("Caption lookup" lines)
     after a week of real use. If Instagram refuses the server most of the time,
     try `curl_cffi` (lets yt-dlp present itself as a browser), then the phone

@@ -7,8 +7,9 @@ import {
   importQueue,
   lookUpCaption,
   pasteCaption,
-  queueLink,
 } from "../api/client.js";
+import { extractPostLinks, summarize } from "../lib/queueLinks.js";
+import { addLinks, readWaitingCaptions } from "./queueCapture.js";
 
 /** @typedef {import("../api/client.js").PendingLink} PendingLink */
 
@@ -146,6 +147,7 @@ function renderItem(link, reload) {
 function buildToolbar(links, reload) {
   const ready = links.filter((link) => link.status === "ready").length;
   const extracting = links.filter((link) => link.status === "extracting").length;
+  const waiting = links.filter((link) => link.status === "new" && link.caption === null);
 
   const bar = el("div", "queue__toolbar");
   const status = el("p", "queue__toolbar-status");
@@ -181,7 +183,22 @@ function buildToolbar(links, reload) {
     return btn;
   };
 
+  const read = document.createElement("button");
+  read.type = "button";
+  read.className = "queue__batch-btn queue__batch-btn--quiet";
+  read.textContent = waiting.length > 0 ? `Read captions (${waiting.length})` : "Read captions";
+  read.disabled = waiting.length === 0;
+  read.addEventListener("click", () => {
+    for (const control of bar.querySelectorAll("button")) {
+      /** @type {HTMLButtonElement} */ (control).disabled = true;
+    }
+    void readWaitingCaptions(waiting, (done, total) => {
+      status.textContent = `Reading caption ${done} of ${total}…`;
+    }).then((tally) => reload(summarize(tally)));
+  });
+
   bar.append(
+    read,
     button(
       "Launch extraction",
       ready,
@@ -211,17 +228,16 @@ export async function renderQueue(container, notice = "") {
 
   const addForm = document.createElement("form");
   addForm.className = "queue__add";
-  const url = document.createElement("input");
-  url.type = "url";
-  url.required = true;
-  url.placeholder = "Paste an Instagram link…";
-  url.className = "queue__add-input";
-  url.setAttribute("aria-label", "Instagram link");
+  const urls = document.createElement("textarea");
+  urls.rows = 2;
+  urls.placeholder = "Paste one or more Instagram links…";
+  urls.className = "queue__add-input";
+  urls.setAttribute("aria-label", "Instagram links, one or more");
   const add = document.createElement("button");
   add.type = "submit";
   add.className = "queue__add-btn";
   add.textContent = "Add";
-  addForm.append(url, add);
+  addForm.append(urls, add);
 
   const body = el("div", "queue__body");
   /** @param {string} [message] */
@@ -231,25 +247,25 @@ export async function renderQueue(container, notice = "") {
   const status = el("p", "queue__notice");
   status.setAttribute("role", "status");
   status.textContent = notice;
-  url.addEventListener("input", () => url.setCustomValidity(""));
+  urls.addEventListener("input", () => urls.setCustomValidity(""));
   addForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (url.value.trim() === "") {
+    const found = extractPostLinks(urls.value);
+    if (found.length === 0) {
+      urls.setCustomValidity("Paste at least one Instagram post or reel link.");
+      urls.reportValidity();
       return;
     }
-    // Reading the caption waits on Instagram, which can take a few seconds.
+    // Each caption waits on Instagram, so a long list takes a while: keep the
+    // page open until the summary appears.
     add.disabled = true;
     add.textContent = "Adding…";
-    status.textContent = "Adding the link and reading its caption…";
-    queueLink(url.value.trim())
-      .then((link) => reload(lookupMessage(link.caption_lookup)))
-      .catch(() => {
-        add.disabled = false;
-        add.textContent = "Add";
-        status.textContent = "";
-        url.setCustomValidity("Already in the library, or not a post link.");
-        url.reportValidity();
-      });
+    void addLinks(found, (done, total) => {
+      status.textContent =
+        total === 1
+          ? "Adding the link and reading its caption…"
+          : `Adding ${done} of ${total} and reading captions… keep this page open.`;
+    }).then((tally) => reload(summarize(tally)));
   });
 
   page.append(title, addForm, status, body);
@@ -267,7 +283,7 @@ export async function renderQueue(container, notice = "") {
   if (links.length === 0) {
     body.append(
       stateMsg(
-        "Nothing queued. Add an Instagram link: its caption is read for you when Instagram allows it.",
+        "Nothing queued. Paste Instagram links above, as many as you like: their captions are read for you when Instagram allows it.",
       ),
     );
     return;

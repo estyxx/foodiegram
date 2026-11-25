@@ -450,6 +450,9 @@ class QueueLinkCreate(BaseModel):
     # Optional: a caption the sender already has (a share sheet, a paste). When
     # absent the server reads it from the public post.
     caption: str | None = None
+    # False queues the link without asking Instagram, for when it has just
+    # refused: the caption is read later, in one go.
+    read_caption: bool = True
 
 
 class QueueCaption(BaseModel):
