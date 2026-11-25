@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from dispensa.api_auth import BasicAuthMiddleware
+from dispensa.api_headers import SecurityHeadersMiddleware
 from dispensa.api_login import CodeExchanger, WorkOSCodeExchanger, build_login_router
 from dispensa.app.version import log_runtime_probe
 from dispensa.deps import (
@@ -91,7 +92,9 @@ def create_app(
     """
     auth = auth or AuthConfig()
     frontend = frontend_dir or _FRONTEND
-    app = FastAPI(title="Dispensa API")
+    # No /docs, /redoc or /openapi.json: they are public pages (only /api/ is
+    # guarded) that would map every private endpoint for a visitor.
+    app = FastAPI(title="Dispensa API", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.deps = deps
     app.state.git_sha = git_sha
     app.state.deployment_id = deployment_id
@@ -116,6 +119,10 @@ def create_app(
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    # Added last, so it runs first: the 401 from the auth layer gets the
+    # headers too.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     app.include_router(recipes.router)
     app.include_router(plans.router)

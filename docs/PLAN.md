@@ -255,7 +255,7 @@ sharing only the login.
 One owner, personal data, a public repo and a public URL. Found in the November
 review of the auth code; ordered by how much each one exposes.
 
-- [ ] Replace the shared password with a real login. Web login through WorkOS AuthKit,
+- [x] Replace the shared password with a real login. Web login through WorkOS AuthKit,
   which is already the identity provider for the MCP server, so sign-in is a passkey
   or a one-time code with a second factor, and the app never holds a password. The
   app keeps only a signed session cookie (HttpOnly, SameSite strict) and an allow-list
@@ -271,11 +271,11 @@ review of the auth code; ordered by how much each one exposes.
   request. The notes hold nothing sensitive today, so this is tidiness and a rule for
   later features more than an urgent fix: public means the recipe, never the owner's
   state.
-- [ ] Until the login lands, slow down password guessing: answer 429 after a handful
+- [ ] (Moot once Basic auth is retired.) Until the login lands, slow down password guessing: answer 429 after a handful
   of failed attempts from one address. Skip it if the login ships first.
-- [ ] Close `/docs`, `/redoc` and `/openapi.json`, which are public because only
+- [x] Close `/docs`, `/redoc` and `/openapi.json`, which are public because only
   `/api/` paths are guarded.
-- [ ] Security headers on every response: a Content-Security-Policy that fits the
+- [x] Security headers on every response: a Content-Security-Policy that fits the
   no-build frontend (self, Google Fonts, Cloudinary images), `nosniff`,
   `frame-ancestors 'none'`, a referrer policy and HSTS.
 - [ ] Refuse cross-site writes: require a JSON content type and a same-origin
