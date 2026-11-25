@@ -356,7 +356,8 @@ export async function getRecipe(code) {
  * @returns {Promise<VersionInfo>}
  */
 export async function getVersion() {
-  const result = await apiFetch("/version");
+  // Always ask the server: this is how a stale page notices a new deployment.
+  const result = await apiFetch("/version", { cache: "no-store" });
   return /** @type {VersionInfo} */ (result);
 }
 

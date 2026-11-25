@@ -3,6 +3,7 @@
 import { RETURN_HASH_KEY, getVersion } from "./api/client.js";
 import { CookingMode } from "./components/CookingMode.js";
 import { CookingPill } from "./components/CookingPill.js";
+import { buildId, isNewBuild } from "./lib/appUpdate.js";
 import { isRecipeRoute } from "./lib/shellState.js";
 import { markActiveNav, showSignedOut, startShell } from "./shell.js";
 import { renderBrowse } from "./views/browse.js";
@@ -88,6 +89,47 @@ function renderError(error) {
   view.replaceChildren(el);
 }
 
+/** The build this page started with, to notice a newer deployment later. */
+let loadedBuild = "";
+
+/**
+ * Ask the server which build it runs; if it is newer than this page, offer a
+ * reload. Runs whenever the app comes back to the foreground, which is when an
+ * installed app that was never quit would otherwise keep old code for days.
+ */
+async function checkForUpdate() {
+  if (loadedBuild === "") {
+    return;
+  }
+  try {
+    if (isNewBuild(loadedBuild, buildId(await getVersion()))) {
+      showUpdateBar();
+    }
+  } catch {
+    // Offline or signed out: try again next time the app comes back.
+  }
+}
+
+function showUpdateBar() {
+  if (document.getElementById("update-bar") !== null) {
+    return;
+  }
+  const bar = document.createElement("div");
+  bar.className = "update-bar";
+  bar.id = "update-bar";
+  bar.setAttribute("role", "status");
+  const text = document.createElement("span");
+  text.className = "update-bar__text";
+  text.textContent = "A new version of Dispensa is ready.";
+  const reload = document.createElement("button");
+  reload.type = "button";
+  reload.className = "update-bar__button";
+  reload.textContent = "Reload";
+  reload.addEventListener("click", () => window.location.reload());
+  bar.append(text, reload);
+  document.body.append(bar);
+}
+
 /**
  * Populate the footer with the deployed commit, once at startup. The package
  * version is never bumped, so the commit is what identifies a build.
@@ -101,6 +143,7 @@ async function showVersion() {
     const info = await getVersion();
     const id = info.commit || info.deployment || "";
     el.textContent = id ? `${info.version} · ${id}` : info.version;
+    loadedBuild = buildId(info);
   } catch {
     el.textContent = "";
   }
@@ -113,9 +156,26 @@ document.body.append(CookingMode(), CookingPill());
 // loaded data offline. Failures are non-fatal: the app runs without it.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // updateViaCache "none": the browser never answers the worker script from
+    // its own cache, so a new worker is found on the first check after a deploy.
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((registration) => {
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            registration.update().catch(() => {});
+          }
+        });
+      })
+      .catch(() => {});
   });
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    void checkForUpdate();
+  }
+});
 
 /** After signing in, go back to the page the session ran out on. */
 function restoreReturnHash() {

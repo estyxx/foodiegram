@@ -716,6 +716,50 @@ body[data-shell="problem"] .gate__word {
   color: var(--ink-muted);
 }
 
+/* ---- A new deployment is live ------------------------------------------- */
+.update-bar {
+  position: fixed;
+  right: var(--space-3);
+  bottom: calc(var(--tabbar-height) + var(--space-3));
+  left: var(--space-3);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 4px 6px 4px var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--on-dark);
+  box-shadow: var(--shadow-card);
+}
+
+.update-bar__text {
+  flex: 1;
+  font-size: var(--text-sm);
+}
+
+.update-bar__button {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--teal);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--on-dark);
+  cursor: pointer;
+}
+
+@media (min-width: 900px) {
+  .update-bar {
+    right: var(--space-6);
+    left: auto;
+    width: 380px;
+  }
+}
+
 /* ---- Wide: one top bar, no tab bar --------------------------------------- */
 @media (min-width: 900px) {
   :root {

@@ -1,6 +1,6 @@
 // Dispensa service worker: an offline app shell and the last-loaded data, while
 // staying fresh online (network-first, falling back to cache only when offline).
-const CACHE = "dispensa-v3";
+const CACHE = "dispensa-v4";
 
 // The app shell: enough to open offline and render the frame. The rest of the JS
 // modules and any data are cached at runtime on first online use.
@@ -58,7 +58,13 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     (async () => {
       try {
-        const response = await fetch(request);
+        // Revalidate every file with the server instead of letting the browser's
+        // own cache decide. A navigation cannot take options, and is always
+        // fetched fresh anyway.
+        const response =
+          request.mode === "navigate"
+            ? await fetch(request)
+            : await fetch(request, { cache: "no-cache" });
         if (response.ok) {
           const cache = await caches.open(CACHE);
           cache.put(request, response.clone());
