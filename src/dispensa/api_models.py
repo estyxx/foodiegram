@@ -436,6 +436,7 @@ class PendingLinkOut(BaseModel):
     thumbnail_url: str | None
     status: str
     created_at: datetime
+    imported_at: datetime | None = None
     # What the caption lookup found, on the response that ran one: found,
     # no_caption, login_wall, rate_limited, not_found or failed.
     caption_lookup: str | None = None

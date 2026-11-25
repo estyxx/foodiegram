@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlmodel import col, select
@@ -23,6 +23,7 @@ def _to_link(row: PendingLinkRow) -> PendingLink:
             "status": row.status,
             "batch_id": row.batch_id,
             "created_at": ensure_utc(row.created_at),
+            "imported_at": ensure_utc(row.imported_at) if row.imported_at else None,
         },
     )
 
@@ -52,10 +53,17 @@ class PendingLinkRepository:
             return _to_link(row)
 
     def list_all(self) -> list[PendingLink]:
-        """Return every pending link, newest first."""
+        """Return every link, in-progress first, then the most recently imported.
+
+        Links not yet imported come first, newest queued first; imported links
+        follow, newest import (or re-extraction) first.
+        """
         with get_session(self._engine) as session:
             rows = session.exec(
-                select(PendingLinkRow).order_by(col(PendingLinkRow.created_at).desc()),
+                select(PendingLinkRow).order_by(
+                    col(PendingLinkRow.imported_at).desc().nulls_first(),
+                    col(PendingLinkRow.created_at).desc(),
+                ),
             ).all()
             return [_to_link(row) for row in rows]
 
@@ -66,13 +74,18 @@ class PendingLinkRepository:
             return _to_link(row) if row is not None else None
 
     def set_caption(self, code: str, caption: str) -> PendingLink | None:
-        """Store the pasted caption and mark the link ready; None if absent."""
+        """Store the caption; a link not yet extracted becomes ready.
+
+        An imported link keeps its status: editing its caption is a note for the
+        next re-extraction, not a step back in the queue. None if absent.
+        """
         with get_session(self._engine) as session:
             row = session.get(PendingLinkRow, code)
             if row is None:
                 return None
             row.caption = caption
-            row.status = PendingStatus.READY.value
+            if row.status != PendingStatus.IMPORTED.value:
+                row.status = PendingStatus.READY.value
             session.add(row)
             session.commit()
             session.refresh(row)
@@ -84,8 +97,12 @@ class PendingLinkRepository:
         status: PendingStatus,
         *,
         batch_id: str | None = None,
+        imported_at: datetime | None = None,
     ) -> PendingLink | None:
-        """Set a link's status (and optionally its batch id); None if absent."""
+        """Set a link's status, and optionally its batch id and import time.
+
+        Returns None if the link is absent.
+        """
         with get_session(self._engine) as session:
             row = session.get(PendingLinkRow, code)
             if row is None:
@@ -93,6 +110,8 @@ class PendingLinkRepository:
             row.status = status.value
             if batch_id is not None:
                 row.batch_id = batch_id
+            if imported_at is not None:
+                row.imported_at = imported_at.astimezone(UTC).replace(tzinfo=None)
             session.add(row)
             session.commit()
             session.refresh(row)

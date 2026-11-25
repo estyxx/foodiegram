@@ -457,6 +457,7 @@ export async function deletePantryItem(id) {
  * @property {string | null} thumbnail_url
  * @property {string} status new | ready | extracting | imported | failed
  * @property {string} created_at
+ * @property {string | null} [imported_at] when it last became a recipe
  * @property {string | null} [caption_lookup] what reading the caption from
  *   Instagram found, on the response that tried: found | no_caption |
  *   login_wall | rate_limited | not_found | failed
@@ -493,6 +494,22 @@ export async function queueLink(url, { readCaption = true } = {}) {
 export async function lookUpCaption(code) {
   return /** @type {PendingLink} */ (
     await apiFetch(`/instagram/queue/${code}/caption-lookup`, { method: "POST" })
+  );
+}
+
+/**
+ * Extract a queued link's recipe now from the given text (its caption or your
+ * notes). Rejects with an ApiError of status 502 when the AI call fails.
+ * @param {string} code
+ * @param {string} caption
+ * @returns {Promise<PendingLink>}
+ */
+export async function reextractQueued(code, caption) {
+  return /** @type {PendingLink} */ (
+    await apiFetch(`/instagram/queue/${code}/reextract`, {
+      method: "POST",
+      body: JSON.stringify({ caption }),
+    })
   );
 }
 

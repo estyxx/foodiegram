@@ -35,6 +35,7 @@ def backfill_images(
     recipes: RecipeRepository,
     upload: ThumbnailUploader,
     dry_run: bool = False,
+    codes: set[str] | None = None,
 ) -> BackfillReport:
     """Re-upload a durable image for every stored recipe missing or with a broken one.
 
@@ -42,9 +43,15 @@ def backfill_images(
     one food.json batch — catches recipes whose image never got uploaded (or whose
     ref later broke) and have since fallen out of the current food.json export.
     A single recipe's upload failing (e.g. the Instagram post was since deleted)
-    is logged and skipped rather than aborting the rest of the run.
+    is logged and skipped rather than aborting the rest of the run. codes, when
+    given, limits the run to those recipes.
     """
-    to_fix = [r for r in recipes.list_all() if not is_valid_image_ref(r.cloudinary_url)]
+    to_fix = [
+        r
+        for r in recipes.list_all()
+        if (codes is None or r.code in codes)
+        and not is_valid_image_ref(r.cloudinary_url)
+    ]
     fixed: list[str] = []
     failed: list[str] = []
     for recipe in to_fix:

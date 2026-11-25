@@ -223,6 +223,23 @@ The in-app queue, which supersedes the earlier scripted capture plans.
   - [x] Paste a whole list of links at once (the old IGbulkDL dry run, in the app),
     and read every waiting caption with one button. The page drives it one link at
     a time with a short pause, and stops asking as soon as Instagram refuses.
+- [x] Edit a queued link's text (the caption, or your own notes when the recipe is
+  in the comments or on a website) and extract it now, one recipe, in seconds
+  (Pydantic AI, the batch's model and prompt). Works before a batch and to redo an
+  import; the result is added to the history and never overwrites a field edited
+  by hand. Imported items link to their recipe.
+- [x] Imported recipes are embedded on import and re-extraction, so semantic
+  search and Claude's `search_recipes` can find them; pressing "Import finished"
+  also catches up on earlier imports.
+- [x] Browse lists newest first; the queue lists work in progress first, then the
+  most recently imported.
+- [x] Queue imports get a durable Cloudinary image (the post's public image, the
+  same source the old ingest used), on import and re-extraction; "Import
+  finished" catches up on earlier imports. Needs the Cloudinary settings on the
+  server; without them the import works and the image is skipped.
+- [x] Browse remembers its search (text, chips, filters, AI mode, cards shown,
+  scroll) per tab for the session, so coming back from a recipe lands where it
+  was.
   - [ ] Judge the success rate from the production logs ("Caption lookup" lines)
     after a week of real use. If Instagram refuses the server most of the time,
     try `curl_cffi` (lets yt-dlp present itself as a browser), then the phone

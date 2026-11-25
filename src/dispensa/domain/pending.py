@@ -22,3 +22,5 @@ class PendingLink(BaseModel):
     status: PendingStatus = PendingStatus.NEW
     batch_id: str | None = None
     created_at: datetime
+    # When it last became a recipe (import or re-extraction); None until then.
+    imported_at: datetime | None = None

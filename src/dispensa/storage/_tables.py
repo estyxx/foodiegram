@@ -189,6 +189,9 @@ class PendingLinkRow(SQLModel, table=True):
     status: str
     batch_id: str | None = None
     created_at: datetime
+    # When the link last became a recipe (import or re-extraction); orders the
+    # queue. NULL until then.
+    imported_at: datetime | None = None
 
 
 class BatchRunRow(SQLModel, table=True):

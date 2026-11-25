@@ -17,10 +17,23 @@ from dispensa.app.queue import (
     set_queued_caption,
 )
 from dispensa.app.queue_extraction import launch_queue_extraction
-from dispensa.app.queue_import import import_finished_queue
-from dispensa.deps import CaptionFetcherDep, DepsDep, SettingsDep
+from dispensa.app.queue_import import (
+    embed_imported,
+    import_finished_queue,
+    upload_imported_images,
+)
+from dispensa.app.queue_reextract import reextract_queued
+from dispensa.deps import (
+    CaptionFetcherDep,
+    DepsDep,
+    OpenAIClientDep,
+    RecipeExtractorDep,
+    SettingsDep,
+    ThumbnailUploaderDep,
+)
 from dispensa.domain.errors import (
     ConfigurationError,
+    ExtractionError,
     LinkAlreadyKnownError,
     PendingLinkNotFoundError,
 )
@@ -38,6 +51,7 @@ def _to_out(link: PendingLink, *, lookup: str | None = None) -> PendingLinkOut:
         thumbnail_url=link.thumbnail_url,
         status=link.status.value,
         created_at=link.created_at,
+        imported_at=link.imported_at,
         caption_lookup=lookup,
     )
 
@@ -135,9 +149,43 @@ async def extract_queue(deps: DepsDep, settings: SettingsDep) -> QueueExtractRes
     return QueueExtractResult(count=submitted)
 
 
+async def _finish_imports(
+    *,
+    deps: DepsDep,
+    client: OpenAIClientDep,
+    upload: ThumbnailUploaderDep,
+    codes: set[str] | None = None,
+) -> None:
+    """Make imported recipes findable (embedding) and pictured (Cloudinary)."""
+    await run_in_threadpool(
+        embed_imported,
+        pending=deps.pending,
+        recipes=deps.recipes,
+        client=client,
+    )
+    if upload is not None:
+        await run_in_threadpool(
+            upload_imported_images,
+            pending=deps.pending,
+            recipes=deps.recipes,
+            upload=upload,
+            codes=codes,
+        )
+
+
 @router.post("/queue/import")
-async def import_queue(deps: DepsDep, settings: SettingsDep) -> QueueExtractResult:
-    """Import a finished batch into recipes and mark the links imported. Count back."""
+async def import_queue(
+    deps: DepsDep,
+    settings: SettingsDep,
+    client: OpenAIClientDep,
+    upload: ThumbnailUploaderDep,
+) -> QueueExtractResult:
+    """Import a finished batch into recipes and mark the links imported. Count back.
+
+    Then embeds the imported recipes, so semantic search and Claude can find
+    them, and gives them a Cloudinary image; both also catch up on imports from
+    before they were wired here.
+    """
     try:
         imported = import_finished_queue(
             settings,
@@ -149,7 +197,43 @@ async def import_queue(deps: DepsDep, settings: SettingsDep) -> QueueExtractResu
         )
     except ConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    await _finish_imports(deps=deps, client=client, upload=upload)
     return QueueExtractResult(count=imported)
+
+
+@router.post("/queue/{code}/reextract")
+async def reextract(
+    code: str,
+    body: QueueCaption,
+    deps: DepsDep,
+    extract: RecipeExtractorDep,
+    client: OpenAIClientDep,
+    upload: ThumbnailUploaderDep,
+) -> PendingLinkOut:
+    """Extract a queued link's recipe now from the given text, and embed it.
+
+    The text replaces the caption: the post's own, or notes with the recipe
+    from the comments or a website. Fields edited by hand keep their values.
+    """
+    try:
+        link = await run_in_threadpool(
+            reextract_queued,
+            code=code,
+            caption=body.caption,
+            now=datetime.now(tz=UTC),
+            pending=deps.pending,
+            recipes=deps.recipes,
+            extractions=deps.extractions,
+            extract=extract,
+        )
+    except PendingLinkNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ExtractionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    await _finish_imports(deps=deps, client=client, upload=upload, codes={code})
+    return _to_out(link)
 
 
 @router.patch("/queue/{code}")

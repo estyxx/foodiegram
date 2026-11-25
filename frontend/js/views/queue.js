@@ -10,6 +10,7 @@ import {
 } from "../api/client.js";
 import { extractPostLinks, summarize } from "../lib/queueLinks.js";
 import { addLinks, readWaitingCaptions } from "./queueCapture.js";
+import { captionedBody } from "./queueItemEdit.js";
 
 /** @typedef {import("../api/client.js").PendingLink} PendingLink */
 
@@ -130,10 +131,7 @@ function renderItem(link, reload) {
     });
     item.append(form);
   } else {
-    const snippet = el("p", "queue__snippet");
-    snippet.textContent =
-      link.caption.length > 160 ? `${link.caption.slice(0, 160)}…` : link.caption;
-    item.append(snippet);
+    item.append(captionedBody(link, reload));
   }
   return item;
 }

@@ -386,6 +386,23 @@ class RecipeRepository:
             )
             session.commit()
 
+    def codes_newest_first(self) -> list[str]:
+        """Return every recipe code, most recently added first.
+
+        Added means first stored: an import or a new manual recipe. Ties, such
+        as a bulk load, fall back to code order. Read-only; list_all keeps its
+        code order for the callers that rely on it.
+        """
+        with get_session(self._engine) as session:
+            return list(
+                session.exec(
+                    select(RecipeRow.code).order_by(
+                        col(RecipeRow.created_at).desc(),
+                        col(RecipeRow.code),
+                    ),
+                ).all(),
+            )
+
     def embedding_source_hashes(self) -> dict[str, str | None]:
         """Return {recipe_code: embedding_source_hash} for every embedding row.
 

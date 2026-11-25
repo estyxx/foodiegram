@@ -572,3 +572,23 @@ def test_language_defaults_to_italian_and_round_trips(engine: Engine) -> None:
     reloaded = repo.get("ABC")
     assert reloaded is not None
     assert reloaded.language == "en"
+
+
+def test_codes_newest_first_puts_the_latest_addition_on_top(engine: Engine) -> None:
+    """Browse order: most recently stored first, whatever the code."""
+    repo = RecipeRepository(engine)
+    for code in ("ZZZ", "AAA", "MMM"):
+        repo.save(
+            Recipe(
+                code=code,
+                pk="1",
+                post_url=None,
+                caption=None,
+                title=code,
+                ingredients=["x"],
+                instructions=["y"],
+            ),
+        )
+
+    assert repo.codes_newest_first() == ["MMM", "AAA", "ZZZ"]
+    assert [r.code for r in repo.list_all()] == ["AAA", "MMM", "ZZZ"]

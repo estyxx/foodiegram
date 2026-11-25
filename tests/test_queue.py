@@ -180,3 +180,38 @@ def test_looking_up_an_unknown_link_raises(db_engine: Engine) -> None:
         look_up_caption(
             code="NOPE", pending=PendingLinkRepository(db_engine), fetch=fetch
         )
+
+
+def test_queue_lists_work_in_progress_first_then_newest_import(
+    db_engine: Engine,
+) -> None:
+    """Links not yet imported lead; imported ones follow, latest import first."""
+    pending = PendingLinkRepository(db_engine)
+    recipes = RecipeRepository(db_engine)
+    for day, code in enumerate(["OLD", "NEW", "WAIT"], start=1):
+        queue_link(
+            url=f"https://www.instagram.com/p/{code}/",
+            now=datetime(2026, 11, day, tzinfo=UTC),
+            pending=pending,
+            recipes=recipes,
+        )
+    pending.mark(
+        "OLD", PendingStatus.IMPORTED, imported_at=datetime(2026, 11, 20, tzinfo=UTC)
+    )
+    pending.mark(
+        "NEW", PendingStatus.IMPORTED, imported_at=datetime(2026, 11, 22, tzinfo=UTC)
+    )
+
+    assert [link.code for link in pending.list_all()] == ["WAIT", "NEW", "OLD"]
+
+
+def test_editing_an_imported_caption_keeps_it_imported(db_engine: Engine) -> None:
+    """Notes on an imported link do not send it back to the ready column."""
+    pending = PendingLinkRepository(db_engine)
+    queue_link(url=_URL, now=_NOW, pending=pending, recipes=RecipeRepository(db_engine))
+    pending.mark("ABC123", PendingStatus.IMPORTED, imported_at=_NOW)
+
+    link = set_queued_caption(code="ABC123", caption="My notes", pending=pending)
+
+    assert link.caption == "My notes"
+    assert link.status is PendingStatus.IMPORTED

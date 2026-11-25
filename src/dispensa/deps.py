@@ -1,4 +1,5 @@
 import functools
+import logging
 from collections.abc import Callable
 from typing import Annotated, cast
 
@@ -7,8 +8,12 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 
+from dispensa.ai.repair import build_extraction_agent, extract_recipe
 from dispensa.api_session import MIN_SECRET_LENGTH, LoginConfig
+from dispensa.app.ingest import ThumbnailUploader
 from dispensa.domain.errors import ConfigurationError
+from dispensa.domain.models import ExtractedRecipe
+from dispensa.images import configure, upload_thumbnail
 from dispensa.instagram import CaptionFetch, fetch_public_caption
 from dispensa.settings import Settings
 from dispensa.storage.batches_db import BatchRepository
@@ -21,6 +26,8 @@ from dispensa.storage.plans_db import PlanRepository
 from dispensa.storage.recipes_db import RecipeRepository
 from dispensa.storage.targets_db import TargetRepository
 from dispensa.storage.user_state_db import UserStateRepository
+
+logger = logging.getLogger(__name__)
 
 
 class Deps(BaseModel):
@@ -139,4 +146,43 @@ def get_caption_fetcher() -> Callable[[str], CaptionFetch]:
 CaptionFetcherDep = Annotated[
     Callable[[str], CaptionFetch],
     Depends(get_caption_fetcher),
+]
+
+
+@functools.cache
+def get_recipe_extractor() -> Callable[[str], ExtractedRecipe]:
+    """Return a one-recipe extractor for re-extractions; tests override this."""
+    agent = build_extraction_agent(api_key=Settings().require_openai_api_key())
+
+    def extract(caption: str) -> ExtractedRecipe:
+        return extract_recipe(agent, caption)
+
+    return extract
+
+
+RecipeExtractorDep = Annotated[
+    Callable[[str], ExtractedRecipe],
+    Depends(get_recipe_extractor),
+]
+
+
+@functools.cache
+def get_thumbnail_uploader() -> ThumbnailUploader | None:
+    """Return the Cloudinary uploader, or None when Cloudinary is not configured.
+
+    Without it imported recipes simply have no picture yet; the import itself
+    still works, and the next import with Cloudinary set catches up.
+    """
+    try:
+        config = Settings().require_cloudinary()
+    except ConfigurationError:
+        logger.warning("Cloudinary is not configured: imported recipes get no image")
+        return None
+    configure(config=config)
+    return upload_thumbnail
+
+
+ThumbnailUploaderDep = Annotated[
+    ThumbnailUploader | None,
+    Depends(get_thumbnail_uploader),
 ]

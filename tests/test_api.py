@@ -13,9 +13,15 @@ from sqlalchemy import Engine
 
 from dispensa.api import create_app
 from dispensa.app import queue_extraction, queue_import
-from dispensa.deps import AuthConfig, Deps, get_caption_fetcher, get_openai_client
+from dispensa.deps import (
+    AuthConfig,
+    Deps,
+    get_caption_fetcher,
+    get_openai_client,
+    get_recipe_extractor,
+)
 from dispensa.domain.enums import MedCategory, PendingStatus, RecipeSource
-from dispensa.domain.models import CategoryServing, Recipe
+from dispensa.domain.models import CategoryServing, ExtractedRecipe, Recipe
 from dispensa.domain.pending import PendingLink
 from dispensa.instagram import CaptionFetch, CaptionOutcome
 from dispensa.storage.batches_db import BatchRepository
@@ -497,7 +503,8 @@ def test_recipe_index_carries_server_derived_filter_fields(
     body = client.get("/api/recipes/index").json()
 
     by_code = {entry["code"]: entry for entry in body["recipes"]}
-    assert list(by_code) == ["F1", "I1"]
+    # Newest first: I1 was saved after F1.
+    assert list(by_code) == ["I1", "F1"]
     fish = by_code["F1"]
     assert fish["is_favorite"] is True
     assert fish["is_recipe"] is True
@@ -1165,6 +1172,8 @@ def test_queue_import_endpoint_returns_count_when_batch_not_ready(
     monkeypatch.setattr(
         queue_import, "fetch_batch_output", lambda _settings, _batch_id: None
     )
+    app = cast("FastAPI", client.app)
+    app.dependency_overrides[get_openai_client] = _FakeEmbeddingClient
 
     response = client.post("/api/instagram/queue/import")
 
@@ -1303,3 +1312,90 @@ def test_a_link_can_be_queued_without_reading_its_caption(client: TestClient) ->
     assert body["status"] == "new"
     assert body["caption_lookup"] is None
     assert calls == []
+
+
+class _VectorItem:
+    """One embedding in a fake OpenAI response."""
+
+    def __init__(self, index: int) -> None:
+        self.index = index
+        self.embedding = [1.0, 0.0]
+
+
+class _FakeEmbeddingClient:
+    """Answer embeddings.create with one vector per input."""
+
+    def __init__(self) -> None:
+        self.embeddings = self
+
+    def create(self, *, input: list[str], model: str) -> MagicMock:  # noqa: A002
+        """Return an object whose data holds one vector per input."""
+        _ = model
+        return MagicMock(data=[_VectorItem(i) for i in range(len(input))])
+
+
+def test_reextract_route_extracts_now_from_new_text(client: TestClient) -> None:
+    """Edited notes are extracted at once, the link is imported and embedded."""
+    _fake_instagram(client, CaptionFetch(outcome=CaptionOutcome.FOUND, caption="Old"))
+    client.post(
+        "/api/instagram/queue", json={"url": "https://www.instagram.com/p/ABC123/"}
+    )
+    inputs: list[str] = []
+
+    def extract(caption: str) -> ExtractedRecipe:
+        inputs.append(caption)
+        return ExtractedRecipe.model_validate(
+            {
+                **{name: [] for name in _LIST_FIELDS},
+                "title": "Pasta e zucca",
+                "ingredients": ["300g zucca"],
+                "instructions": ["cuoci"],
+                "dish_type": "pasta",
+                "meal_type": "lunch",
+                "cuisine_type": "italian",
+                "difficulty": "easy",
+                "prep_time": "",
+                "cook_time": "",
+                "total_time": "",
+                "servings": "2",
+                "temperature": "hot",
+                "skill_level": "home",
+                "is_recipe": True,
+                "confidence": 0.9,
+            },
+        )
+
+    app = cast("FastAPI", client.app)
+    app.dependency_overrides[get_recipe_extractor] = lambda: extract
+    app.dependency_overrides[get_openai_client] = _FakeEmbeddingClient
+
+    response = client.post(
+        "/api/instagram/queue/ABC123/reextract",
+        json={"caption": "Ingredients from the comments"},
+    )
+    detail = client.get("/api/recipes/ABC123").json()
+    missing = client.post("/api/instagram/queue/NOPE/reextract", json={"caption": "x"})
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["status"] == "imported"
+    assert inputs == ["Ingredients from the comments"]
+    assert detail["title"] == "Pasta e zucca"
+    assert missing.status_code == HTTPStatus.NOT_FOUND
+
+
+_LIST_FIELDS = (
+    "proteins",
+    "vegetables",
+    "grains_starches",
+    "herbs_spices",
+    "cooking_methods",
+    "equipment",
+    "texture",
+    "flavor_profile",
+    "dietary_tags",
+    "health_tags",
+    "season",
+    "occasion",
+    "style_tags",
+    "prep_style",
+)

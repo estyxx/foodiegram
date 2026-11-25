@@ -198,13 +198,19 @@ async def recipe_index(deps: DepsDep) -> RecipeIndex:
     counts and favourites locally; semantic search stays server-side.
     """
     favourites = set(deps.user_state.all_favorites())
+    # Browse shows the index in order: newest first, so a fresh import is on top.
+    position = {code: i for i, code in enumerate(deps.recipes.codes_newest_first())}
+    newest_first = sorted(
+        deps.recipes.list_all(),
+        key=lambda recipe: position.get(recipe.code, len(position)),
+    )
     return RecipeIndex(
         recipes=[
             RecipeIndexEntry.from_recipe_for_index(
                 recipe,
                 is_favorite=recipe.code in favourites,
             )
-            for recipe in deps.recipes.list_all()
+            for recipe in newest_first
             if not recipe.archived
         ],
         synonyms=[sorted(term.lower() for term in group) for group in SYNONYM_GROUPS],

@@ -3,11 +3,15 @@ import re
 from pathlib import Path
 from typing import Final
 
+from openai import OpenAIError
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from dispensa.domain.models import ExtractedCategoryServing
+from dispensa.ai.batch import render_prompt
+from dispensa.domain.errors import ExtractionError
+from dispensa.domain.models import ExtractedCategoryServing, ExtractedRecipe
 
 # Pin the same snapshot the batch path uses so interactive repairs match it.
 MODEL = "gpt-5.4-mini-2026-03-17"
@@ -77,3 +81,36 @@ def propose_categories(
 ) -> list[ExtractedCategoryServing]:
     """Run the agent on a caption and return its proposed categories."""
     return agent.run_sync(caption).output
+
+
+def build_extraction_agent(*, api_key: str) -> Agent[None, ExtractedRecipe]:
+    """Build the full-recipe agent: the batch's model, prompt and output shape.
+
+    One recipe at a time, for a re-extraction the owner is waiting on. The
+    prompt is the same file the batch renders, so a re-extraction and a batch
+    extraction of the same caption ask the same question.
+    """
+    model = OpenAIResponsesModel(MODEL, provider=OpenAIProvider(api_key=api_key))
+    return Agent(
+        model,
+        output_type=ExtractedRecipe,
+        model_settings=OpenAIResponsesModelSettings(
+            openai_reasoning_effort=REASONING_EFFORT,
+        ),
+    )
+
+
+def extract_recipe(
+    agent: Agent[None, ExtractedRecipe],
+    caption: str,
+) -> ExtractedRecipe:
+    """Extract one recipe from caption; raise ExtractionError if the call fails."""
+    prompt = render_prompt(
+        template=PROMPT_PATH.read_text(encoding="utf-8"), caption=caption
+    )
+    try:
+        return agent.run_sync(prompt).output
+    except (UnexpectedModelBehavior, ModelHTTPError, OpenAIError) as exc:
+        logger.warning("Re-extraction failed: %s", type(exc).__name__)
+        msg = "The extraction did not come back. Try again in a moment."
+        raise ExtractionError(msg) from exc
