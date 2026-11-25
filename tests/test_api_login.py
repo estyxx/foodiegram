@@ -268,16 +268,19 @@ def test_login_settings_are_all_or_nothing() -> None:
         "mcp_oauth_allowed_subjects": _OWNER,
     }
 
-    assert login_from_settings(Settings(_env_file=None)) is None
-    config = login_from_settings(Settings(_env_file=None, **full))
+    base = Settings(_env_file=None)
+
+    assert login_from_settings(base) is None
+    config = login_from_settings(base.model_copy(update=full))
     assert config is not None
     assert config.allowed_subjects == frozenset({_OWNER})
     for dropped in ("workos_api_key", "session_secret", "mcp_oauth_allowed_subjects"):
         partial = {**full, dropped: ""}
         with pytest.raises(ConfigurationError):
-            login_from_settings(Settings(_env_file=None, **partial))
+            login_from_settings(base.model_copy(update=partial))
+    weak = {**full, "session_secret": "x"}
     with pytest.raises(ConfigurationError):
-        login_from_settings(Settings(_env_file=None, **{**full, "session_secret": "x"}))
+        login_from_settings(base.model_copy(update=weak))
 
 
 def test_session_reports_the_sign_in_state(db_engine: Engine) -> None:
